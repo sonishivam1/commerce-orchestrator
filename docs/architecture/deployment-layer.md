@@ -1,6 +1,6 @@
 # Deployment Layer
 
-The Deployment Layer (`@repo/connectors/target`) handles the mutation of data against target platforms.
+The Deployment Layer (`@cdo/connectors/target`) handles the mutation of data against target platforms.
 
 ## Core Philosophy: Idempotency & Upserts
 Target Connectors almost never blindly execute a "Create Mutation". 

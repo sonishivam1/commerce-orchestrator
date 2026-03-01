@@ -1,0 +1,21 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./dist",
+        "jsx": "react-jsx",
+        "lib": [
+            "ES2022",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "noEmit": true
+    },
+    "include": [
+        "src",
+        "codegen.ts"
+    ],
+    "exclude": [
+        "dist",
+        "node_modules"
+    ]
+}

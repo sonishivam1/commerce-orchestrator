@@ -1,7 +1,7 @@
 # Versioning Strategy
 
 ## Core Principles
-The Canonical Contract `@repo/shared/models` acts as an internal API. As the platform supports new, exotic platforms (e.g., Salesforce Commerce Cloud), the contract must evolve.
+The Canonical Contract `@cdo/shared/models` acts as an internal API. As the platform supports new, exotic platforms (e.g., Salesforce Commerce Cloud), the contract must evolve.
 
 Contracts are strictly versioned, starting with **Canonical Contract v1**.
 - A `TargetConnector` natively advertises the version it expects.

@@ -1,14 +1,13 @@
+import type { CanonicalEntity } from '@cdo/shared';
+
 export interface LoadResult {
-    lastCursor?: string;
-    successCount: number;
-    failureCount: number;
-    failures: Array<{
-        payload: any;
-        error: any;
-    }>;
+    key: string;
+    success: boolean;
+    error?: string;
 }
 
-export interface TargetConnector<TCanonical> {
-    initialize(credentials: Record<string, any>): Promise<void>;
-    load(batch: TCanonical[]): Promise<LoadResult>;
+export interface TargetConnector<T extends CanonicalEntity> {
+    initialize(credentials: Record<string, unknown>): Promise<void>;
+    load(batch: T[]): Promise<LoadResult[]>;
+    getCapabilities(): string[];
 }

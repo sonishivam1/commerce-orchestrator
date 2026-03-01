@@ -1,0 +1,62 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "CommonJS",
+        "moduleResolution": "node",
+        "lib": [
+            "ES2022"
+        ],
+        "strict": true,
+        "strictPropertyInitialization": false,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "incremental": true,
+        "baseUrl": ".",
+        "paths": {
+            "@cdo/shared": [
+                "./packages/shared/src/index.ts"
+            ],
+            "@cdo/core": [
+                "./packages/core/src/index.ts"
+            ],
+            "@cdo/connectors": [
+                "./packages/connectors/src/index.ts"
+            ],
+            "@cdo/mapping": [
+                "./packages/mapping/src/index.ts"
+            ],
+            "@cdo/ingestion": [
+                "./packages/ingestion/src/index.ts"
+            ],
+            "@cdo/db": [
+                "./packages/db/src/index.ts"
+            ],
+            "@cdo/queue": [
+                "./packages/queue/src/index.ts"
+            ],
+            "@cdo/auth": [
+                "./packages/auth/src/index.ts"
+            ],
+            "@cdo/ui": [
+                "./packages/ui/src/index.ts"
+            ],
+            "@cdo/gql": [
+                "./packages/gql/src/index.ts"
+            ]
+        }
+    },
+    "exclude": [
+        "node_modules",
+        "dist",
+        ".next",
+        "apps/web",
+        "packages/ui",
+        "packages/gql"
+    ]
+}
