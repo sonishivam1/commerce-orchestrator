@@ -27,11 +27,11 @@ graph TD
     WorkerETL --> Orch[Orchestrator Layer]
     WorkerScrape --> Orch
     
-    subgraph Orchestrator Layer
+    subgraph OrchestratorLayer [Orchestrator Layer]
         Orch -->|Injects Context & Wires| CoreEngine[Core Engine]
     end
     
-    subgraph Core Pipeline
+    subgraph CorePipeline [Core Pipeline]
         Source[Source Connector / Scraper] --> Ext[Extract]
         Ext --> Norm[Normalization Layer]
         Norm --> Map[Mapping Layer]
@@ -40,7 +40,7 @@ graph TD
         Canon --> Dep[Deployment Layer / Target Connector]
     end
     
-    CoreEngine --> Core Pipeline
+    CoreEngine --> Source
 ```
 
 *Note: Distributed locking via Redis is strictly enforced to prevent concurrent destructive operations on target APIs.*

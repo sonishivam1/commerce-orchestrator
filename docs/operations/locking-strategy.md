@@ -14,23 +14,23 @@ A Target Environment (e.g. `commercetools_project_xyz` and its API URL) is locke
 
 ```mermaid
 sequenceDiagram
-    participant Worker 1
-    participant Worker 2
+    participant W1 as Worker 1
+    participant W2 as Worker 2
     participant Redis
-    participant Target API
+    participant TargetAPI as Target API
     
-    Worker 1->>Redis: SETNX lock:tenantXYZ:ct-demo-store
-    Redis-->>Worker 1: OK (Lock Acquired)
+    W1->>Redis: SETNX lock:tenantXYZ:ct-demo-store
+    Redis-->>W1: OK (Lock Acquired)
     
-    Worker 1->>Target API: Run Migration Job
+    W1->>TargetAPI: Run Migration Job
     
-    Worker 2->>Redis: SETNX lock:tenantXYZ:ct-demo-store
-    Redis-->>Worker 2: FAIL (Locked)
-    Worker 2->>Worker 2: Re-queue Job / Delay
+    W2->>Redis: SETNX lock:tenantXYZ:ct-demo-store
+    Redis-->>W2: FAIL (Locked)
+    W2->>W2: Re-queue Job / Delay
     
-    Worker 1->>Target API: Migration Complete
-    Worker 1->>Redis: DEL lock:tenantXYZ:ct-demo-store
+    W1->>TargetAPI: Migration Complete
+    W1->>Redis: DEL lock:tenantXYZ:ct-demo-store
     
-    Worker 2->>Redis: SETNX lock:tenantXYZ:ct-demo-store
-    Redis-->>Worker 2: OK (Lock Acquired)
+    W2->>Redis: SETNX lock:tenantXYZ:ct-demo-store
+    Redis-->>W2: OK (Lock Acquired)
 ```

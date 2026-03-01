@@ -18,27 +18,27 @@ flowchart LR
     classDef db fill:#6366f1,color:#fff,stroke:#4338ca
     classDef contract fill:#f43f5e,color:#fff,stroke:#e11d48
     
-    subgraph Client Layer
+    subgraph ClientLayer [Client Layer]
         Web[Next.js App Router]:::client
     end
     
-    subgraph Control Plane
+    subgraph ControlPlane [Control Plane]
         API[NestJS API]:::api
     end
     
-    subgraph Shared State
+    subgraph SharedState [Shared State]
         Mongo[(MongoDB Atlas)]:::db
         Redis[(Redis Queue + Mutex)]:::db
     end
     
-    subgraph Worker Plane
+    subgraph WorkerPlane [Worker Plane]
         Worker[NestJS Worker Clusters]:::worker
         Orch[Orchestrator Layer]:::worker
         Worker -- "Pull Job" --> Redis
         Worker -- "Delegates to" --> Orch
     end
     
-    subgraph Pipeline Runtime
+    subgraph PipelineRuntime [Pipeline Runtime]
         Ing[Ingestion Layer]
         Norm[Normalization Layer]
         Map[Mapping Layer]
@@ -59,7 +59,7 @@ flowchart LR
     API -->|Validation & Auth| Mongo
     API -->|Enqueue Work & Mutex Lock| Redis
     
-    Orch -.->|Injects Context/Wires| Pipeline Runtime
+    Orch -.->|Injects Context/Wires| Ing
     Dep -.->|Upserts| Target((Target Store))
 ```
 

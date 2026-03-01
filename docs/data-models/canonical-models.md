@@ -13,7 +13,7 @@ flowchart TD
     ShopifyRes[Shopify Object] -.-> Normalizer
     BigComRes[BigCommerce Object] -.-> Normalizer
     
-    subgraph Mapping Layer
+    subgraph MappingLayer [Mapping Layer]
         Normalizer[Raw Normalizer] --> Mapper[Rule-Based Mapper]
         Mapper --> Canonical[Canonical Contract v1]
     end
