@@ -17,14 +17,24 @@ Target connectors emit their `getCapabilities()`.
 ## Deployment Separation Diagram
 ```mermaid
 flowchart TD
-    Canon[Canonical Payload Validated] --> Decide{Job Type?}
-    
-    Decide -->|MIGRATION| UpsertEntities[Upsert Entity Batch]
-    Decide -->|PLATFORM_CLONE| SyncSchema[Synchronize Root Schemas]
-    
+    classDef canon fill:#f43f5e,stroke:#e11d48,color:#fff
+    classDef action fill:#f59e0b,stroke:#b45309,color:#fff
+    classDef infra fill:#6366f1,stroke:#4338ca,color:#fff
+    classDef store fill:#10b981,stroke:#047857,color:#fff
+
+    Canon["Canonical Payload Validated"]:::canon
+    Decide{"Job Type?"}
+    UpsertEntities["Upsert Entity Batch"]:::action
+    SyncSchema["Synchronize Root Schemas"]:::action
+    RateLimit["Throttling / Queue Controller"]:::infra
+    SDK["Native API SDK"]:::infra
+    Store[("Target Store")]:::store
+
+    Canon --> Decide
+    Decide -->|MIGRATION| UpsertEntities
+    Decide -->|PLATFORM_CLONE| SyncSchema
     SyncSchema --> UpsertEntities
-    
-    UpsertEntities --> RateLimit[Throttling / Queue Controller]
-    RateLimit --> SDK[Native API SDK]
-    SDK --> Store[(Target Store)]
+    UpsertEntities --> RateLimit
+    RateLimit --> SDK
+    SDK --> Store
 ```

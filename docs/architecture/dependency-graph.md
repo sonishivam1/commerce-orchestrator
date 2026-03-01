@@ -9,28 +9,36 @@ graph TD
     classDef app fill:#ef4444,stroke:#991b1b,color:#fff
     classDef pkg fill:#3b82f6,stroke:#1d4ed8,color:#fff
     classDef core fill:#10b981,stroke:#047857,color:#fff
-    
-    Web[apps/web]:::app
-    API[apps/api]:::app
-    Worker[apps/worker]:::app
-    
-    Core[@repo/core]:::core
-    Shared[@repo/shared]:::core
-    
-    Conn[@repo/connectors]:::pkg
-    Map[@repo/mapping]:::pkg
-    Ingest[@repo/ingestion]:::pkg
-    DB[@repo/db]:::pkg
-    Queue[@repo/queue]:::pkg
-    Auth[@repo/auth]:::pkg
 
-    %% Apps
+    Web["apps/web"]:::app
+    API["apps/api"]:::app
+    Worker["apps/worker"]:::app
+
+    Core["repo/core"]:::core
+    Shared["repo/shared"]:::core
+
+    Conn["repo/connectors"]:::pkg
+    Map["repo/mapping"]:::pkg
+    Ingest["repo/ingestion"]:::pkg
+    DB["repo/db"]:::pkg
+    Queue["repo/queue"]:::pkg
+    Auth["repo/auth"]:::pkg
+
     Web --> API
-    API --> DB & Queue & Auth & Shared
-    Worker --> Core & Conn & Map & Ingest & DB & Queue & Shared
+    API --> DB
+    API --> Queue
+    API --> Auth
+    API --> Shared
+    Worker --> Core
+    Worker --> Conn
+    Worker --> Map
+    Worker --> Ingest
+    Worker --> DB
+    Worker --> Queue
+    Worker --> Shared
 
-    %% Packages
-    Conn --> Core & Shared
+    Conn --> Core
+    Conn --> Shared
     Map --> Shared
     Ingest --> Shared
     Core --> Shared

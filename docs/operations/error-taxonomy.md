@@ -20,21 +20,45 @@ The platform strictly differentiates error types to ensure that millions of reco
 
 ```mermaid
 flowchart TD
-    Err([Error Thrown in Pipeline]) --> Check[Analyze Error Instance]
-    
-    Check -->|ValidationError| Val[GraphQL Syntax/Semantic Error]
-    Check -->|TransientError| Trans[Rate Limit / Network Issue]
-    Check -->|FatalError| Fatal[Auth Revoked]
-    
-    Trans --> Retry{Attempt < Max Retries?}
-    Retry -->|Yes| Wait[Delay Backoff] --> Pipeline[Retry Load()]
-    Retry -->|No| MaxLimit[Exhausted] --> DLQ
-    
-    Val --> DLQ[(Send to Dead Letter Queue Mongo)]
-    DLQ --> Note[Log to progress: failed++]
-    DLQ --> Continue[Continue Pipeline]
-    
-    Fatal --> Break[Trip Circuit Breaker]
-    Break --> Halt[Halt Entire Job]
-    Halt --> NoteFail[Mark Job Status = FAILED]
+    classDef error fill:#ef4444,stroke:#991b1b,color:#fff
+    classDef warn fill:#f59e0b,stroke:#b45309,color:#fff
+    classDef ok fill:#10b981,stroke:#047857,color:#fff
+    classDef store fill:#6366f1,stroke:#4338ca,color:#fff
+
+    Err([Error Thrown in Pipeline]):::error
+    Check[Analyze Error Instance]
+
+    Val["GraphQL / Semantic Error"]:::error
+    Trans["Rate Limit / Network Issue"]:::warn
+    Fatal["Auth Revoked"]:::error
+
+    Retry{"Attempt below Max Retries?"}
+    Wait["Delay Backoff"]:::warn
+    Pipeline["Retry Load"]:::ok
+    MaxLimit["Exhausted"]:::error
+
+    DLQ[("Dead Letter Queue - Mongo")]:::store
+    Note["Log to progress: failed++"]
+    Continue["Continue Pipeline"]:::ok
+
+    Break["Trip Circuit Breaker"]:::error
+    Halt["Halt Entire Job"]:::error
+    NoteFail["Mark Job Status = FAILED"]:::error
+
+    Err --> Check
+    Check -->|ValidationError| Val
+    Check -->|TransientError| Trans
+    Check -->|FatalError| Fatal
+
+    Trans --> Retry
+    Retry -->|Yes| Wait --> Pipeline
+    Retry -->|No| MaxLimit --> DLQ
+
+    Val --> DLQ
+    DLQ --> Note
+    DLQ --> Continue
+
+    Fatal --> Break
+    Break --> Halt
+    Halt --> NoteFail
 ```

@@ -15,14 +15,23 @@ Unlike generic automation tools (Zapier/Make) where a human clicks and drags `Pr
 ## Mapping Flow Diagram
 ```mermaid
 flowchart LR
-    In[Raw Payload] --> Norm[Type Normalizer]
-    Norm --> Check{Is Known Schema?}
-    
-    Check -->|Yes: Shopify| Rules[Rule Engine: Shopify Map]
-    Check -->|No: Unknown HTML| AI[LLM Mapping Engine]
-    
-    Rules --> Canon[Canonical Model]
+    classDef input fill:#6366f1,stroke:#4338ca,color:#fff
+    classDef engine fill:#f59e0b,stroke:#b45309,color:#fff
+    classDef canon fill:#10b981,stroke:#047857,color:#fff
+
+    In["Raw Payload"]:::input
+    Norm["Type Normalizer"]:::engine
+    Check{"Is Known Schema?"}
+    Rules["Rule Engine - Shopify Map"]:::engine
+    AI["LLM Mapping Engine"]:::engine
+    Canon["Canonical Model"]:::canon
+    Validator["Zod Verification"]:::canon
+
+    In --> Norm
+    Norm --> Check
+    Check -->|"Yes: Shopify"| Rules
+    Check -->|"No: Unknown HTML"| AI
+    Rules --> Canon
     AI --> Canon
-    
-    Canon --> Validator[Zod Verification]
+    Canon --> Validator
 ```

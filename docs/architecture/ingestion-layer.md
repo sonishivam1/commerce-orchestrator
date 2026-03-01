@@ -14,12 +14,22 @@ This layer is **completely isolated** from platform API connectors (`@repo/conne
 ## Ingestion Flow Diagram
 ```mermaid
 flowchart TD
-    Scraper[Playwright Headless Cluster] -->|Array of HTML| HTML[DOM Extractor]
-    UserUpload[File Upload (CSV)] --> Stream[Node.js Stream Reader]
-    FTP[SFTP Server Batch] --> Stream
-    
-    HTML --> RawJSON[Raw Array of JSON Objects]
+    classDef scrape fill:#7c3aed,stroke:#5b21b6,color:#fff
+    classDef stream fill:#0891b2,stroke:#0e7490,color:#fff
+    classDef output fill:#059669,stroke:#047857,color:#fff
+
+    Scraper["Playwright Headless Cluster"]:::scrape
+    HTML["DOM Extractor"]:::scrape
+    UserUpload["File Upload - CSV"]:::stream
+    FTP["SFTP Server Batch"]:::stream
+    Stream["Node.js Stream Reader"]:::stream
+    RawJSON["Raw Array of JSON Objects"]:::output
+    Out["Emit to Mapping Layer"]:::output
+
+    Scraper -->|Array of HTML| HTML
+    UserUpload --> Stream
+    FTP --> Stream
+    HTML --> RawJSON
     Stream --> RawJSON
-    
-    RawJSON --> Out[Emit to Mapping Layer]
+    RawJSON --> Out
 ```

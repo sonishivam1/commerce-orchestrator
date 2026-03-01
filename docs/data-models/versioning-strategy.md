@@ -19,20 +19,20 @@ When the Canonical Model increments to `v2`:
 ```mermaid
 gitGraph
     commit id: "Canonical v1.0"
-    branch feature/v2
+    branch feature-v2
     commit id: "Add B2B Fields"
     commit id: "Refactor Locales"
     checkout main
-    merge feature/v2 id: "Canonical v2.0"
-    
-    branch connector/Shopify/v1-to-v2
+    merge feature-v2 id: "Canonical v2.0"
+
+    branch connector-Shopify-v1-to-v2
     commit id: "Update Target Loader"
-    
+
     checkout main
-    branch adapter/CT/v2-to-v1
-    commit id: "commercetools relies on downcast"
-    
+    branch adapter-CT-v2-to-v1
+    commit id: "CT relies on downcast"
+
     checkout main
-    merge connector/Shopify/v1-to-v2
-    merge adapter/CT/v2-to-v1
+    merge connector-Shopify-v1-to-v2
+    merge adapter-CT-v2-to-v1
 ```
