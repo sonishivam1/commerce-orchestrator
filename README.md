@@ -15,21 +15,31 @@ The system operates on an ETL (Extract, Transform, Load) paradigm built around a
 
 ```mermaid
 flowchart TD
-    UI[Next.js App Router]
-    API[NestJS Control Plane]
-    Redis[(Redis Queue + Redlock)]
-    Mongo[(MongoDB Atlas)]
-    WorkerETL[Worker: ETL Plane]
-    WorkerScrape[Worker: Scrape Plane]
-    Orch[Orchestrator Layer]
-    CoreEngine[Core Engine]
-    Source[Source Connector / Scraper]
-    Norm[Normalization Layer]
-    Map[Mapping Layer]
-    Val[Validate]
-    Canon[Canonical Contract v1]
-    Dep[Deployment Layer / Target Connector]
-    TargetStore[(Target Platform)]
+    classDef client   fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    classDef control  fill:#10b981,stroke:#047857,color:#fff
+    classDef infra    fill:#7c3aed,stroke:#5b21b6,color:#fff
+    classDef worker   fill:#f59e0b,stroke:#b45309,color:#fff
+    classDef orch     fill:#f97316,stroke:#c2410c,color:#fff
+    classDef pipeline fill:#0891b2,stroke:#0e7490,color:#fff
+    classDef canon    fill:#ef4444,stroke:#991b1b,color:#fff
+    classDef deploy   fill:#6366f1,stroke:#4338ca,color:#fff
+    classDef target   fill:#059669,stroke:#047857,color:#fff
+
+    UI["Next.js App Router"]:::client
+    API["NestJS Control Plane"]:::control
+    Redis[("Redis Queue + Redlock")]:::infra
+    Mongo[("MongoDB Atlas")]:::infra
+    WorkerETL["Worker: ETL Plane"]:::worker
+    WorkerScrape["Worker: Scrape Plane"]:::worker
+    Orch["Orchestrator Layer"]:::orch
+    CoreEngine["Core Engine"]:::orch
+    Source["Source Connector / Scraper"]:::pipeline
+    Norm["Normalization Layer"]:::pipeline
+    Map["Mapping Layer"]:::pipeline
+    Val["Validate"]:::pipeline
+    Canon["Canonical Contract v1"]:::canon
+    Dep["Deployment Layer / Target Connector"]:::deploy
+    TargetStore[("Target Platform")]:::target
 
     UI -->|Job Config| API
     API -->|Enqueue Work + Mutex Lock| Redis
