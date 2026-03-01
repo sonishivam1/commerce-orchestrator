@@ -12,55 +12,36 @@ The system operates on an ETL (Extract, Transform, Load) paradigm built around a
 
 ```mermaid
 flowchart LR
-    classDef client fill:#3b82f6,color:#fff,stroke:#1d4ed8
-    classDef api fill:#10b981,color:#fff,stroke:#047857
-    classDef worker fill:#f59e0b,color:#fff,stroke:#b45309
-    classDef db fill:#6366f1,color:#fff,stroke:#4338ca
-    classDef contract fill:#f43f5e,color:#fff,stroke:#e11d48
-    
-    subgraph ClientLayer [Client Layer]
-        Web[Next.js App Router]:::client
-    end
-    
-    subgraph ControlPlane [Control Plane]
-        API[NestJS API]:::api
-    end
-    
-    subgraph SharedState [Shared State]
-        Mongo[(MongoDB Atlas)]:::db
-        Redis[(Redis Queue + Mutex)]:::db
-    end
-    
-    subgraph WorkerPlane [Worker Plane]
-        Worker[NestJS Worker Clusters]:::worker
-        Orch[Orchestrator Layer]:::worker
-        Worker -- "Pull Job" --> Redis
-        Worker -- "Delegates to" --> Orch
-    end
-    
-    subgraph PipelineRuntime [Pipeline Runtime]
-        Ing[Ingestion Layer]
-        Norm[Normalization Layer]
-        Map[Mapping Layer]
-        Val[Validate]
-        Canon[Canonical Contract v1]:::contract
-        Core[Core Engine]
-        Dep[Deployment Layer]
-        
-        Ing --> Norm
-        Norm --> Map
-        Map --> Val
-        Val --> Canon
-        Canon --> Core
-        Core --> Dep
-    end
-    
+    Web[Next.js App Router]
+    API[NestJS API]
+    Mongo[(MongoDB Atlas)]
+    Redis[(Redis Queue + Mutex)]
+    Worker[NestJS Worker Clusters]
+    Orch[Orchestrator Layer]
+    Ing[Ingestion Layer]
+    Norm[Normalization Layer]
+    Map[Mapping Layer]
+    Val[Validate]
+    Canon[Canonical Contract v1]
+    Core[Core Engine]
+    Dep[Deployment Layer]
+    Target[(Target Store)]
+
     Web -->|Job Trigger| API
-    API -->|Validation & Auth| Mongo
-    API -->|Enqueue Work & Mutex Lock| Redis
-    
-    Orch -.->|Injects Context/Wires| Ing
-    Dep -.->|Upserts| Target((Target Store))
+    API -->|Job State| Mongo
+    API -->|Enqueue Work + Mutex Lock| Redis
+
+    Worker -->|Pull Job| Redis
+    Worker -->|Delegates to| Orch
+
+    Orch -->|Injects Context| Ing
+    Ing --> Norm
+    Norm --> Map
+    Map --> Val
+    Val --> Canon
+    Canon --> Core
+    Core --> Dep
+    Dep -.->|Upserts| Target
 ```
 
 ## Layer Separation

@@ -14,33 +14,38 @@ The system operates on an ETL (Extract, Transform, Load) paradigm built around a
 - **Deployment**: Load balanced, rate-limited Target Connectors upsert Canonical Models into destination platforms.
 
 ```mermaid
-graph TD
-    classDef contract fill:#f43f5e,color:#fff,stroke:#e11d48
-    
-    UI[Next.js App Router] -->|Job Config| API[NestJS Control Plane]
-    API -->|Enqueue Work & Mutex Lock| RedisQueue[(Redis Queue + Redlock)]
-    API -->|Job State| Mongo[(MongoDB Atlas)]
-    
-    WorkerETL[Worker: ETL Plane] -->|Pull Job| RedisQueue
-    WorkerScrape[Worker: Scrape Plane] -->|Pull Job| RedisQueue
-    
-    WorkerETL --> Orch[Orchestrator Layer]
+flowchart TD
+    UI[Next.js App Router]
+    API[NestJS Control Plane]
+    Redis[(Redis Queue + Redlock)]
+    Mongo[(MongoDB Atlas)]
+    WorkerETL[Worker: ETL Plane]
+    WorkerScrape[Worker: Scrape Plane]
+    Orch[Orchestrator Layer]
+    CoreEngine[Core Engine]
+    Source[Source Connector / Scraper]
+    Norm[Normalization Layer]
+    Map[Mapping Layer]
+    Val[Validate]
+    Canon[Canonical Contract v1]
+    Dep[Deployment Layer / Target Connector]
+    TargetStore[(Target Platform)]
+
+    UI -->|Job Config| API
+    API -->|Enqueue Work + Mutex Lock| Redis
+    API -->|Job State| Mongo
+    WorkerETL -->|Pull Job| Redis
+    WorkerScrape -->|Pull Job| Redis
+    WorkerETL --> Orch
     WorkerScrape --> Orch
-    
-    subgraph OrchestratorLayer [Orchestrator Layer]
-        Orch -->|Injects Context & Wires| CoreEngine[Core Engine]
-    end
-    
-    subgraph CorePipeline [Core Pipeline]
-        Source[Source Connector / Scraper] --> Ext[Extract]
-        Ext --> Norm[Normalization Layer]
-        Norm --> Map[Mapping Layer]
-        Map --> Val[Validate]
-        Val --> Canon[Canonical Contract v1]:::contract
-        Canon --> Dep[Deployment Layer / Target Connector]
-    end
-    
+    Orch -->|Injects Context & Wires| CoreEngine
     CoreEngine --> Source
+    Source --> Norm
+    Norm --> Map
+    Map --> Val
+    Val --> Canon
+    Canon --> Dep
+    Dep --> TargetStore
 ```
 
 *Note: Distributed locking via Redis is strictly enforced to prevent concurrent destructive operations on target APIs.*

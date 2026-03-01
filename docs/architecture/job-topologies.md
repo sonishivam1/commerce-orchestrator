@@ -5,67 +5,63 @@ The system supports polymorphic workloads routed to different worker pools based
 ## Topology Pipeline Flows
 
 ### 1. `SCRAPE_IMPORT`
-Public HTML $\rightarrow$ Raw JSON $\rightarrow$ Normalize $\rightarrow$ Canonical Model $\rightarrow$ Target Platform.
+Public HTML → Raw JSON → Normalize → Canonical Model → Target Platform.
 
 ```mermaid
 flowchart LR
-    TargetWeb((Website)) -->|Playwright| Ingestion[@repo/ingestion]
-    Ingestion -->|Raw Output| Norm[Normalization Layer]
-    Norm -->|Clean JSON| Mapping[@repo/mapping]
-    Mapping -->|Canonical Object| Core[@repo/core]
-    Core -->|Load()| Target[@repo/connectors]
-    Target --> Store[(Target Store)]
+    Website([Website]) -->|Playwright| Ingestion[repo/ingestion]
+    Ingestion -->|Raw HTML Output| Norm[Normalization Layer]
+    Norm -->|Clean JSON| Mapping[repo/mapping]
+    Mapping -->|Validated Canonical| Core[repo/core Engine]
+    Core -->|Load Batch| Target[repo/connectors]
+    Target --> Store[(Target Platform)]
 ```
 
 ### 2. `CROSS_PLATFORM_MIGRATION`
-Source Platform $\rightarrow$ Canonical Model $\rightarrow$ Target Platform.
+Source Platform → Canonical Model → Target Platform.
 
 ```mermaid
 flowchart LR
-    StoreA[(CommerceTools)] -->|Extract()| Source[@repo/connectors]
-    Source -->|Raw SDK Object| Mapping[@repo/mapping]
-    Mapping -->|Canonical Object| Core[@repo/core]
-    Core -->|Load()| Target[@repo/connectors]
-    Target -->|SDK Upsert| StoreB[(Shopify)]
+    StoreA[(Source Platform)] -->|Extract| SourceConn[Source Connector]
+    SourceConn -->|Raw SDK Object| Mapping[repo/mapping]
+    Mapping -->|Validated Canonical| Core[repo/core Engine]
+    Core -->|Load Batch| TargetConn[Target Connector]
+    TargetConn -->|SDK Upsert| StoreB[(Target Platform)]
 ```
 
 ### 3. `PLATFORM_CLONE`
-Replicates structural schema and data concurrently in a strict two-phase process.
-* **Phase 1**: Structure Replication (Types, Channels, Taxes).
-* **Phase 2**: Entity Replication (Products, Customers).
+Strict **two-phase** replication process.
+- **Phase 1**: Schema replication (Types, Channels, Tax Categories).
+- **Phase 2**: Entity replication (Products, Customers, Orders).
 
 ```mermaid
 sequenceDiagram
-    participant Worker as Worker
-    participant CT_A as Source (CT A)
-    participant CT_B as Target (CT B)
-    
-    rect rgb(200, 220, 240)
-        Note over Worker,CT_B: Phase 1: Structure Replication
-        Worker->>CT_A: extractSchema()
-        CT_A-->>Worker: CustomTypes, Channels
-        Worker->>CT_B: deploySchema()
-        CT_B-->>Worker: OK (Idempotent)
-    end
-    
-    rect rgb(240, 220, 200)
-        Note over Worker,CT_B: Phase 2: Entity Replication
-        Worker->>CT_A: extractEntities()
-        CT_A-->>Worker: Products
-        Worker->>Worker: Transform Canonical
-        Worker->>CT_B: loadEntities()
-        CT_B-->>Worker: Products Upserted
-    end
+    participant Worker
+    participant SourceCT as Source CT Project
+    participant TargetCT as Target CT Project
+
+    Note over Worker,TargetCT: Phase 1 - Schema Replication
+    Worker->>SourceCT: extractSchema()
+    SourceCT-->>Worker: CustomTypes, Channels, TaxCategories
+    Worker->>TargetCT: deploySchema()
+    TargetCT-->>Worker: OK (Idempotent)
+
+    Note over Worker,TargetCT: Phase 2 - Entity Replication
+    Worker->>SourceCT: extractEntities()
+    SourceCT-->>Worker: Products, Customers
+    Worker->>Worker: mapToCanonical()
+    Worker->>TargetCT: loadEntities()
+    TargetCT-->>Worker: Upserted OK
 ```
 
 ### 4. `EXPORT`
-Platform $\rightarrow$ Canonical Model $\rightarrow$ CSV/JSONL.
+Platform → Canonical Model → CSV/JSONL file output.
 
 ```mermaid
 flowchart LR
-    StoreA[(BigCommerce)] -->|Extract| Source[@repo/connectors]
-    Source --> Mapping[@repo/mapping]
-    Mapping --> Core[@repo/core]
-    Core -->|Load()| FileOutput[@repo/ingestion/file-builder]
-    FileOutput --> S3[(AWS S3 / Zip)]
+    StoreA[(Source Platform)] -->|Extract| SourceConn[Source Connector]
+    SourceConn -->|Raw SDK Object| Mapping[repo/mapping]
+    Mapping -->|Validated Canonical| Core[repo/core Engine]
+    Core -->|Write Stream| FileOutput[File Builder]
+    FileOutput --> Output[(CSV / JSONL / S3)]
 ```

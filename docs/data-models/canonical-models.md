@@ -9,19 +9,14 @@ By utilizing a Canonical Model, any source system can talk to any target system 
 
 ```mermaid
 flowchart TD
-    ScrapeJSON[Raw Scraped JSON] -.-> Normalizer
-    ShopifyRes[Shopify Object] -.-> Normalizer
-    BigComRes[BigCommerce Object] -.-> Normalizer
-    
-    subgraph MappingLayer [Mapping Layer]
-        Normalizer[Raw Normalizer] --> Mapper[Rule-Based Mapper]
-        Mapper --> Canonical[Canonical Contract v1]
-    end
-    
-    Canonical --> Val[Core Validator: Zod]
-    
-    Val ==>|Upsert| CT[commercetools]
-    Val ==>|Mutation| Shop[Shopify]
+    ScrapeJSON[Raw Scraped JSON] --> Normalizer[Raw Normalizer]
+    ShopifyRes[Shopify Object] --> Normalizer
+    BigComRes[BigCommerce Object] --> Normalizer
+    Normalizer --> Mapper[Rule-Based Mapper]
+    Mapper --> Canon[Canonical Contract v1]
+    Canon --> Val[Zod Validator]
+    Val -->|Upsert| CT[commercetools]
+    Val -->|Mutation| Shop[Shopify]
 ```
 
 ## Structure
