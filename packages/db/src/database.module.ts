@@ -13,8 +13,9 @@
  * this is intentional (fail fast, not silently).
  */
 
-import { Global, Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+import { Global, Module, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { MongooseModule, InjectConnection } from '@nestjs/mongoose';
+import { Connection } from 'mongoose';
 
 import { Job, JobSchema } from './schemas/job.schema';
 import { Credential, CredentialSchema } from './schemas/credential.schema';
@@ -43,11 +44,11 @@ const REPOSITORIES = [
 ];
 
 /**
- * Reads MONGODB_URI from the environment.
- * Throws a descriptive error instead of connecting with an undefined URI.
+ * Reads MONGODB_URI from the process environment.
+ * Throws a descriptive error instead of passing undefined to Mongoose.
  */
 function getMongoUri(): string {
-    const uri = process.env.MONGODB_URI;
+    const uri = process.env['MONGODB_URI'];
 
     if (!uri) {
         throw new Error(
@@ -59,6 +60,28 @@ function getMongoUri(): string {
     return uri;
 }
 
+/**
+ * Logs the Mongoose connection state once the app has bootstrapped.
+ * Separated into a dedicated class to avoid return-type issues with connectionFactory.
+ */
+class DatabaseConnectionLogger implements OnApplicationBootstrap {
+    private readonly logger = new Logger('DatabaseModule');
+
+    constructor(
+        @InjectConnection() private readonly connection: Connection,
+    ) { }
+
+    onApplicationBootstrap() {
+        const state = this.connection.readyState;
+        // readyState 1 = connected
+        if (state === 1) {
+            this.logger.log('MongoDB connected successfully');
+        } else {
+            this.logger.warn(`MongoDB connection state on boot: ${state}`);
+        }
+    }
+}
+
 @Global() // Makes repositories injectable anywhere without re-importing this module
 @Module({
     imports: [
@@ -66,21 +89,14 @@ function getMongoUri(): string {
         MongooseModule.forRootAsync({
             useFactory: () => ({
                 uri: getMongoUri(),
-                // Log when connection is established or lost
-                connectionFactory: (connection) => {
-                    connection.on('connected', () =>
-                        console.log('[DatabaseModule] MongoDB connected successfully'),
-                    );
-                    connection.on('disconnected', () =>
-                        console.warn('[DatabaseModule] MongoDB connection lost'),
-                    );
-                    return connection;
-                },
             }),
         }),
         FEATURE_MODULES,
     ],
-    providers: REPOSITORIES,
+    providers: [
+        ...REPOSITORIES,
+        DatabaseConnectionLogger,
+    ],
     exports: REPOSITORIES,
 })
 export class DatabaseModule { }
