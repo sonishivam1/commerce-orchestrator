@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { JobList } from '@/components/jobs/job-list';
 
 export const metadata: Metadata = {
     title: 'Jobs | Commerce Orchestrator',
@@ -8,9 +9,13 @@ export const metadata: Metadata = {
 export default function JobsPage() {
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6">Jobs</h1>
-            <p className="text-muted-foreground">Job list will render here. Connect Apollo query.</p>
-            {/* TODO: Replace with <JobList /> component using useQuery(GET_JOBS) */}
+            <div className="mb-6">
+                <h1 className="text-3xl font-bold tracking-tight">Jobs</h1>
+                <p className="text-muted-foreground mt-1 text-sm">
+                    Monitor and manage your data migration and ETL jobs.
+                </p>
+            </div>
+            <JobList />
         </div>
     );
 }

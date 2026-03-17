@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EtlEngine, type EtlContext } from '@cdo/core';
-import type { CanonicalEntity } from '@cdo/shared';
+import { ErrorType, type CanonicalEntity } from '@cdo/shared';
 import type { SourceConnector, TargetConnector } from '@cdo/core';
+import { JobRepository, DlqRepository } from '@cdo/db';
 
 export interface JobStrategyConfig {
     jobKind: string;
@@ -21,23 +22,64 @@ export interface JobStrategyConfig {
  */
 @Injectable()
 export class DataEtlOrchestrator {
+    private readonly logger = new Logger(DataEtlOrchestrator.name);
+
+    constructor(
+        private readonly jobRepository: JobRepository,
+        private readonly dlqRepository: DlqRepository
+    ) {}
+
     async execute(config: JobStrategyConfig): Promise<void> {
         const { source, target, context } = config;
 
         const engine = new EtlEngine(source, target, context);
 
-        engine.on('progress', (results) => {
+        let totalProcessed = 0;
+        let totalFailed = 0;
+
+        engine.on('progress', async (results) => {
             const ok = results.filter((r) => r.success).length;
             const fail = results.filter((r) => !r.success).length;
-            console.log(`[Orchestrator] Job ${context.jobId} — +${ok} ok, +${fail} failed`);
-            // TODO: Call JobRepository.updateProgress(context.jobId, ok, fail)
+            totalProcessed += ok + fail;
+            totalFailed += fail;
+
+            this.logger.log(`Job ${context.jobId} — +${ok} succeeded, +${fail} failed`);
+            
+            // Fire-and-forget progress update to not block pipeline stream mapping
+            this.jobRepository.updateProgress(context.jobId, totalProcessed, totalFailed).catch(e => {
+                this.logger.error(`Failed to update job progress MongoDB: ${e.message}`);
+            });
         });
 
-        engine.on('failure', (error, _item) => {
-            console.error(`[Orchestrator] Job ${context.jobId} — item failed:`, error.message);
-            // TODO: Push failed item to DLQ in MongoDB
+        engine.on('failure', async (error: any, item: CanonicalEntity | undefined) => {
+            this.logger.error(`Job ${context.jobId} — item failed: ${error.message}`);
+            
+            if (item) {
+                try {
+                    await this.dlqRepository.create({
+                        tenantId: context.tenantId,
+                        jobId: context.jobId,
+                        itemKey: item.key || 'unknown',
+                        errorType: error.type || ErrorType.FATAL,
+                        errorMessage: error.message,
+                        rawPayload: item as unknown as Record<string, unknown>,
+                        canReplay: error.type !== ErrorType.VALIDATION // Validation errors require manual intervention, skip infinite loops
+                    });
+                } catch (dlqErr) {
+                    this.logger.error(`Failed to push failed item to DLQ MongoDB for ${item.key}: ${(dlqErr as Error).message}`);
+                }
+            }
         });
 
-        await engine.run();
+        try {
+            await engine.run();
+            await this.jobRepository.markCompleted(context.jobId);
+        } catch (error) {
+            await this.jobRepository.markFailed(context.jobId, { 
+                message: (error as Error).message, 
+                stack: (error as Error).stack 
+            });
+            throw error;
+        }
     }
 }

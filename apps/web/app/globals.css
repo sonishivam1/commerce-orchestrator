@@ -4,48 +4,86 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
+    /* Forcing dark mode everywhere based on the provided UI previews */
+    
+    /* Deep blue/slate background like #0F1626 */
+    --background: 222 43% 10%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    
+    /* Slightly lighter card panels like #1E293B, adding some alpha for glassmorphism later */
+    --card: 222 40% 13%;
     --card-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    
+    /* Vibrant neon blue for main calls to action */
+    --primary: 216 100% 60%;
+    --primary-foreground: 210 40% 98%;
+    
+    /* Muted accent panels */
+    --secondary: 220 30% 18%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
+    
+    /* Muted text */
+    --muted: 220 30% 18%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    
+    /* Interactive hovers / active states */
+    --accent: 216 100% 60%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    
+    /* Destructive operations (red) */
+    --destructive: 350 80% 50%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    
+    /* Border lines */
+    --border: 220 30% 18%;
+    --input: 220 30% 18%;
+    --ring: 216 100% 60%;
+    
+    --radius: 0.75rem;
   }
 }
 
 @layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  * { 
+    @apply border-border; 
+  }
+  body { 
+    @apply bg-background text-foreground tracking-wide; 
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Custom scrollbar for sleeker look */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-secondary rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground;
+  }
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  @apply bg-card/60 backdrop-blur-xl border border-white/5;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.glow-btn {
+  @apply relative overflow-hidden transition-all duration-300;
+}
+.glow-btn::before {
+  content: '';
+  @apply absolute inset-0 bg-white/20 opacity-0 transition-opacity duration-300;
+}
+.glow-btn:hover::before {
+  @apply opacity-100;
+}
+.glow-text {
+  text-shadow: 0 0 10px rgba(79, 149, 255, 0.5);
 }

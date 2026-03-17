@@ -1,1 +1,3 @@
-export * from './mappers/product.mapper';
+export * from './normalizers';
+export * from './rules-engine';
+export * from './mappers';

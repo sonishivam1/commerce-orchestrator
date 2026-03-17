@@ -2,17 +2,35 @@ import type { TargetConnector, LoadResult } from '@cdo/core';
 import type { CanonicalProduct } from '@cdo/shared';
 
 export class ShopifyTargetConnector implements TargetConnector<CanonicalProduct> {
+    getCapabilities(): string[] {
+        return ['insert', 'update'];
+    }
+
     async initialize(credentials: Record<string, unknown>): Promise<void> {
-        // TODO: Build Shopify GraphQL Admin API client
+        const { shopName, accessToken } = credentials;
+
+        if (!shopName || !accessToken) {
+            throw new Error('Missing required Shopify credentials');
+        }
     }
 
     async load(batch: CanonicalProduct[]): Promise<LoadResult[]> {
-        // TODO: Map CanonicalProduct -> Shopify productCreate/productUpdate mutation
-        // TODO: Execute via GraphQL Admin API
-        return batch.map(p => ({ key: p.key, success: true }));
-    }
+        const results: LoadResult[] = [];
 
-    getCapabilities(): string[] {
-        return ['UPSERT_PRODUCT'];
+        for (const item of batch) {
+            try {
+                // TODO: Reverse mapping via @cdo/mapping ProductMapper.fromCanonical()
+                // Construct standard Shopify GraphQL ProductCreateInput / ProductUpdateInput
+                throw new Error('Shopify Target Mutation not fully implemented');
+            } catch (error) {
+                results.push({
+                    key: item.key,
+                    success: false,
+                    error: (error as Error).message,
+                });
+            }
+        }
+
+        return results;
     }
 }
