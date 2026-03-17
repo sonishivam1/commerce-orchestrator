@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from '@cdo/db';
 import { QueueModule } from '@cdo/queue';
 import { AuthModule as AppAuthModule } from './modules/auth/auth.module';
@@ -24,6 +25,10 @@ import { TenantModule } from './modules/tenant/tenant.module';
  */
 @Module({
     imports: [
+        ConfigModule.forRoot({
+            isGlobal: true,
+            envFilePath: ['.env'],
+        }),
         GraphQLModule.forRoot<ApolloDriverConfig>({
             driver: ApolloDriver,
             autoSchemaFile: true,

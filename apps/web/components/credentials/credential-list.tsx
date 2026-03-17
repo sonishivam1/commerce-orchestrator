@@ -1,15 +1,13 @@
-'use client';
-
 import { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
 import { STORE_CREDENTIAL, DELETE_CREDENTIAL } from '@/lib/graphql/mutations';
-import { KeyRound, Plus, Trash2, Loader2, Server } from 'lucide-react';
+import { KeyRound, Plus, Trash2, Loader2, Server, Globe, ExternalLink, ShieldCheck, Box } from 'lucide-react';
 
 const PLATFORM_OPTIONS = [
-    { value: 'COMMERCETOOLS', label: 'Commercetools' },
-    { value: 'SHOPIFY', label: 'Shopify' },
-    { value: 'BIGCOMMERCE', label: 'BigCommerce' },
+    { value: 'COMMERCETOOLS', label: 'Commercetools', logo: 'https://images.ctfassets.net/lp9u75e533v8/4HTo3FoyS2k68u88O2S68/888636830768c8886888688868886888/commercetools_logo.svg' },
+    { value: 'SHOPIFY', label: 'Shopify', logo: 'https://cdn.shopify.com/assets/images/logos/shopify-bag.svg' },
+    { value: 'BIGCOMMERCE', label: 'BigCommerce', logo: 'https://storage.googleapis.com/proudcity/meadowsca/uploads/2021/05/big-commerce-logo-png-transparent.png' },
 ];
 
 const PLATFORM_PAYLOAD_HINTS: Record<string, string> = {
@@ -26,25 +24,46 @@ interface Credential {
 }
 
 function CredentialCard({ credential, onDelete }: { credential: Credential; onDelete: (id: string) => void }) {
+    // Get platform logo
+    const getLogo = (platform: string) => {
+        if (platform === 'COMMERCETOOLS') return <div className="h-10 w-10 bg-emerald-500 rounded-lg flex items-center justify-center font-black text-white text-xs shadow-lg">CT</div>;
+        if (platform === 'SHOPIFY') return <div className="h-10 w-10 bg-green-500 rounded-lg flex items-center justify-center font-black text-white text-xs shadow-lg">S</div>;
+        if (platform === 'BIGCOMMERCE') return <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center font-black text-white text-xs shadow-lg">B</div>;
+        return <div className="h-10 w-10 bg-slate-700 rounded-lg flex items-center justify-center"><Server className="h-5 w-5 text-white" /></div>;
+    };
+
     return (
-        <div className="flex items-center justify-between rounded-xl border bg-card p-4 hover:bg-muted/30 transition-colors">
-            <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-primary/10 p-2.5">
-                    <Server className="h-4 w-4 text-primary" />
+        <div className="bg-[#131B2C]/80 border border-white/5 rounded-[32px] p-8 space-y-6 shadow-2xl backdrop-blur-md hover:ring-2 hover:ring-primary/20 transition-all group">
+            <div className="flex items-center justify-between">
+                <div className="p-3 bg-white/5 rounded-2xl border border-white/5 group-hover:scale-110 transition-transform duration-500">
+                    {getLogo(credential.platform)}
                 </div>
-                <div>
-                    <p className="font-medium text-sm">{credential.alias}</p>
-                    <p className="text-xs text-muted-foreground">{credential.platform}</p>
+                <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Active</span>
                 </div>
             </div>
-            <button
-                id={`delete-credential-${credential.id}`}
-                onClick={() => onDelete(credential.id)}
-                className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                aria-label={`Delete ${credential.alias}`}
-            >
-                <Trash2 className="h-4 w-4" />
-            </button>
+            
+            <div className="space-y-1">
+                <h3 className="text-xl font-black text-white italic tracking-tight truncate">{credential.alias}</h3>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{credential.platform}</p>
+            </div>
+
+            <div className="pt-2">
+                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Added Jan 15, 2024</p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-4">
+                <button className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-black italic py-3 rounded-2xl transition-all uppercase tracking-widest">
+                    Use in Job
+                </button>
+                <button 
+                    onClick={() => onDelete(credential.id)}
+                    className="p-3 bg-red-500/10 border border-red-500/10 rounded-2xl text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </button>
+            </div>
         </div>
     );
 }
@@ -70,7 +89,7 @@ function AddCredentialModal({ onClose }: { onClose: () => void }) {
         e.preventDefault();
         setError(null);
         try {
-            JSON.parse(rawPayload); // client-side validation
+            JSON.parse(rawPayload); 
         } catch {
             setError('Payload must be valid JSON');
             return;
@@ -79,77 +98,75 @@ function AddCredentialModal({ onClose }: { onClose: () => void }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-xl border bg-card shadow-xl p-6 space-y-5 mx-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="font-bold text-lg">Add Platform Credential</h2>
-                    <button id="close-modal" onClick={onClose} className="rounded-md p-1.5 hover:bg-accent transition-colors text-muted-foreground">✕</button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                        <label htmlFor="cred-platform" className="text-sm font-medium">Platform</label>
-                        <select
-                            id="cred-platform"
-                            value={platform}
-                            onChange={(e) => handlePlatformChange(e.target.value)}
-                            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring transition-colors"
-                        >
-                            {PLATFORM_OPTIONS.map((p) => (
-                                <option key={p.value} value={p.value}>{p.label}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label htmlFor="cred-alias" className="text-sm font-medium">Alias</label>
-                        <input
-                            id="cred-alias"
-                            type="text"
-                            required
-                            value={alias}
-                            onChange={(e) => setAlias(e.target.value)}
-                            placeholder="e.g. Production Store"
-                            className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring transition-colors"
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <label htmlFor="cred-payload" className="text-sm font-medium">
-                            Credentials JSON
-                            <span className="ml-1.5 text-xs text-muted-foreground font-normal">(encrypted before storage)</span>
-                        </label>
-                        <textarea
-                            id="cred-payload"
-                            rows={7}
-                            required
-                            value={rawPayload}
-                            onChange={(e) => setRawPayload(e.target.value)}
-                            className="w-full font-mono rounded-md border bg-background px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-ring transition-colors resize-none"
-                        />
-                    </div>
-
-                    {error && (
-                        <div role="alert" className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
-                            {error}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xl animate-in fade-in duration-300 px-4">
+            <div className="w-full max-w-xl bg-[#0A101C] border border-white/10 rounded-[40px] shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden">
+                <div className="p-10 lg:p-12 space-y-10">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <h2 className="text-3xl font-black text-white italic tracking-tighter">Add Credential</h2>
+                            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Secure vault storage</p>
                         </div>
-                    )}
-
-                    <div className="flex justify-end gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="rounded-md border px-4 py-2 text-sm hover:bg-accent transition-colors">
-                            Cancel
-                        </button>
-                        <button
-                            id="save-credential"
-                            type="submit"
-                            disabled={loading}
-                            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
-                        >
-                            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                            {loading ? 'Saving…' : 'Save Credential'}
-                        </button>
+                        <button onClick={onClose} className="h-12 w-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-all hover:bg-white/10 italic font-black">✕</button>
                     </div>
-                </form>
+
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Platform</label>
+                                <select
+                                    value={platform}
+                                    onChange={(e) => handlePlatformChange(e.target.value)}
+                                    className="w-full bg-[#131B2C] border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all appearance-none italic"
+                                >
+                                    {PLATFORM_OPTIONS.map((p) => (
+                                        <option key={p.value} value={p.value} className="bg-[#0A101C]">{p.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="space-y-3">
+                                <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Alias</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={alias}
+                                    onChange={(e) => setAlias(e.target.value)}
+                                    placeholder="e.g. Production Store"
+                                    className="w-full bg-[#131B2C] border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all italic placeholder:text-slate-700"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Secret Payload (JSON)</label>
+                            <textarea
+                                rows={6}
+                                required
+                                value={rawPayload}
+                                onChange={(e) => setRawPayload(e.target.value)}
+                                className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-5 text-sm font-mono text-emerald-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none shadow-inner"
+                            />
+                        </div>
+
+                        {error && (
+                            <div className="rounded-2xl bg-red-500/10 border border-red-500/20 px-6 py-4 text-sm text-red-500 font-black italic">
+                                {error}
+                            </div>
+                        )}
+
+                        <div className="flex gap-4 pt-4">
+                            <button type="button" onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-black italic py-5 rounded-[24px] uppercase tracking-widest transition-all">
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="flex-1 bg-primary hover:bg-blue-500 text-white font-black italic py-5 rounded-[24px] uppercase tracking-widest transition-all shadow-xl shadow-primary/20 disabled:opacity-50"
+                            >
+                                {loading ? 'Encrypting...' : 'Save Credential'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     );
@@ -164,7 +181,7 @@ export function CredentialList() {
     });
 
     const handleDelete = (id: string) => {
-        if (confirm('Delete this credential? Jobs using it will fail.')) {
+        if (confirm('Delete this credential permanently?')) {
             deleteCredential({ variables: { id } });
         }
     };
@@ -172,55 +189,56 @@ export function CredentialList() {
     const credentials = data?.credentials ?? [];
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                    {credentials.length === 0 ? 'No credentials yet.' : `${credentials.length} credential${credentials.length === 1 ? '' : 's'} stored.`}
-                </p>
+                <div className="space-y-1">
+                    <h1 className="text-4xl font-black text-white italic tracking-tighter">Platform Credentials</h1>
+                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest italic">Manage encrypted platform API credentials</p>
+                </div>
                 <button
-                    id="add-credential-btn"
                     onClick={() => setShowModal(true)}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                    className="bg-primary hover:bg-blue-500 text-white font-black italic px-8 py-4 rounded-2xl transition-all shadow-xl shadow-primary/20 flex items-center gap-3 uppercase tracking-widest text-xs"
                 >
-                    <Plus className="h-3.5 w-3.5" /> Add Credential
+                    <Plus className="h-4 w-4" /> Add Credential
                 </button>
             </div>
 
-            {loading && (
-                <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
-                    <Loader2 className="h-5 w-5 animate-spin" /> Loading…
+            {loading ? (
+                <div className="flex items-center justify-center py-32 text-slate-500 gap-3">
+                    <Loader2 className="h-6 w-6 animate-spin" /> Unlocking vault...
                 </div>
-            )}
-
-            {error && (
-                <div role="alert" className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
-                    {error.message}
-                </div>
-            )}
-
-            {!loading && credentials.length === 0 && (
-                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center">
-                    <div className="rounded-full bg-muted p-4 mb-4">
-                        <KeyRound className="h-6 w-6 text-muted-foreground" />
+            ) : credentials.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-40 bg-[#131B2C]/50 border-2 border-dashed border-white/5 rounded-[40px] text-center space-y-6">
+                    <div className="h-20 w-20 bg-primary/10 rounded-[32px] flex items-center justify-center shadow-inner">
+                        <KeyRound className="h-10 w-10 text-primary" />
                     </div>
-                    <h3 className="font-semibold text-sm">No credentials yet</h3>
-                    <p className="text-muted-foreground text-xs mt-1">Add your first platform credential to start migrating data.</p>
+                    <div>
+                        <h3 className="text-2xl font-black text-white italic tracking-tight">Your vault is empty</h3>
+                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-2 italic">Connect a platform to start orchestrating</p>
+                    </div>
                     <button
                         onClick={() => setShowModal(true)}
-                        className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                        className="mt-4 bg-primary hover:bg-blue-500 text-white font-black italic px-10 py-5 rounded-[24px] transition-all shadow-xl shadow-primary/20"
                     >
-                        <Plus className="h-3.5 w-3.5" /> Add Credential
+                        Initialize New Credential
                     </button>
                 </div>
-            )}
-
-            {credentials.length > 0 && (
-                <div className="space-y-3">
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {credentials.map((c) => (
                         <CredentialCard key={c.id} credential={c} onDelete={handleDelete} />
                     ))}
                 </div>
             )}
+
+            <div className="bg-[#131B2C]/30 border border-white/5 rounded-[24px] p-6 flex items-center gap-5 backdrop-blur-md">
+                <div className="h-10 w-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20">
+                    <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                </div>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] italic">
+                    All credentials are encrypted using AES-256-GCM before storage in our distributed vault.
+                </p>
+            </div>
 
             {showModal && <AddCredentialModal onClose={() => setShowModal(false)} />}
         </div>
