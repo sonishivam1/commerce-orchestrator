@@ -48,6 +48,9 @@
             ],
             "@cdo/gql": [
                 "./packages/gql/src/index.ts"
+            ],
+            "@cdo/redis": [
+                "./packages/redis/src/index.ts"
             ]
         }
     },

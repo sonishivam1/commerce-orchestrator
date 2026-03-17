@@ -1,9 +1,12 @@
 {
     "extends": "../../tsconfig.json",
     "compilerOptions": {
-        "outDir": "./dist",
+        "outDir": "dist",
         "emitDecoratorMetadata": true,
-        "experimentalDecorators": true
+        "experimentalDecorators": true,
+        "rootDir": "src",
+        "composite": true,
+        "declaration": true
     },
     "include": [
         "src"
@@ -11,5 +14,10 @@
     "exclude": [
         "dist",
         "node_modules"
+    ],
+    "references": [
+        {
+            "path": "../shared"
+        }
     ]
 }

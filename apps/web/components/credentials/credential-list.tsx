@@ -1,13 +1,15 @@
+'use client';
+
 import { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
 import { STORE_CREDENTIAL, DELETE_CREDENTIAL } from '@/lib/graphql/mutations';
-import { KeyRound, Plus, Trash2, Loader2, Server, Globe, ExternalLink, ShieldCheck, Box } from 'lucide-react';
+import { KeyRound, Plus, Trash2, Loader2, Server, ShieldCheck, Lock } from 'lucide-react';
 
 const PLATFORM_OPTIONS = [
-    { value: 'COMMERCETOOLS', label: 'Commercetools', logo: 'https://images.ctfassets.net/lp9u75e533v8/4HTo3FoyS2k68u88O2S68/888636830768c8886888688868886888/commercetools_logo.svg' },
-    { value: 'SHOPIFY', label: 'Shopify', logo: 'https://cdn.shopify.com/assets/images/logos/shopify-bag.svg' },
-    { value: 'BIGCOMMERCE', label: 'BigCommerce', logo: 'https://storage.googleapis.com/proudcity/meadowsca/uploads/2021/05/big-commerce-logo-png-transparent.png' },
+    { value: 'COMMERCETOOLS', label: 'Commercetools' },
+    { value: 'SHOPIFY', label: 'Shopify' },
+    { value: 'BIGCOMMERCE', label: 'BigCommerce' },
 ];
 
 const PLATFORM_PAYLOAD_HINTS: Record<string, string> = {
@@ -23,43 +25,69 @@ interface Credential {
     createdAt: string;
 }
 
+/* ── Platform Logo ─────────────────────────────────────────── */
+function PlatformLogo({ platform }: { platform: string }) {
+    if (platform === 'COMMERCETOOLS') {
+        return (
+            <div className="h-12 w-12 bg-[#1E293B] rounded-xl flex items-center justify-center border border-slate-700/50">
+                {/* Commercetools stylized C */}
+                <div className="h-8 w-8 rounded-md bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center">
+                    <span className="text-white font-black text-sm">CT</span>
+                </div>
+            </div>
+        );
+    }
+    if (platform === 'SHOPIFY') {
+        return (
+            <div className="h-12 w-12 bg-[#1E293B] rounded-xl flex items-center justify-center border border-slate-700/50">
+                <div className="h-8 w-8 rounded-md bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+                    <span className="text-white font-black text-sm">S</span>
+                </div>
+            </div>
+        );
+    }
+    if (platform === 'BIGCOMMERCE') {
+        return (
+            <div className="h-12 w-12 bg-[#1E293B] rounded-xl flex items-center justify-center border border-slate-700/50">
+                <div className="h-8 w-8 rounded-md bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                    <span className="text-white font-black text-sm">B</span>
+                </div>
+            </div>
+        );
+    }
+    return (
+        <div className="h-12 w-12 bg-[#1E293B] rounded-xl flex items-center justify-center border border-slate-700/50">
+            <Server className="h-6 w-6 text-slate-400" />
+        </div>
+    );
+}
+
+/* ── Credential Card ───────────────────────────────────────── */
 function CredentialCard({ credential, onDelete }: { credential: Credential; onDelete: (id: string) => void }) {
-    // Get platform logo
-    const getLogo = (platform: string) => {
-        if (platform === 'COMMERCETOOLS') return <div className="h-10 w-10 bg-emerald-500 rounded-lg flex items-center justify-center font-black text-white text-xs shadow-lg">CT</div>;
-        if (platform === 'SHOPIFY') return <div className="h-10 w-10 bg-green-500 rounded-lg flex items-center justify-center font-black text-white text-xs shadow-lg">S</div>;
-        if (platform === 'BIGCOMMERCE') return <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center font-black text-white text-xs shadow-lg">B</div>;
-        return <div className="h-10 w-10 bg-slate-700 rounded-lg flex items-center justify-center"><Server className="h-5 w-5 text-white" /></div>;
-    };
+    const addedDate = new Date(credential.createdAt).toLocaleDateString('en-US', {
+        month: 'short', day: '2-digit', year: 'numeric',
+    });
 
     return (
-        <div className="bg-[#131B2C]/80 border border-white/5 rounded-[32px] p-8 space-y-6 shadow-2xl backdrop-blur-md hover:ring-2 hover:ring-primary/20 transition-all group">
-            <div className="flex items-center justify-between">
-                <div className="p-3 bg-white/5 rounded-2xl border border-white/5 group-hover:scale-110 transition-transform duration-500">
-                    {getLogo(credential.platform)}
+        <div className="bg-[#131B2C] border border-slate-800/80 rounded-xl p-5 space-y-4 hover:border-slate-700/80 transition-all">
+            <PlatformLogo platform={credential.platform} />
+
+            <div className="space-y-0.5">
+                <h3 className="text-sm font-semibold text-white">{credential.alias}</h3>
+                <div className="flex items-center gap-1.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    <span className="text-xs text-emerald-400">Active</span>
                 </div>
-                <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Active</span>
-                </div>
-            </div>
-            
-            <div className="space-y-1">
-                <h3 className="text-xl font-black text-white italic tracking-tight truncate">{credential.alias}</h3>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{credential.platform}</p>
+                <p className="text-xs text-slate-500 pt-1">Added {addedDate}</p>
             </div>
 
-            <div className="pt-2">
-                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Added Jan 15, 2024</p>
-            </div>
-
-            <div className="flex items-center gap-3 pt-4">
-                <button className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-black italic py-3 rounded-2xl transition-all uppercase tracking-widest">
+            <div className="flex items-center gap-2 pt-1">
+                <button className="flex-1 bg-[#1E293B] hover:bg-slate-700/60 text-white text-xs font-medium py-2 rounded-lg transition-all border border-slate-700/40">
                     Use in Job
                 </button>
-                <button 
+                <button
                     onClick={() => onDelete(credential.id)}
-                    className="p-3 bg-red-500/10 border border-red-500/10 rounded-2xl text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg"
+                    className="p-2 bg-[#1E293B] hover:bg-red-500/15 border border-slate-700/40 hover:border-red-500/30 rounded-lg text-slate-400 hover:text-red-400 transition-all"
                 >
                     <Trash2 className="h-4 w-4" />
                 </button>
@@ -68,6 +96,7 @@ function CredentialCard({ credential, onDelete }: { credential: Credential; onDe
     );
 }
 
+/* ── Add Credential Modal ──────────────────────────────────── */
 function AddCredentialModal({ onClose }: { onClose: () => void }) {
     const [platform, setPlatform] = useState('COMMERCETOOLS');
     const [alias, setAlias] = useState('');
@@ -89,7 +118,7 @@ function AddCredentialModal({ onClose }: { onClose: () => void }) {
         e.preventDefault();
         setError(null);
         try {
-            JSON.parse(rawPayload); 
+            JSON.parse(rawPayload);
         } catch {
             setError('Payload must be valid JSON');
             return;
@@ -98,80 +127,85 @@ function AddCredentialModal({ onClose }: { onClose: () => void }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xl animate-in fade-in duration-300 px-4">
-            <div className="w-full max-w-xl bg-[#0A101C] border border-white/10 rounded-[40px] shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden">
-                <div className="p-10 lg:p-12 space-y-10">
-                    <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                            <h2 className="text-3xl font-black text-white italic tracking-tighter">Add Credential</h2>
-                            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Secure vault storage</p>
-                        </div>
-                        <button onClick={onClose} className="h-12 w-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-all hover:bg-white/10 italic font-black">✕</button>
-                    </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 px-4">
+            <div className="w-full max-w-md bg-[#0F1626] border border-slate-800/80 rounded-2xl shadow-2xl overflow-hidden">
+                <div className="flex items-center justify-between p-6 border-b border-slate-800/60">
+                    <h2 className="text-base font-semibold text-white">Add Credential</h2>
+                    <button
+                        onClick={onClose}
+                        className="h-8 w-8 rounded-lg bg-slate-800/60 flex items-center justify-center text-slate-400 hover:text-white transition-colors text-sm"
+                    >
+                        ✕
+                    </button>
+                </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-8">
-                        <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-3">
-                                <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Platform</label>
-                                <select
-                                    value={platform}
-                                    onChange={(e) => handlePlatformChange(e.target.value)}
-                                    className="w-full bg-[#131B2C] border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all appearance-none italic"
-                                >
-                                    {PLATFORM_OPTIONS.map((p) => (
-                                        <option key={p.value} value={p.value} className="bg-[#0A101C]">{p.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="space-y-3">
-                                <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Alias</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={alias}
-                                    onChange={(e) => setAlias(e.target.value)}
-                                    placeholder="e.g. Production Store"
-                                    className="w-full bg-[#131B2C] border border-white/5 rounded-2xl px-5 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all italic placeholder:text-slate-700"
-                                />
-                            </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-400">Platform</label>
+                            <select
+                                value={platform}
+                                onChange={(e) => handlePlatformChange(e.target.value)}
+                                className="w-full bg-[#1A233A] border border-slate-700/50 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary transition-all appearance-none"
+                            >
+                                {PLATFORM_OPTIONS.map((p) => (
+                                    <option key={p.value} value={p.value} className="bg-[#0F1626]">{p.label}</option>
+                                ))}
+                            </select>
                         </div>
-
-                        <div className="space-y-3">
-                            <label className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Secret Payload (JSON)</label>
-                            <textarea
-                                rows={6}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-400">Alias</label>
+                            <input
+                                type="text"
                                 required
-                                value={rawPayload}
-                                onChange={(e) => setRawPayload(e.target.value)}
-                                className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-5 text-sm font-mono text-emerald-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none shadow-inner"
+                                value={alias}
+                                onChange={(e) => setAlias(e.target.value)}
+                                placeholder="e.g. prod-store"
+                                className="w-full bg-[#1A233A] border border-slate-700/50 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                             />
                         </div>
+                    </div>
 
-                        {error && (
-                            <div className="rounded-2xl bg-red-500/10 border border-red-500/20 px-6 py-4 text-sm text-red-500 font-black italic">
-                                {error}
-                            </div>
-                        )}
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-slate-400">Secret Payload (JSON)</label>
+                        <textarea
+                            rows={6}
+                            required
+                            value={rawPayload}
+                            onChange={(e) => setRawPayload(e.target.value)}
+                            className="w-full bg-[#0A101C] border border-slate-700/50 rounded-lg px-3 py-3 text-xs font-mono text-emerald-400 focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
+                        />
+                    </div>
 
-                        <div className="flex gap-4 pt-4">
-                            <button type="button" onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-black italic py-5 rounded-[24px] uppercase tracking-widest transition-all">
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="flex-1 bg-primary hover:bg-blue-500 text-white font-black italic py-5 rounded-[24px] uppercase tracking-widest transition-all shadow-xl shadow-primary/20 disabled:opacity-50"
-                            >
-                                {loading ? 'Encrypting...' : 'Save Credential'}
-                            </button>
+                    {error && (
+                        <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+                            {error}
                         </div>
-                    </form>
-                </div>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium py-2.5 rounded-lg text-sm transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="flex-1 bg-primary hover:bg-primary/90 text-white font-medium py-2.5 rounded-lg text-sm transition-all disabled:opacity-50"
+                        >
+                            {loading ? 'Saving...' : 'Save Credential'}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
 }
 
+/* ── Main Component ────────────────────────────────────────── */
 export function CredentialList() {
     const [showModal, setShowModal] = useState(false);
     const { data, loading, error } = useQuery<{ credentials: Credential[] }>(GET_CREDENTIALS);
@@ -189,54 +223,57 @@ export function CredentialList() {
     const credentials = data?.credentials ?? [];
 
     return (
-        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="space-y-6">
+            {/* Header */}
             <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                    <h1 className="text-4xl font-black text-white italic tracking-tighter">Platform Credentials</h1>
-                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest italic">Manage encrypted platform API credentials</p>
+                <div>
+                    <h1 className="text-2xl font-bold text-white tracking-tight">Platform Credentials</h1>
+                    <p className="text-sm text-slate-400 mt-1">Manage encrypted platform API credentials</p>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}
-                    className="bg-primary hover:bg-blue-500 text-white font-black italic px-8 py-4 rounded-2xl transition-all shadow-xl shadow-primary/20 flex items-center gap-3 uppercase tracking-widest text-xs"
+                    className="bg-primary hover:bg-primary/90 text-white font-semibold px-4 py-2 rounded-lg transition-all shadow-[0_0_12px_rgba(79,149,255,0.3)] flex items-center gap-2 text-sm"
                 >
                     <Plus className="h-4 w-4" /> Add Credential
                 </button>
             </div>
 
+            {/* Content */}
             {loading ? (
-                <div className="flex items-center justify-center py-32 text-slate-500 gap-3">
-                    <Loader2 className="h-6 w-6 animate-spin" /> Unlocking vault...
+                <div className="flex items-center justify-center py-20 text-slate-400 gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" /> Loading...
+                </div>
+            ) : error ? (
+                <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-6 text-sm text-red-400">
+                    {error.message}
                 </div>
             ) : credentials.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-40 bg-[#131B2C]/50 border-2 border-dashed border-white/5 rounded-[40px] text-center space-y-6">
-                    <div className="h-20 w-20 bg-primary/10 rounded-[32px] flex items-center justify-center shadow-inner">
-                        <KeyRound className="h-10 w-10 text-primary" />
-                    </div>
+                <div className="flex flex-col items-center justify-center py-24 bg-[#131B2C]/60 border-2 border-dashed border-slate-800 rounded-xl text-center space-y-4">
+                    <KeyRound className="h-10 w-10 text-slate-600" />
                     <div>
-                        <h3 className="text-2xl font-black text-white italic tracking-tight">Your vault is empty</h3>
-                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-2 italic">Connect a platform to start orchestrating</p>
+                        <h3 className="text-base font-semibold text-white">No credentials yet</h3>
+                        <p className="text-sm text-slate-500 mt-1">Connect a platform to start orchestrating</p>
                     </div>
                     <button
                         onClick={() => setShowModal(true)}
-                        className="mt-4 bg-primary hover:bg-blue-500 text-white font-black italic px-10 py-5 rounded-[24px] transition-all shadow-xl shadow-primary/20"
+                        className="bg-primary hover:bg-primary/90 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-all"
                     >
-                        Initialize New Credential
+                        Add Credential
                     </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {credentials.map((c) => (
                         <CredentialCard key={c.id} credential={c} onDelete={handleDelete} />
                     ))}
                 </div>
             )}
 
-            <div className="bg-[#131B2C]/30 border border-white/5 rounded-[24px] p-6 flex items-center gap-5 backdrop-blur-md">
-                <div className="h-10 w-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20">
-                    <ShieldCheck className="h-5 w-5 text-emerald-500" />
-                </div>
-                <p className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] italic">
-                    All credentials are encrypted using AES-256-GCM before storage in our distributed vault.
+            {/* Security Notice */}
+            <div className="bg-[#131B2C]/40 border border-slate-800/60 rounded-xl p-4 flex items-center gap-3">
+                <Lock className="h-4 w-4 text-slate-500 shrink-0" />
+                <p className="text-xs text-slate-500">
+                    All credentials are encrypted using AES-256-GCM before storage.
                 </p>
             </div>
 
