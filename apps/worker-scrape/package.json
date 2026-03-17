@@ -4,8 +4,8 @@
     "private": true,
     "scripts": {
         "build": "nest build",
-        "dev": "tsx watch src/main.ts",
-        "start": "tsx src/main.ts",
+        "dev": "nest start --watch",
+        "start": "node dist/main.js",
         "lint": "tsc --noEmit"
     },
     "dependencies": {
@@ -26,7 +26,11 @@
     },
     "devDependencies": {
         "@nestjs/cli": "^10.0.0",
+        "@swc/cli": "^0.8.0",
+        "@swc/core": "^1.15.18",
+        "@swc/helpers": "^0.5.19",
         "run-script-webpack-plugin": "^0.2.3",
+        "swc-loader": "^0.2.7",
         "ts-loader": "^9.5.4",
         "typescript": "^5.3.3",
         "webpack": "^5.105.4",

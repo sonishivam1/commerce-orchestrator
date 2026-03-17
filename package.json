@@ -9,7 +9,13 @@
         "test": "turbo run test"
     },
     "devDependencies": {
+        "@swc/core": "^1.15.18",
+        "@swc/helpers": "^0.5.19",
         "prettier": "^3.1.1",
+        "swc-loader": "^0.2.7",
+        "swc-node": "^1.0.0",
+        "ts-node": "^10.9.2",
+        "tsconfig-paths": "^4.2.0",
         "tsx": "^4.21.0",
         "turbo": "^1.11.2",
         "typescript": "^5.3.3"

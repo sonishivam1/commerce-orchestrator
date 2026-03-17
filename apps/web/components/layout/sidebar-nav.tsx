@@ -2,11 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BriefcaseBusiness, KeyRound, Inbox, LogOut, Network } from 'lucide-react';
+import { BriefcaseBusiness, KeyRound, Inbox, LogOut, Network, LayoutDashboard, Settings, Layers } from 'lucide-react';
 
 const navItems = [
-    { href: '/jobs', label: 'Jobs', icon: BriefcaseBusiness },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/integrations', label: 'Integrations', icon: Layers },
     { href: '/credentials', label: 'Credentials', icon: KeyRound },
+    { href: '/jobs', label: 'Jobs', icon: BriefcaseBusiness },
+    { href: '/settings', label: 'Settings', icon: Settings },
+];
+
+const bottomNavItems = [
     { href: '/dlq', label: 'Dead Letter Queue', icon: Inbox },
 ];
 
@@ -24,58 +30,77 @@ export function SidebarNav() {
     };
 
     return (
-        <aside className="w-64 bg-[#0F1626] border-r border-slate-800/60 flex flex-col h-full shadow-2xl z-10">
+        <aside className="w-72 bg-[#0A101C] border-r border-[#1E293B]/50 flex flex-col h-full z-20">
             {/* Brand */}
-            <div className="p-7">
-                <div className="flex items-center gap-3">
-                    <div className="relative flex items-center justify-center">
-                        <div className="absolute inset-0 bg-primary/20 blur-md rounded-full"></div>
-                        <Network className="h-6 w-6 text-primary relative z-10" />
+            <div className="p-8">
+                <Link href="/jobs" className="flex items-center gap-3 group">
+                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center shadow-[0_0_20px_rgba(79,149,255,0.3)] transition-transform group-hover:scale-105">
+                        <Network className="h-6 w-6 text-white" />
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-bold text-lg tracking-wide text-white flex items-center gap-1">
-                            <span className="text-primary glow-text">CDO</span> 
-                            <span className="text-sm font-medium text-slate-300">Orchestrator</span>
+                        <span className="font-bold text-xl tracking-tight text-white leading-none">
+                            CDO
+                        </span>
+                        <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500 mt-1 mr-[-0.2em]">
+                            Orchestrator
                         </span>
                     </div>
-                </div>
+                </Link>
             </div>
 
             {/* Nav links */}
-            <nav className="flex-1 px-4 py-2 space-y-2">
+            <nav className="flex-1 px-4 py-6 space-y-1">
                 {navItems.map(({ href, label, icon: Icon }) => {
-                    const isActive = pathname.startsWith(href);
+                    const isActive = pathname.startsWith(href) || (href === '/jobs' && pathname === '/');
                     
                     return (
                         <Link
                             key={href}
                             href={href}
                             className={cn(
-                                'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group relative',
+                                'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group relative',
                                 isActive
-                                    ? 'bg-[#1E293B] text-white shadow-inner border border-slate-700/50'
-                                    : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
+                                    ? 'bg-[#1E293B] text-white border border-white/5 shadow-lg'
+                                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                             )}
                         >
-                            {isActive && (
-                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full shadow-[0_0_10px_rgba(79,149,255,0.8)]" />
-                            )}
-                            <Icon className={cn("h-[18px] w-[18px]", isActive ? "text-primary" : "text-slate-500 group-hover:text-slate-300")} />
+                            <Icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-600 group-hover:text-slate-400")} />
                             {label}
                         </Link>
                     )
                 })}
+
+                <div className="pt-8 pb-4">
+                    <p className="px-4 text-[10px] uppercase font-bold tracking-widest text-slate-600 mb-2">System</p>
+                    {bottomNavItems.map(({ href, label, icon: Icon }) => {
+                        const isActive = pathname.startsWith(href);
+                        return (
+                            <Link
+                                key={href}
+                                href={href}
+                                className={cn(
+                                    'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group relative',
+                                    isActive
+                                        ? 'bg-[#1E293B] text-white border border-white/5 shadow-lg'
+                                        : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                                )}
+                            >
+                                <Icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-600 group-hover:text-slate-400")} />
+                                {label}
+                            </Link>
+                        )
+                    })}
+                </div>
             </nav>
 
             {/* Logout */}
-            <div className="p-4 mt-auto">
+            <div className="p-6 border-t border-[#1E293B]/50">
                 <button
-                    id="logout-btn"
                     onClick={handleLogout}
-                    className="flex w-full items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors group border border-transparent hover:border-red-500/20"
+                    className="flex w-full items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition-all group"
                 >
-                    <LogOut className="h-[18px] w-[18px] text-slate-500 group-hover:text-red-400" />
-                    Sign Out
+                    <LogOut className="h-5 w-5 text-slate-600 group-hover:text-red-400" />
+                    Logout
                 </button>
             </div>
         </aside>

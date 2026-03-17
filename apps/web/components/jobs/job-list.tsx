@@ -3,7 +3,7 @@
 import { useQuery } from '@apollo/client';
 import Link from 'next/link';
 import { GET_JOBS } from '@/lib/graphql/queries/job.queries';
-import { Plus, Clock, CheckCircle, XCircle, Loader2, PauseCircle, Search, Eye, Trash2, ChevronDown } from 'lucide-react';
+import { Plus, Clock, CheckCircle, XCircle, Loader2, PauseCircle, Search, Eye, Trash2, ChevronDown, RefreshCw } from 'lucide-react';
 
 interface Job {
     id: string;
