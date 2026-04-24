@@ -45,6 +45,7 @@ export class DlqItem {
      */
     @Prop({
         required: true,
+        type: String,
         enum: Object.values(ErrorType),
     })
     errorType: ErrorType;

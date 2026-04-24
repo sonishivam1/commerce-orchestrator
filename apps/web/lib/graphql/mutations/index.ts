@@ -49,3 +49,9 @@ export const STORE_CREDENTIAL = gql`
     }
   }
 `;
+
+export const DELETE_CREDENTIAL = gql`
+  mutation DeleteCredential($id: String!) {
+    deleteCredential(id: $id)
+  }
+`;

@@ -42,6 +42,14 @@ export const LOCK_TTL_MS = 30 * 60 * 1_000;
 /** Prefix for Redis lock keys. Format: `lock:{tenantId}:{targetCredentialId}` */
 export const LOCK_KEY_PREFIX = 'lock';
 
+// ─── Default Business Assumptions ───────────────────────────────────────────────
+
+/** Default currency to use if a source platform API omits currency explicitly */
+export const DEFAULT_CURRENCY = 'USD';
+
+/** Default locale to use if string values are unmapped and need generic wrapping */
+export const DEFAULT_LOCALE = 'en';
+
 // ─── Pipeline Batching ────────────────────────────────────────────────────────
 
 /** Default number of entities per extract/load batch in the Core Engine */

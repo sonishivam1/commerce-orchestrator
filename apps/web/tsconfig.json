@@ -1,42 +1,45 @@
 {
-    "extends": "../../tsconfig.json",
-    "compilerOptions": {
-        "outDir": "./dist",
-        "rootDir": ".",
-        "jsx": "preserve",
-        "lib": [
-            "ES2022",
-            "DOM",
-            "DOM.Iterable"
-        ],
-        "plugins": [
-            {
-                "name": "next"
-            }
-        ],
-        "paths": {
-            "@cdo/shared": [
-                "../../packages/shared/src/index.ts"
-            ],
-            "@cdo/ui": [
-                "../../packages/ui/src/index.ts"
-            ],
-            "@cdo/gql": [
-                "../../packages/gql/src/index.ts"
-            ],
-            "@/*": [
-                "./*"
-            ]
-        }
-    },
-    "include": [
-        "next-env.d.ts",
-        "**/*.ts",
-        "**/*.tsx",
-        ".next/types/**/*.ts"
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "jsx": "preserve",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
     ],
-    "exclude": [
-        "dist",
-        "node_modules"
-    ]
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@cdo/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@cdo/ui": [
+        "../../packages/ui/src/index.ts"
+      ],
+      "@cdo/gql": [
+        "../../packages/gql/src/index.ts"
+      ],
+      "@/*": [
+        "./*"
+      ]
+    },
+    "allowJs": true,
+    "noEmit": true,
+    "isolatedModules": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
 }

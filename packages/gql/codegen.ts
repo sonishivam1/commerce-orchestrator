@@ -2,7 +2,7 @@ import type { CodegenConfig } from '@graphql-codegen/cli';
 
 const config: CodegenConfig = {
     // Point at running NestJS API or a local schema file
-    schema: process.env.GQL_SCHEMA_URL ?? 'http://localhost:4000/graphql',
+    schema: process.env.GQL_SCHEMA_URL ?? `http://${process.env.HOST ?? 'localhost'}:${process.env.PORT ?? 4000}/graphql`,
 
     // Scan all apps and packages for GraphQL operations and fragments
     documents: ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'],

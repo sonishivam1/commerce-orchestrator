@@ -20,10 +20,11 @@
     "devDependencies": {
         "@graphql-codegen/cli": "^5.0.2",
         "@graphql-codegen/client-preset": "^4.2.4",
+        "@graphql-codegen/introspection": "^4.0.3",
         "@graphql-codegen/typescript": "^4.0.6",
         "@graphql-codegen/typescript-operations": "^4.2.0",
         "@graphql-codegen/typescript-react-apollo": "^4.1.0",
-        "@graphql-codegen/introspection": "^4.0.3",
+        "@types/node": "^20.11.0",
         "typescript": "^5.3.3"
     }
 }

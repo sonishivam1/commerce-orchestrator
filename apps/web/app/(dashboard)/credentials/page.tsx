@@ -1,12 +1,11 @@
 import type { Metadata } from 'next';
+import { CredentialList } from '@/components/credentials/credential-list';
 
-export const metadata: Metadata = { title: 'Credentials | Commerce Orchestrator' };
+export const metadata: Metadata = {
+    title: 'Credentials | Commerce Orchestrator',
+    description: 'Manage your encrypted platform API credentials.',
+};
 
 export default function CredentialsPage() {
-    return (
-        <div>
-            <h1 className="text-3xl font-bold mb-6">Platform Credentials</h1>
-            {/* TODO: CredentialCard list + AddCredentialModal */}
-        </div>
-    );
+    return <CredentialList />;
 }

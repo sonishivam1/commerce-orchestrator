@@ -19,40 +19,14 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { QUEUE_ETL, QUEUE_SCRAPE } from '@cdo/shared';
 import { JobProducer } from './producers/job.producer';
-
-/** Standard Redis port — used as fallback if REDIS_PORT is not set */
-const DEFAULT_REDIS_PORT = 6379;
-
-/**
- * Reads and validates Redis connection environment variables.
- * Throws descriptively if required variables are absent.
- */
-function getRedisConfig(): { host: string; port: number; password?: string } {
-    const host = process.env.REDIS_HOST;
-
-    if (!host) {
-        throw new Error(
-            '[QueueModule] REDIS_HOST environment variable is not set. ' +
-            'Please add it to your .env file before starting the application.',
-        );
-    }
-
-    const port = process.env.REDIS_PORT
-        ? parseInt(process.env.REDIS_PORT, 10)
-        : DEFAULT_REDIS_PORT;
-
-    // Password is optional — only set when Redis requires authentication
-    const password = process.env.REDIS_PASSWORD || undefined;
-
-    return { host, port, password };
-}
+import { createRedisConnection } from '@cdo/redis';
 
 @Module({
     imports: [
         // Register Redis connection once — shared by all queues in this module
         BullModule.forRootAsync({
             useFactory: () => ({
-                connection: getRedisConfig(),
+                connection: createRedisConnection(),
             }),
         }),
 

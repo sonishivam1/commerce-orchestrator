@@ -7,9 +7,13 @@ export const metadata: Metadata = {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="flex h-screen bg-background">
+        <div className="flex h-screen bg-[#0A101C] text-slate-100 overflow-hidden antialiased selection:bg-primary/30">
             <SidebarNav />
-            <main className="flex-1 overflow-auto p-8">{children}</main>
+            <main className="flex-1 overflow-x-hidden overflow-y-auto">
+                <div className="p-6 max-w-7xl mx-auto">
+                    {children}
+                </div>
+            </main>
         </div>
     );
 }

@@ -45,16 +45,23 @@ const REPOSITORIES = [
 
 /**
  * Reads MONGODB_URI from the process environment.
- * Throws a descriptive error instead of passing undefined to Mongoose.
+ * If missing, initializes a virtual in-memory MongoDB server for development.
  */
-function getMongoUri(): string {
+async function getMongoUri(): Promise<string> {
     const uri = process.env['MONGODB_URI'];
 
     if (!uri) {
-        throw new Error(
-            '[DatabaseModule] MONGODB_URI environment variable is not set. ' +
-            'Please add it to your .env file before starting the application.',
-        );
+        console.log('🏗️  [Database] MONGODB_URI not set. Initializing Virtual MongoDB (MongoMemoryServer)');
+        // Defer load to avoid overhead if not needed
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { MongoMemoryServer } = require('mongodb-memory-server');
+        const mongod = await MongoMemoryServer.create({
+            instance: {
+                dbName: 'cdo-db',
+            },
+        });
+        const mockUri = mongod.getUri();
+        return mockUri;
     }
 
     return uri;
@@ -87,8 +94,8 @@ class DatabaseConnectionLogger implements OnApplicationBootstrap {
     imports: [
         // Async factory reads MONGODB_URI at startup — never hardcoded
         MongooseModule.forRootAsync({
-            useFactory: () => ({
-                uri: getMongoUri(),
+            useFactory: async () => ({
+                uri: await getMongoUri(),
             }),
         }),
         FEATURE_MODULES,
