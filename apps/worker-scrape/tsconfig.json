@@ -1,0 +1,17 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./dist",
+        "lib": ["ES2022", "DOM"],
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "noEmit": false
+    },
+    "include": [
+        "src"
+    ],
+    "exclude": [
+        "dist",
+        "node_modules"
+    ]
+}

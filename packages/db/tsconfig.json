@@ -1,0 +1,28 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "dist",
+        "lib": [
+            "ES2022",
+            "DOM"
+        ],
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "strictPropertyInitialization": false,
+        "rootDir": "src",
+        "composite": true,
+        "declaration": true
+    },
+    "include": [
+        "src"
+    ],
+    "exclude": [
+        "dist",
+        "node_modules"
+    ],
+    "references": [
+        {
+            "path": "../shared"
+        }
+    ]
+}

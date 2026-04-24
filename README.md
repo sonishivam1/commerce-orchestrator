@@ -6,6 +6,32 @@ The Commerce Data Orchestrator is a robust, multi-tenant SaaS integration bus de
 ## System Purpose
 To provide a highly scalable, idempotent, and intelligent data migration and synchronization pipeline that eliminates manual data mapping and platform-specific tight coupling.
 
+---
+
+## 🖥️ UI Previews
+
+> These are design mockups of the `apps/web` Next.js control panel — built on top of `@cdo/ui` (shadcn) and `@cdo/gql` (Apollo + GraphQL Codegen).
+
+### Login
+![Login Page](docs/ui-previews/02-login.png)
+
+### Jobs Dashboard
+![Jobs Dashboard](docs/ui-previews/01-jobs-dashboard.png)
+
+### Job Detail & Pipeline Progress
+![Job Detail](docs/ui-previews/03-job-detail.png)
+
+### Create New Job (Wizard)
+![Create Job Wizard](docs/ui-previews/04-create-job.png)
+
+### Platform Credentials Management
+![Credentials Page](docs/ui-previews/05-credentials.png)
+
+### Dead Letter Queue (DLQ) Viewer
+![Dead Letter Queue](docs/ui-previews/06-dlq.png)
+
+---
+
 ## High-Level Architecture Summary
 The system operates on an ETL (Extract, Transform, Load) paradigm built around a **Universal Canonical Contract**. 
 - **Ingestion**: Scrapes websites, consumes files, or pulls from APIs.

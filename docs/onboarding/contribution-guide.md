@@ -16,7 +16,7 @@ Before writing any code, review the [Dependency Graph](../architecture/dependenc
 ## Code Standards
 * **No Global State**: Variables caching must happen strictly bound to a `class` instantiation.
 * **Return Early**: Avoid nested `if/else` statements.
-* **Zod Schemas**: If you change a Canonical interface in `@repo/shared`, you must also update its `.schema.ts` counterpart.
+* **Zod Schemas**: If you change a Canonical interface in `@cdo/shared`, you must also update its `.schema.ts` counterpart.
 
 ## Testing
 Run all unit tests across the monorepo:

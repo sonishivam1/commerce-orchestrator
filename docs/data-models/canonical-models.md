@@ -20,7 +20,7 @@ flowchart TD
 ```
 
 ## Structure
-All models exist in `@repo/shared` and follow a strict TypeScript interface coupled with runtime `Zod` validation schemas.
+All models exist in `@cdo/shared` and follow a strict TypeScript interface coupled with runtime `Zod` validation schemas.
 
 ### 1. `CanonicalProduct`
 - `id`: System unique identifier.

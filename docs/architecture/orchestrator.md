@@ -1,6 +1,6 @@
 # Orchestrator Layer
 
-The Orchestrator resides within the Worker Apps (`apps/worker-etl`, etc.) but delegates actual logic to the `@repo/core` ETL Engine.
+The Orchestrator resides within the Worker Apps (`apps/worker-etl`, etc.) but delegates actual logic to the `@cdo/core` ETL Engine.
 
 ## Orchestrator Responsibilities
 1. **Decoupling**: Provides runtime instances of connectors and mappers to the Core Engine.

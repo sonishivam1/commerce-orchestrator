@@ -1,0 +1,27 @@
+{
+    "name": "@cdo/queue",
+    "version": "0.0.0",
+    "private": true,
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "scripts": {
+        "build": "tsc --build",
+        "lint": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@cdo/redis": "workspace:*",
+        "@cdo/shared": "workspace:*",
+        "@nestjs/bullmq": "^10.0.0",
+        "@nestjs/common": "^10.0.0",
+        "bullmq": "^5.70.1",
+        "ioredis": "^5.9.3",
+        "ioredis-mock": "^8.13.1",
+        "mongodb-memory-server": "^10.0.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3"
+    }
+}

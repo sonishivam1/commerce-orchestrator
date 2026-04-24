@@ -1,6 +1,6 @@
 # Mapping & Normalization Layer
 
-The Mapping layer (`@repo/mapping`) acts as the translative bridge. It receives raw arrays of data from the Ingestion Layer or Source Connectors and forces them into strict, typified Canonical Models.
+The Mapping layer (`@cdo/mapping`) acts as the translative bridge. It receives raw arrays of data from the Ingestion Layer or Source Connectors and forces them into strict, typified Canonical Models.
 
 ## Core Rules
 **The user does not explicitly map fields**. 

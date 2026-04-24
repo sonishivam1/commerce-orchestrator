@@ -1,0 +1,26 @@
+{
+    "name": "@cdo/connectors",
+    "version": "0.0.0",
+    "private": true,
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "scripts": {
+        "build": "tsc --build",
+        "lint": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@cdo/core": "workspace:*",
+        "@cdo/mapping": "workspace:^",
+        "@cdo/shared": "workspace:*",
+        "@commercetools/platform-sdk": "^8.25.0",
+        "@commercetools/sdk-client-v2": "^3.4.0",
+        "@types/node-fetch": "^2.6.13",
+        "node-fetch": "^3.3.2"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3"
+    }
+}

@@ -1,0 +1,25 @@
+{
+    "name": "@cdo/db",
+    "version": "0.0.0",
+    "private": true,
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "scripts": {
+        "build": "tsc --build",
+        "lint": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@cdo/shared": "workspace:*",
+        "@nestjs/common": "^10.0.0",
+        "@nestjs/mongoose": "^10.0.0",
+        "bullmq": "^5.0.0",
+        "ioredis": "^5.3.0",
+        "ioredis-mock": "^8.9.0",
+        "mongodb-memory-server": "^10.4.3",
+        "mongoose": "^8.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.0",
+        "typescript": "^5.3.3"
+    }
+}
