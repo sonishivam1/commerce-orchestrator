@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(pnpm run *)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm install)",
+      "Bash(npx tsc *)",
+      "Bash(npx jest *)",
+      "Bash(turbo run *)",
+      "Bash(docker compose *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(git show *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -r *)",
+      "Bash(del /s *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(npx create-*)",
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./apps/web/.env.local)",
+      "Read(**/*.pem)",
+      "Read(**/secrets/**)"
+    ]
+  }
+}
