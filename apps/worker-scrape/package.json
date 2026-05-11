@@ -21,6 +21,8 @@
         "@nestjs/config": "^4.0.3",
         "@nestjs/core": "^10.0.0",
         "bullmq": "^5.0.0",
+        "ioredis": "^5.10.1",
+        "redlock": "5.0.0-beta.2",
         "reflect-metadata": "^0.1.13",
         "rxjs": "^7.8.1"
     },
