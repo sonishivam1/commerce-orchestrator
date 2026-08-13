@@ -133,7 +133,7 @@ export function JobList() {
     const [search, setSearch] = useState('');
 
     const { data, loading, error, refetch } = useQuery<{ jobs: Job[] }>(GET_JOBS, {
-        pollInterval: 10_000,
+        pollInterval: 5000,
     });
 
     const [deleteJob, { loading: deleting }] = useMutation(DELETE_JOB, {
