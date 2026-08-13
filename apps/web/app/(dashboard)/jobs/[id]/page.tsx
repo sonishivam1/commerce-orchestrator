@@ -3,7 +3,9 @@
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_JOB } from '@/lib/graphql/queries/job.queries';
 import { GET_DLQ_ITEMS } from '@/lib/graphql/queries/dlq.queries';
-import { REPLAY_JOB } from '@/lib/graphql/mutations';
+import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
+import { REPLAY_JOB, DELETE_JOB, DELETE_DLQ_ITEM } from '@/lib/graphql/mutations';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
     CheckCircle2,
@@ -18,14 +20,19 @@ import {
     Zap,
     Layers,
     ArrowRight,
-    Search,
-    Filter,
-    ArrowUpRight,
     Play,
     Trash2,
     ChevronDown,
-    Map
+    Map,
+    AlertTriangle,
+    Download,
 } from 'lucide-react';
+
+interface Credential {
+    id: string;
+    platform: string;
+    alias: string;
+}
 
 interface Job {
     id: string;
@@ -36,14 +43,22 @@ interface Job {
     completedAt?: string;
     processedCount: number;
     failedCount: number;
+    sourceCredentialId?: string;
+    targetCredentialId?: string;
+    sourceUrl?: string;
 }
 
 interface DlqItem {
     id: string;
+    jobId: string;
     itemKey: string;
     errorType: string;
     errorMessage: string;
     rawPayload?: string;
+    canReplay: boolean;
+    replayed: boolean;
+    replayedAt?: string;
+    createdAt: string;
 }
 
 function cn(...classes: (string | false | undefined | null)[]) {
@@ -51,21 +66,25 @@ function cn(...classes: (string | false | undefined | null)[]) {
 }
 
 /* ─── Status Badge ─────────────────────────────────────────── */
-const STATUS_STYLE: Record<string, { bg: string, text: string, border: string }> = {
-    RUNNING: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' },
+const STATUS_STYLE: Record<string, { bg: string; text: string; border: string }> = {
+    RUNNING:   { bg: 'bg-blue-500/10',    text: 'text-blue-400',    border: 'border-blue-500/20'    },
     COMPLETED: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
-    FAILED: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' },
-    PENDING: { bg: 'bg-slate-700/10', text: 'text-slate-300', border: 'border-slate-600/20' },
+    FAILED:    { bg: 'bg-red-500/10',     text: 'text-red-400',     border: 'border-red-500/20'     },
+    PENDING:   { bg: 'bg-slate-700/10',   text: 'text-slate-300',   border: 'border-slate-600/20'   },
 };
 
 function StatusBadge({ status }: { status: string }) {
     const style = STATUS_STYLE[status] ?? STATUS_STYLE.PENDING;
     return (
         <span className={cn(
-            "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-[11px] font-black tracking-widest uppercase border",
-            style.bg, style.text, style.border
+            'inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-[11px] font-black tracking-widest uppercase border',
+            style.bg, style.text, style.border,
         )}>
-            <div className={cn("h-1.5 w-1.5 rounded-full", status === 'RUNNING' && "animate-pulse", style.text.replace('text', 'bg'))} />
+            <div className={cn(
+                'h-1.5 w-1.5 rounded-full',
+                status === 'RUNNING' && 'animate-pulse',
+                style.text.replace('text', 'bg'),
+            )} />
             {status}
         </span>
     );
@@ -82,32 +101,31 @@ function MetricCard({
     title: string;
     value: string | number;
     unit: string;
-    icon: any;
+    icon: React.ComponentType<{ className?: string }>;
     color?: 'blue' | 'emerald' | 'red' | 'amber' | 'indigo';
 }) {
-    const themes = {
-        blue: 'border-t-blue-500 shadow-blue-500/5',
+    const themes: Record<string, string> = {
+        blue:    'border-t-blue-500 shadow-blue-500/5',
         emerald: 'border-t-emerald-500 shadow-emerald-500/5',
-        red: 'border-t-red-500 shadow-red-500/5',
-        amber: 'border-t-amber-500 shadow-amber-500/5',
-        indigo: 'border-t-indigo-500 shadow-indigo-500/5',
+        red:     'border-t-red-500 shadow-red-500/5',
+        amber:   'border-t-amber-500 shadow-amber-500/5',
+        indigo:  'border-t-indigo-500 shadow-indigo-500/5',
     };
-
-    const iconColors = {
-        blue: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+    const iconColors: Record<string, string> = {
+        blue:    'text-blue-400 bg-blue-500/10 border-blue-500/20',
         emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-        red: 'text-red-400 bg-red-500/10 border-red-500/20',
-        amber: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-        indigo: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+        red:     'text-red-400 bg-red-500/10 border-red-500/20',
+        amber:   'text-amber-400 bg-amber-500/10 border-amber-500/20',
+        indigo:  'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
     };
 
     return (
         <div className={cn(
-            "bg-[#1E293B]/40 backdrop-blur-sm border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] border-t-2 shadow-2xl",
-            themes[color]
+            'bg-[#1E293B]/40 backdrop-blur-sm border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] border-t-2 shadow-2xl',
+            themes[color],
         )}>
             <div className="flex items-center gap-3 mb-4">
-                <div className={cn("h-10 w-10 flex items-center justify-center rounded-xl border shrink-0", iconColors[color])}>
+                <div className={cn('h-10 w-10 flex items-center justify-center rounded-xl border shrink-0', iconColors[color])}>
                     <Icon className="h-5 w-5" />
                 </div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{title}</span>
@@ -120,12 +138,65 @@ function MetricCard({
     );
 }
 
-/* ─── Source-Destination Map Visual ────────────────────────── */
-function PipelineBridge({ job }: { job: Job }) {
+/* ─── Duration helper ──────────────────────────────────────── */
+function computeDuration(createdAt: string, completedAt?: string): string {
+    const start = new Date(createdAt).getTime();
+    const end = completedAt ? new Date(completedAt).getTime() : Date.now();
+    const ms = end - start;
+    if (ms < 1_000) return `${ms}ms`;
+    if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+    const m = Math.floor(ms / 60_000);
+    const s = Math.floor((ms % 60_000) / 1000);
+    return `${m}m ${s}s`;
+}
+
+/* ─── Copy to clipboard ────────────────────────────────────── */
+function CopyButton({ value }: { value: string }) {
+    const [copied, setCopied] = React.useState(false);
+    const handleCopy = () => {
+        navigator.clipboard.writeText(value).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        });
+    };
+    return (
+        <button
+            onClick={handleCopy}
+            title="Copy to clipboard"
+            className="ml-2 text-slate-600 hover:text-primary cursor-pointer transition-colors"
+        >
+            {copied ? (
+                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+            ) : (
+                <Copy className="h-3 w-3" />
+            )}
+        </button>
+    );
+}
+
+/* ─── Pipeline Visualization ───────────────────────────────── */
+function PipelineBridge({
+    job,
+    credentials,
+}: {
+    job: Job;
+    credentials: Credential[];
+}) {
+    const srcCred = credentials.find(c => c.id === job.sourceCredentialId);
+    const dstCred = credentials.find(c => c.id === job.targetCredentialId);
+
+    const sourceLabel = srcCred?.alias ?? (job.sourceUrl ? 'Web Source' : job.sourceCredentialId?.substring(0, 12) ?? '—');
+    const sourcePlatform = srcCred?.platform ?? (job.sourceUrl ? 'URL' : 'Unknown');
+    const sourceDetail = job.sourceUrl ?? job.sourceCredentialId ?? '—';
+
+    const destLabel = dstCred?.alias ?? job.targetCredentialId?.substring(0, 12) ?? '—';
+    const destPlatform = dstCred?.platform ?? 'Unknown';
+    const destDetail = job.targetCredentialId ?? '—';
+
     return (
         <div className="bg-[#1E293B]/20 border border-white/5 rounded-[32px] p-8 flex items-center justify-between gap-12 relative overflow-hidden group shadow-inner">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
+
             {/* Source */}
             <div className="flex-1 space-y-4 relative z-10">
                 <div className="flex items-center gap-3">
@@ -133,54 +204,66 @@ function PipelineBridge({ job }: { job: Job }) {
                         <Map className="h-5 w-5 text-blue-400" />
                     </div>
                     <div>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Source Entity</p>
-                        <p className="text-sm font-bold text-white uppercase tracking-tight">Commercetools Dev</p>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Source — {sourcePlatform}</p>
+                        <p className="text-sm font-bold text-white uppercase tracking-tight">{sourceLabel}</p>
                     </div>
                 </div>
                 <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
-                    <p className="text-[11px] font-mono text-slate-400">shard://us-central1.gcp.ct/project-alpha</p>
+                    <p className="text-[11px] font-mono text-slate-400 break-all">{sourceDetail}</p>
                 </div>
             </div>
 
-            {/* Transition Animation */}
+            {/* Arrow */}
             <div className="flex flex-col items-center gap-2 px-4 relative">
                 <div className="w-48 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary to-transparent animate-shimmer" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary to-transparent animate-pulse opacity-60" />
                 </div>
                 <div className="h-12 w-12 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center shadow-2xl relative z-10">
                     <ArrowRight className="h-6 w-6 text-primary" />
                 </div>
-                <span className="text-[9px] font-black text-primary uppercase tracking-[0.3em] animate-pulse">Relaying</span>
+                <span className="text-[9px] font-black text-primary uppercase tracking-[0.3em] animate-pulse">
+                    {job.status === 'RUNNING' ? 'Relaying' : job.status}
+                </span>
             </div>
 
             {/* Destination */}
             <div className="flex-1 space-y-4 relative z-10 text-right">
                 <div className="flex items-center gap-3 justify-end">
                     <div>
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Sink Entity</p>
-                        <p className="text-sm font-bold text-white uppercase tracking-tight">BigCommerce Prod</p>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Sink — {destPlatform}</p>
+                        <p className="text-sm font-bold text-white uppercase tracking-tight">{destLabel}</p>
                     </div>
                     <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
                         <Zap className="h-5 w-5 text-primary" />
                     </div>
                 </div>
                 <div className="bg-black/20 rounded-2xl p-4 border border-white/5 text-left">
-                    <p className="text-[11px] font-mono text-emerald-400">https://api.bigcommerce.com/stores/x7z2...</p>
+                    <p className="text-[11px] font-mono text-emerald-400 break-all">{destDetail}</p>
                 </div>
             </div>
         </div>
     );
 }
 
-/* ─── Failed Items Section ─────────────────────────────────── */
-function FailedItemsTable({ jobId, failedCount }: { jobId: string; failedCount: number }) {
-    const { data, loading } = useQuery<{ dlqItems: DlqItem[] }>(GET_DLQ_ITEMS, {
+/* ─── Failed Items Table ───────────────────────────────────── */
+function FailedItemsTable({
+    jobId,
+    failedCount,
+}: {
+    jobId: string;
+    failedCount: number;
+}) {
+    const { data, loading, refetch } = useQuery<{ dlqItems: DlqItem[] }>(GET_DLQ_ITEMS, {
         variables: { jobId },
         skip: failedCount === 0,
     });
 
     const [replayItem, { loading: replaying }] = useMutation(REPLAY_JOB, {
-        refetchQueries: ['GetJob'],
+        refetchQueries: ['GetJob', 'GetDlqItems'],
+    });
+
+    const [deleteItem] = useMutation(DELETE_DLQ_ITEM, {
+        onCompleted: () => refetch(),
     });
 
     const items = data?.dlqItems ?? [];
@@ -195,8 +278,10 @@ function FailedItemsTable({ jobId, failedCount }: { jobId: string; failedCount: 
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Buffer Status:</span>
                     <span className={cn(
-                        "text-xs font-bold px-3 py-1 rounded-lg border",
-                        failedCount > 0 ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                        'text-xs font-bold px-3 py-1 rounded-lg border',
+                        failedCount > 0
+                            ? 'text-red-400 bg-red-500/10 border-red-500/20'
+                            : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
                     )}>
                         {failedCount > 0 ? 'ATTENTION REQUIRED' : 'MESH OPTIMIZED'}
                     </span>
@@ -233,7 +318,10 @@ function FailedItemsTable({ jobId, failedCount }: { jobId: string; failedCount: 
                                 <tr key={item.id} className="hover:bg-white/[0.03] transition-colors group">
                                     <td className="px-8 py-4">
                                         <div className="flex items-center gap-2">
-                                            <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                                            <div className={cn(
+                                                'h-1.5 w-1.5 rounded-full',
+                                                item.replayed ? 'bg-emerald-500' : 'bg-red-500 animate-pulse',
+                                            )} />
                                             <span className="font-mono text-xs text-slate-300 tracking-tighter">{item.itemKey}</span>
                                         </div>
                                     </td>
@@ -249,15 +337,24 @@ function FailedItemsTable({ jobId, failedCount }: { jobId: string; failedCount: 
                                     </td>
                                     <td className="px-8 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            <button 
-                                                disabled={replaying || item.errorType === 'FATAL'}
+                                            <button
+                                                disabled={replaying || !item.canReplay || item.replayed}
                                                 onClick={() => replayItem({ variables: { jobId, dlqItemId: item.id } })}
-                                                className="h-9 px-4 rounded-xl bg-primary/20 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all text-[11px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-30"
+                                                title={item.replayed ? 'Already replayed' : !item.canReplay ? 'Not replayable (VALIDATION error)' : 'Retry item'}
+                                                className="h-9 px-4 rounded-xl bg-primary/20 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all text-[11px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
                                             >
-                                                {replaying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />} 
-                                                Retry
+                                                {replaying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />}
+                                                {item.replayed ? 'Replayed' : 'Retry'}
                                             </button>
-                                            <button className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-red-400 transition-all">
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm('Delete this DLQ item?')) {
+                                                        deleteItem({ variables: { id: item.id } });
+                                                    }
+                                                }}
+                                                title="Delete DLQ item"
+                                                className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-red-400 hover:border-red-400/20 transition-all"
+                                            >
                                                 <Trash2 className="h-4 w-4" />
                                             </button>
                                         </div>
@@ -273,10 +370,20 @@ function FailedItemsTable({ jobId, failedCount }: { jobId: string; failedCount: 
 }
 
 /* ─── Main Page ────────────────────────────────────────────── */
+import React from 'react';
+
 export default function JobDetailPage({ params }: { params: { id: string } }) {
+    const router = useRouter();
+
     const { data, loading, error } = useQuery<{ job: Job }>(GET_JOB, {
         variables: { id: params.id },
         pollInterval: 5_000,
+    });
+
+    const { data: credsData } = useQuery<{ credentials: Credential[] }>(GET_CREDENTIALS);
+
+    const [deleteJob, { loading: deleting }] = useMutation(DELETE_JOB, {
+        onCompleted: () => router.push('/jobs'),
     });
 
     if (loading) {
@@ -290,16 +397,19 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
     if (error || !data?.job) {
         return (
-            <div className="max-w-2xl mx-auto py-20 animate-in shake-1">
+            <div className="max-w-2xl mx-auto py-20">
                 <Link href="/jobs" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-white transition-colors mb-8">
-                    <ChevronRight className="h-4 w-4 rotate-180" /> Back to Dashboard
+                    <ChevronRight className="h-4 w-4 rotate-180" /> Back to Jobs
                 </Link>
                 <div className="rounded-[32px] bg-red-500/5 border border-red-500/10 p-10 text-center">
-                    <Activity className="h-16 w-16 text-red-500 mx-auto mb-6" />
-                    <h1 className="text-2xl font-black text-white tracking-tighter mb-2">Endpoint Desynchronized</h1>
-                    <p className="text-sm text-slate-400 mb-8 font-medium">{error?.message ?? 'Requested job identifier is not present in local mesh.'}</p>
-                    <button onClick={() => window.location.reload()} className="bg-red-500 hover:bg-red-600 text-white font-black px-8 py-4 rounded-2xl text-[13px] uppercase tracking-widest transition-all">
-                        Retry Handshake
+                    <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-6" />
+                    <h1 className="text-2xl font-black text-white tracking-tighter mb-2">Job Not Found</h1>
+                    <p className="text-sm text-slate-400 mb-8 font-medium">{error?.message ?? 'Job ID not found in this tenant.'}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="bg-red-500 hover:bg-red-600 text-white font-black px-8 py-4 rounded-2xl text-[13px] uppercase tracking-widest transition-all"
+                    >
+                        Retry
                     </button>
                 </div>
             </div>
@@ -307,6 +417,17 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
     }
 
     const job = data.job;
+    const credentials = credsData?.credentials ?? [];
+    const duration = computeDuration(job.createdAt, job.completedAt);
+    const errorRate = job.processedCount + job.failedCount > 0
+        ? `${((job.failedCount / (job.processedCount + job.failedCount)) * 100).toFixed(1)}%`
+        : '0%';
+
+    const handleDelete = () => {
+        if (confirm('Delete this job? This cannot be undone.')) {
+            deleteJob({ variables: { id: job.id } });
+        }
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
@@ -319,23 +440,27 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                     <ChevronDown className="h-2 w-2 -rotate-90" />
                     <span className="text-slate-300">JOB-{job.id.substring(0, 8).toUpperCase()}</span>
                 </nav>
-                <div className="flex items-center gap-4">
+
+                {/* Trace ID badge */}
+                {job.traceId && (
                     <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 rounded-xl">
                         <Hash className="h-3.5 w-3.5 text-slate-500" />
-                        <span className="text-xs font-bold text-slate-300 tracking-widest">TR-9821-X2</span>
-                        <Copy className="h-3 w-3 text-slate-600 hover:text-primary cursor-pointer transition-colors ml-2" />
+                        <span className="text-xs font-bold text-slate-300 tracking-widest font-mono">
+                            {job.traceId.substring(0, 13).toUpperCase()}
+                        </span>
+                        <CopyButton value={job.traceId} />
                     </div>
-                </div>
+                )}
             </div>
 
-            {/* Header Area */}
+            {/* Header */}
             <div className="flex items-end justify-between">
                 <div>
                     <h1 className={cn(
-                        "text-5xl font-black tracking-tighter mb-3",
-                        job.kind.includes('SCRAPE') ? "text-indigo-400" : "text-blue-400"
+                        'text-5xl font-black tracking-tighter mb-3',
+                        job.kind.includes('SCRAPE') ? 'text-indigo-400' : 'text-blue-400',
                     )}>
-                        {job.kind}
+                        {job.kind.replace(/_/g, ' ')}
                     </h1>
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-3">
@@ -344,13 +469,17 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                                 Started {new Date(job.createdAt).toLocaleString()}
                             </span>
                         </div>
-                        <div className="h-1 w-1 rounded-full bg-slate-700" />
-                        <div className="flex items-center gap-3">
-                            <Activity className="h-4 w-4 text-slate-500" />
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">
-                                Real-time Telemetry Active
-                            </span>
-                        </div>
+                        {job.completedAt && (
+                            <>
+                                <div className="h-1 w-1 rounded-full bg-slate-700" />
+                                <div className="flex items-center gap-3">
+                                    <Timer className="h-4 w-4 text-slate-500" />
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">
+                                        Finished {new Date(job.completedAt).toLocaleString()}
+                                    </span>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
                 <StatusBadge status={job.status} />
@@ -358,62 +487,70 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <MetricCard 
-                    title="Throughput" 
-                    value={job.processedCount.toLocaleString()} 
-                    unit="Items" 
-                    icon={Activity} 
-                    color="blue" 
+                <MetricCard
+                    title="Throughput"
+                    value={job.processedCount.toLocaleString()}
+                    unit="Items"
+                    icon={Activity}
+                    color="blue"
                 />
-                <MetricCard 
-                    title="Latency" 
-                    value="124ms" 
-                    unit="Avg" 
-                    icon={Clock} 
-                    color="amber" 
+                <MetricCard
+                    title="Duration"
+                    value={duration}
+                    unit={job.completedAt ? 'Total' : 'Elapsed'}
+                    icon={Timer}
+                    color="amber"
                 />
-                <MetricCard 
-                    title="Error Rate" 
-                    value={`${((job.failedCount / (job.processedCount || 1)) * 100).toFixed(1)}%`} 
-                    unit="Ratio" 
-                    icon={XCircle} 
-                    color="red" 
+                <MetricCard
+                    title="Error Rate"
+                    value={errorRate}
+                    unit="Ratio"
+                    icon={RotateCcw}
+                    color="red"
                 />
-                <MetricCard 
-                    title="Queue Load" 
-                    value="12%" 
-                    unit="Cap" 
-                    icon={Layers} 
-                    color="indigo" 
+                <MetricCard
+                    title="DLQ Depth"
+                    value={job.failedCount}
+                    unit="Items"
+                    icon={Layers}
+                    color="indigo"
                 />
             </div>
 
             {/* Pipeline Visualization */}
-            <PipelineBridge job={job} />
+            <PipelineBridge job={job} credentials={credentials} />
 
             {/* Faults Section */}
             <FailedItemsTable jobId={job.id} failedCount={job.failedCount} />
 
             {/* Actions */}
             <div className="flex items-center gap-4 pt-4 border-t border-white/5">
-                <button className="flex-1 bg-white/5 hover:bg-white/10 text-white font-black py-4 rounded-2xl text-[13px] uppercase tracking-widest transition-all">
-                    Generate Post-Mortem
+                <button
+                    onClick={() => {
+                        const payload = JSON.stringify(job, null, 2);
+                        const blob = new Blob([payload], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `job-${job.id}-trace.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 text-white font-black py-4 rounded-2xl text-[13px] uppercase tracking-widest transition-all"
+                >
+                    <Download className="h-4 w-4" />
+                    Download Trace (JSON)
                 </button>
-                <button className="flex-1 bg-white/5 hover:bg-white/10 text-white font-black py-4 rounded-2xl text-[13px] uppercase tracking-widest transition-all">
-                    Download Raw Trace (JSON)
-                </button>
-                <button className="h-[60px] w-[60px] flex items-center justify-center rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-xl shadow-red-500/10">
-                    <Trash2 className="h-6 w-6" />
+
+                <button
+                    onClick={handleDelete}
+                    disabled={deleting || job.status === 'RUNNING'}
+                    title={job.status === 'RUNNING' ? 'Cannot delete a running job' : 'Delete job'}
+                    className="h-[60px] w-[60px] flex items-center justify-center rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-xl shadow-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                    {deleting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-6 w-6" />}
                 </button>
             </div>
         </div>
     );
 }
-
-// Helper icons missing in imports
-const XCircle = ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
-    </svg>
-);
-

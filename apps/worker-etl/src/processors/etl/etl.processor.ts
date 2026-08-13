@@ -1,12 +1,13 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
-import { randomBytes, createDecipheriv } from 'crypto';
 import { CredentialRepository, JobRepository } from '@cdo/db';
 import { DataEtlOrchestrator } from '../../orchestrator/data-etl.orchestrator';
 import { ConnectorFactory } from '@cdo/connectors';
 import { EtlContext } from '@cdo/core';
-import { ErrorType, QUEUE_ETL } from '@cdo/shared';
+import { QUEUE_ETL } from '@cdo/shared';
+import { CredentialDecryptor } from '../../services/credential.decryptor';
+import { LockService } from '../../services/lock.service';
 
 @Processor(QUEUE_ETL)
 export class EtlProcessor extends WorkerHost {
@@ -15,82 +16,70 @@ export class EtlProcessor extends WorkerHost {
     constructor(
         private readonly credentialRepository: CredentialRepository,
         private readonly jobRepository: JobRepository,
-        private readonly orchestrator: DataEtlOrchestrator
+        private readonly orchestrator: DataEtlOrchestrator,
+        private readonly decryptor: CredentialDecryptor,
+        private readonly lockService: LockService,
     ) {
         super();
-    }
-
-    private decryptCredentials(encryptedPayload: string, ivHex: string, authTagHex: string): Record<string, unknown> {
-        const keyHex = process.env.CREDENTIAL_KEY;
-        if (!keyHex || keyHex.length !== 64) {
-            this.logger.warn('CREDENTIAL_KEY is missing or invalid. Using fallback mock decryption for dev.');
-            // Fallback for dev without strict encryption key
-            if (encryptedPayload.startsWith('{')) {
-                return JSON.parse(encryptedPayload);
-            }
-            return {};
-        }
-
-        const key = Buffer.from(keyHex, 'hex');
-        const iv = Buffer.from(ivHex, 'hex');
-        const authTag = Buffer.from(authTagHex, 'hex');
-
-        const decipher = createDecipheriv('aes-256-gcm', key, iv);
-        decipher.setAuthTag(authTag);
-
-        let decrypted = decipher.update(encryptedPayload, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-
-        return JSON.parse(decrypted);
     }
 
     async process(job: Job): Promise<void> {
         const { tenantId, jobId, kind, sourceCredentialId, targetCredentialId } = job.data;
 
-        this.logger.log(`Starting ETL Job ${jobId} for tenant ${tenantId} (${kind})`);
+        this.logger.log(`[${jobId}] ETL job picked up — kind=${kind} tenant=${tenantId}`);
+
+        // Mark RUNNING immediately so the UI reflects live status
+        await this.jobRepository.markRunning(jobId);
+
+        let lock = null;
 
         try {
-            // Step 1: Fetch credentials
+            // Step 1: Fetch encrypted credentials from DB
             const sourceDoc = await this.credentialRepository.findOneDecrypted(tenantId, sourceCredentialId);
             const targetDoc = await this.credentialRepository.findOneDecrypted(tenantId, targetCredentialId);
 
             if (!sourceDoc || !targetDoc) {
-                throw new Error('Missing source or target credentials required for job execution');
+                throw new Error(`Missing credentials — sourceCredentialId=${sourceCredentialId} targetCredentialId=${targetCredentialId}`);
             }
 
-            const sourceCredentials = this.decryptCredentials(sourceDoc.encryptedPayload, sourceDoc.iv, sourceDoc.authTag);
-            const targetCredentials = this.decryptCredentials(targetDoc.encryptedPayload, targetDoc.iv, targetDoc.authTag);
+            // Step 2: Decrypt credentials in worker memory only
+            const sourceCredentials = this.decryptor.decrypt(
+                sourceDoc.encryptedPayload,
+                sourceDoc.iv,
+                sourceDoc.authTag,
+            );
+            const targetCredentials = this.decryptor.decrypt(
+                targetDoc.encryptedPayload,
+                targetDoc.iv,
+                targetDoc.authTag,
+            );
 
-            // Step 2: Acquire Redis Redlock
-            // TODO: Redis Redlock (Phase 3 distributed locking implementation)
+            // Step 3: Acquire distributed Redlock — prevents concurrent destructive writes
+            lock = await this.lockService.acquire(tenantId, targetCredentialId);
 
-            // Step 3: Instantiate Connectors
+            // Step 4: Instantiate connectors for this platform pair
             const source = ConnectorFactory.createSource(sourceDoc.platform);
             const target = ConnectorFactory.createTarget(targetDoc.platform);
 
-            // Step 4: Hand off to Orchestrator
+            // Step 5: Build context and hand off to orchestrator
             const context: EtlContext = {
                 tenantId,
                 jobId,
                 correlationId: job.id || jobId,
+                lockToken: undefined, // lockToken tracked by LockService internally
                 sourceCredentials,
                 targetCredentials,
             };
 
-            await this.orchestrator.execute({
-                jobKind: kind,
-                source,
-                target,
-                context,
-            });
+            await this.orchestrator.execute({ jobKind: kind, source, target, context });
 
-            this.logger.log(`Job ${jobId} completed successfully.`);
-
+            this.logger.log(`[${jobId}] ETL job completed successfully`);
         } catch (error) {
-            this.logger.error(`Job ${jobId} failed: ${(error as Error).message}`, (error as Error).stack);
-            throw error; // Let BullMQ handle retries and DLQ routing
+            this.logger.error(`[${jobId}] ETL job failed: ${(error as Error).message}`, (error as Error).stack);
+            throw error; // BullMQ handles retries and final DLQ routing
         } finally {
-            // Step 6: Release Redlock
+            // Always release lock — even if job fails or throws
+            await this.lockService.release(lock);
         }
     }
 }

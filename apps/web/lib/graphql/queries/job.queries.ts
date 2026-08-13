@@ -12,6 +12,9 @@ export const GET_JOBS = gql`
       completedAt
       processedCount
       failedCount
+      sourceCredentialId
+      targetCredentialId
+      sourceUrl
     }
   }
 `;
@@ -28,6 +31,9 @@ export const GET_JOB = gql`
       completedAt
       processedCount
       failedCount
+      sourceCredentialId
+      targetCredentialId
+      sourceUrl
     }
   }
 `;

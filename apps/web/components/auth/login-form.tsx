@@ -3,12 +3,16 @@
 import { useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { LOGIN } from '@/lib/graphql/mutations';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { setToken } from '@/lib/auth/session';
 
 export function LoginForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const redirect = searchParams.get('redirect') ?? '/dashboard';
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -16,11 +20,11 @@ export function LoginForm() {
 
     const [login, { loading }] = useMutation(LOGIN, {
         onCompleted(data) {
-            localStorage.setItem('access_token', data.login.accessToken);
-            router.push('/dashboard');
+            setToken(data.login.accessToken);
+            router.push(redirect);
         },
         onError(error) {
-            setErrorMsg(error.message);
+            setErrorMsg(error.message.replace('GraphQL error: ', ''));
         },
     });
 
@@ -32,15 +36,11 @@ export function LoginForm() {
 
     return (
         <div className="flex flex-col w-full">
-            {/* Header Section from Preview 02 */}
-            {/* <div className="text-center mb-10">
-                <h2 className="text-3xl font-extrabold tracking-tight text-white mb-2">Welcome back</h2>
-                <p className="text-sm font-medium text-slate-400">Commerce Data Orchestrator</p>
-            </div> */}
-
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                 <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-400/80 ml-1">Email Address</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-400/80 ml-1">
+                        Email Address
+                    </label>
                     <div className="relative group/input">
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within/input:text-primary transition-colors" />
                         <input
@@ -55,11 +55,13 @@ export function LoginForm() {
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-400/80 ml-1">Password</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-400/80 ml-1">
+                        Password
+                    </label>
                     <div className="relative group/input">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within/input:text-primary transition-colors" />
                         <input
-                            type={showPassword ? "text" : "password"}
+                            type={showPassword ? 'text' : 'password'}
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -74,11 +76,6 @@ export function LoginForm() {
                             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                     </div>
-                    <div className="flex justify-end pt-1">
-                        <Link href="/forgot-password" title="Forgot Password" className="text-[11px] font-bold text-slate-500 hover:text-primary tracking-wide uppercase transition-colors">
-                            Forgot Password?
-                        </Link>
-                    </div>
                 </div>
 
                 {errorMsg && (
@@ -90,15 +87,15 @@ export function LoginForm() {
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full mt-4 bg-primary hover:bg-primary/90 text-white rounded-2xl px-4 py-4 text-[15px] font-extrabold tracking-tight transition-all glow-btn shadow-lg shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center overflow-hidden hover:scale-[1.02] active:scale-95"
+                    className="w-full mt-4 bg-primary hover:bg-primary/90 text-white rounded-2xl px-4 py-4 text-[15px] font-extrabold tracking-tight transition-all shadow-lg shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center hover:scale-[1.02] active:scale-95"
                 >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-                    {loading ? 'Verifying Identity...' : 'Sign In'}
+                    {loading ? 'Verifying...' : 'Sign In'}
                 </button>
 
-                <div className="text-center mt-6 text-sm font-medium text-slate-400">
+                <div className="text-center mt-4 text-sm font-medium text-slate-400">
                     New to CDO?{' '}
-                    <Link href="/register" className="text-primary hover:underline font-bold transition-all">
+                    <Link href="/register" className="text-primary hover:underline font-bold">
                         Create account
                     </Link>
                 </div>
@@ -106,4 +103,3 @@ export function LoginForm() {
         </div>
     );
 }
-
