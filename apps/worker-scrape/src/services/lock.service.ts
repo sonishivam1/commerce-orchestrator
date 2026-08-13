@@ -50,4 +50,9 @@ export class LockService implements OnModuleInit {
             this.logger.warn(`Redlock release failed: ${(err as Error).message}`);
         }
     }
+
+    async extend(lock: Lock, ttl: number): Promise<Lock> {
+        if (!this.redlock) throw new Error('Redlock not initialised');
+        return this.redlock.extend(lock, ttl);
+    }
 }
