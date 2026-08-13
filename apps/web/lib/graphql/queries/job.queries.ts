@@ -9,6 +9,7 @@ export const GET_JOBS = gql`
       status
       traceId
       createdAt
+      startedAt
       completedAt
       processedCount
       failedCount
@@ -28,6 +29,7 @@ export const GET_JOB = gql`
       status
       traceId
       createdAt
+      startedAt
       completedAt
       processedCount
       failedCount

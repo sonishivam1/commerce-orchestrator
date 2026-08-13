@@ -39,6 +39,9 @@ export class JobType {
     createdAt: Date;
 
     @Field({ nullable: true })
+    startedAt?: Date;
+
+    @Field({ nullable: true })
     completedAt?: Date;
 
     @Field({ defaultValue: 0 })

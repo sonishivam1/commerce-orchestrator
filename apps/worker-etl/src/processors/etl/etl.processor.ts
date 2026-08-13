@@ -36,10 +36,17 @@ export class EtlProcessor extends WorkerHost {
         try {
             // Step 1: Fetch encrypted credentials from DB
             const sourceDoc = await this.credentialRepository.findOneDecrypted(tenantId, sourceCredentialId);
-            const targetDoc = await this.credentialRepository.findOneDecrypted(tenantId, targetCredentialId);
+            if (!sourceDoc) {
+                throw new Error(`Missing source credential — sourceCredentialId=${sourceCredentialId}`);
+            }
 
-            if (!sourceDoc || !targetDoc) {
-                throw new Error(`Missing credentials — sourceCredentialId=${sourceCredentialId} targetCredentialId=${targetCredentialId}`);
+            // EXPORT jobs write to disk — no target credential needed
+            let targetDoc = null;
+            if (kind !== 'EXPORT' && targetCredentialId) {
+                targetDoc = await this.credentialRepository.findOneDecrypted(tenantId, targetCredentialId);
+                if (!targetDoc) {
+                    throw new Error(`Missing target credential — targetCredentialId=${targetCredentialId}`);
+                }
             }
 
             // Step 2: Decrypt credentials in worker memory only
@@ -48,18 +55,19 @@ export class EtlProcessor extends WorkerHost {
                 sourceDoc.iv,
                 sourceDoc.authTag,
             );
-            const targetCredentials = this.decryptor.decrypt(
-                targetDoc.encryptedPayload,
-                targetDoc.iv,
-                targetDoc.authTag,
-            );
+
+            const targetCredentials: Record<string, unknown> = targetDoc
+                ? this.decryptor.decrypt(targetDoc.encryptedPayload, targetDoc.iv, targetDoc.authTag)
+                : {};
 
             // Step 3: Acquire distributed Redlock — prevents concurrent destructive writes
-            lock = await this.lockService.acquire(tenantId, targetCredentialId);
+            lock = targetCredentialId ? await this.lockService.acquire(tenantId, targetCredentialId) : null;
 
             // Step 4: Instantiate connectors for this platform pair
             const source = ConnectorFactory.createSource(sourceDoc.platform);
-            const target = ConnectorFactory.createTarget(targetDoc.platform);
+            // For EXPORT, target platform doesn't matter — use source platform as placeholder
+            const targetPlatform = targetDoc?.platform ?? sourceDoc.platform;
+            const target = ConnectorFactory.createTarget(targetPlatform);
 
             // Step 5: Build context and hand off to orchestrator
             const context: EtlContext = {

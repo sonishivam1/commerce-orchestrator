@@ -20,7 +20,10 @@ export class JobRepository {
     }
 
     async markRunning(id: string): Promise<void> {
-        await this.jobModel.updateOne({ _id: id }, { $set: { status: 'RUNNING' } }).exec();
+        await this.jobModel.updateOne(
+            { _id: id },
+            { $set: { status: 'RUNNING', startedAt: new Date() } }
+        ).exec();
     }
 
     async updateProgress(id: string, processedCount: number, failedCount: number): Promise<void> {

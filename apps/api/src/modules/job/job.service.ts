@@ -32,8 +32,9 @@ export class JobService {
         if (!isScrapeJob && !input.sourceCredentialId) {
             throw new BadRequestException('sourceCredentialId is required for ETL jobs');
         }
-        if (!isScrapeJob && !input.targetCredentialId) {
-            throw new BadRequestException('targetCredentialId is required for ETL jobs');
+        const isExport = input.kind === JobKind.EXPORT;
+        if (!isScrapeJob && !isExport && !input.targetCredentialId) {
+            throw new BadRequestException('targetCredentialId is required for migration/clone jobs');
         }
 
         const correlationId = randomUUID();
@@ -100,15 +101,30 @@ export class JobService {
         const parentJob = await this.jobRepository.findOneForTenant(tenantId, jobId);
         if (!parentJob) throw new NotFoundException(`Parent job ${jobId} not found`);
 
-        await this.jobProducer.enqueueEtlJob({
-            jobId: dlqItem.jobId,
-            tenantId,
-            correlationId: randomUUID(),
-            traceId: randomUUID(),
-            kind: parentJob.kind as 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT',
-            sourceCredentialId: parentJob.sourceCredentialId!,
-            targetCredentialId: parentJob.targetCredentialId!,
-        });
+        if (parentJob.kind === 'SCRAPE_IMPORT') {
+            if (!parentJob.sourceUrl) {
+                throw new BadRequestException(`Cannot replay: parent job ${jobId} has no sourceUrl`);
+            }
+            await this.jobProducer.enqueueScrapeJob({
+                jobId: dlqItem.jobId,
+                tenantId,
+                correlationId: randomUUID(),
+                traceId: randomUUID(),
+                kind: 'SCRAPE_IMPORT',
+                sourceUrl: parentJob.sourceUrl,
+                targetCredentialId: parentJob.targetCredentialId!,
+            });
+        } else {
+            await this.jobProducer.enqueueEtlJob({
+                jobId: dlqItem.jobId,
+                tenantId,
+                correlationId: randomUUID(),
+                traceId: randomUUID(),
+                kind: parentJob.kind as 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT',
+                sourceCredentialId: parentJob.sourceCredentialId!,
+                targetCredentialId: parentJob.targetCredentialId!,
+            });
+        }
 
         await this.dlqRepository.markReplayed(dlqItemId);
         return parentJob;
