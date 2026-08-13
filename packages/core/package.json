@@ -9,7 +9,8 @@
     },
     "scripts": {
         "build": "tsc --build",
-        "lint": "tsc --noEmit"
+        "lint": "tsc --noEmit",
+        "test": "jest"
     },
     "dependencies": {
         "@cdo/shared": "workspace:*"
