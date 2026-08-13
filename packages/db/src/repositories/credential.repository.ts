@@ -21,6 +21,10 @@ export class CredentialRepository {
         return this.model.findOne({ _id: id, tenantId }).exec();
     }
 
+    async findOneForTenant(tenantId: string, id: string): Promise<CredentialDocument | null> {
+        return this.model.findOne({ _id: id, tenantId }, { encryptedPayload: 0, iv: 0, authTag: 0 }).exec();
+    }
+
     async delete(tenantId: string, id: string): Promise<boolean> {
         const result = await this.model.deleteOne({ _id: id, tenantId }).exec();
         return result.deletedCount === 1;

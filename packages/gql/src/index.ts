@@ -3,6 +3,5 @@
 // Generated files are committed to git so consumers don't need the API running
 
 // Re-export all generated types for consumers
-export * from './generated/types';
-export * from './generated/operations';
+// The hooks.ts plugin includes typescript, typescript-operations, and typescript-react-apollo
 export * from './generated/hooks';

@@ -1,5 +1,8 @@
-import { createReadStream } from 'fs';
-import { createInterface } from 'readline';
+import fs from 'fs';
+import readline from 'readline';
+import pino from 'pino';
+
+const logger = pino();
 
 /**
  * FileStreamer — chunks large CSV/JSONL files into batches using Node.js streams.
@@ -22,7 +25,10 @@ export class FileStreamer {
         filePath: string,
         batchSize = 100,
     ): AsyncIterableIterator<Record<string, string>[]> {
-        const rl = createInterface({ input: createReadStream(filePath) });
+        const rl = readline.createInterface({
+            input: fs.createReadStream(filePath),
+            crlfDelay: Infinity,
+        });
         let headers: string[] = [];
         let batch: Record<string, string>[] = [];
 
@@ -55,7 +61,7 @@ export class FileStreamer {
      * yielding batches of parsed objects.
      *
      * Each line must be a valid JSON object. Invalid lines are skipped
-     * with a console.error (so one bad line doesn't break the whole stream).
+     * with a logger.error (so one bad line doesn't break the whole stream).
      *
      * @param filePath  Absolute path to the JSONL file
      * @param batchSize Number of records per batch (defaults to 100)
@@ -64,7 +70,7 @@ export class FileStreamer {
         filePath: string,
         batchSize = 100,
     ): AsyncIterableIterator<T[]> {
-        const rl = createInterface({ input: createReadStream(filePath) });
+        const rl = readline.createInterface({ input: fs.createReadStream(filePath) });
         let batch: T[] = [];
         let lineNumber = 0;
 
@@ -82,7 +88,7 @@ export class FileStreamer {
                     batch = [];
                 }
             } catch {
-                console.error(`[FileStreamer] skipping invalid JSON on line ${lineNumber} of ${filePath}`);
+                logger.error(`[FileStreamer] skipping invalid JSON on line ${lineNumber} of ${filePath}`);
             }
         }
 

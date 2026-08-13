@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core';
+import { PinoLogger } from './common/logger/pino.logger';
 import { ScrapeWorkerModule } from './scrape-worker.module';
 
 async function bootstrap() {
-    const app = await NestFactory.create(ScrapeWorkerModule);
+    const logger = new PinoLogger();
+    const app = await NestFactory.createApplicationContext(ScrapeWorkerModule, { logger });
     await app.init();
-    console.log('🕷️  Scrape Worker started — listening to scrape-queue');
+    logger.log('🕷️  Scrape Worker started — listening to scrape-queue');
 }
 
 bootstrap();

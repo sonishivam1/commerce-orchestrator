@@ -1,7 +1,7 @@
 import { ErrorType, CanonicalProduct, validateCanonicalProduct } from '@cdo/shared';
 // Note: We're using CanonicalProductSchema directly or validating directly vs building custom error throws.
-import { mapShopifyProduct } from '../rules-engine/shopify.rules';
-import { mapCommercetoolsProduct } from '../rules-engine/commercetools.rules';
+import { mapShopifyProduct, reverseMapShopifyProduct } from '../rules-engine/shopify.rules';
+import { mapCommercetoolsProduct, reverseMapCommercetoolsProduct } from '../rules-engine/commercetools.rules';
 import { mapScrapedProduct, ScrapedProductInput } from '../rules-engine/scrape.rules';
 
 export enum SourcePlatform {
@@ -65,7 +65,15 @@ export class ProductMapper implements EntityMapper<any, CanonicalProduct> {
     }
 
     fromCanonical(canonical: CanonicalProduct): any {
-        // Reverse mapping logic to be implemented for targeting platforms 
-        throw new Error('ProductMapper.fromCanonical not implemented');
+        switch (this.platform) {
+            case SourcePlatform.SHOPIFY:
+                return reverseMapShopifyProduct(canonical);
+            case SourcePlatform.COMMERCETOOLS:
+                return reverseMapCommercetoolsProduct(canonical);
+            case SourcePlatform.SCRAPER:
+                throw new Error('Cannot reverse map into a scraped product');
+            default:
+                throw new Error(`Unsupported target platform: ${this.platform}`);
+        }
     }
 }

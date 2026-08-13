@@ -1,8 +1,7 @@
 'use client';
 
-import { useQuery } from '@apollo/client';
+import { useGetJobsQuery } from '@cdo/gql';
 import Link from 'next/link';
-import { GET_JOBS } from '@/lib/graphql/queries/job.queries';
 import {
     CheckCircle,
     XCircle,
@@ -154,7 +153,7 @@ function MetricCard({
 
 /* ─── Main Component ───────────────────────────────────────── */
 export function JobList() {
-    const { data, loading, error } = useQuery<{ jobs: Job[] }>(GET_JOBS, {
+    const { data, loading, error } = useGetJobsQuery({
         pollInterval: 10_000,
     });
 

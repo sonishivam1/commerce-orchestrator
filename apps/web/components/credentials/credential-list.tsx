@@ -1,9 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
-import { STORE_CREDENTIAL, DELETE_CREDENTIAL } from '@/lib/graphql/mutations';
+import { useGetCredentialsQuery, useStoreCredentialMutation, useDeleteCredentialMutation } from '@cdo/gql';
 import { 
     KeyRound, 
     Plus, 
@@ -130,8 +128,8 @@ function AddCredentialModal({ onClose }: { onClose: () => void }) {
     });
     const [error, setError] = useState<string | null>(null);
 
-    const [storeCredential, { loading }] = useMutation(STORE_CREDENTIAL, {
-        refetchQueries: [GET_CREDENTIALS],
+    const [storeCredential, { loading }] = useStoreCredentialMutation({
+        refetchQueries: ['GetCredentials'],
         onCompleted: onClose,
         onError(err) { setError(err.message); },
     });
@@ -306,10 +304,10 @@ function AddCredentialModal({ onClose }: { onClose: () => void }) {
 /* ── Main Component ────────────────────────────────────────── */
 export function CredentialList() {
     const [showModal, setShowModal] = useState(false);
-    const { data, loading, error } = useQuery<{ credentials: Credential[] }>(GET_CREDENTIALS);
+    const { data, loading, error } = useGetCredentialsQuery();
 
-    const [deleteCredential] = useMutation(DELETE_CREDENTIAL, {
-        refetchQueries: [GET_CREDENTIALS],
+    const [deleteCredential] = useDeleteCredentialMutation({
+        refetchQueries: ['GetCredentials'],
     });
 
     const handleDelete = (id: string) => {
