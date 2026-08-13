@@ -6,6 +6,7 @@ import { LOGIN } from '@/lib/graphql/mutations';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { setToken } from '@/lib/auth/session';
 
 export function LoginForm() {
     const router = useRouter();
@@ -16,7 +17,7 @@ export function LoginForm() {
 
     const [login, { loading }] = useMutation(LOGIN, {
         onCompleted(data) {
-            localStorage.setItem('access_token', data.login.accessToken);
+            setToken(data.login.accessToken);
             router.push('/dashboard');
         },
         onError(error) {

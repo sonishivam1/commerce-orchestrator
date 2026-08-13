@@ -1,5 +1,6 @@
 import type { TargetConnector, LoadResult } from '@cdo/core';
 import type { CanonicalProduct } from '@cdo/shared';
+import { ProductMapper, SourcePlatform } from '@cdo/mapping';
 import { 
     createApiBuilderFromCtpClient, 
     ByProjectKeyRequestBuilder 
@@ -55,13 +56,31 @@ export class CommercetoolsTargetConnector implements TargetConnector<CanonicalPr
     async load(batch: CanonicalProduct[]): Promise<LoadResult[]> {
         const results: LoadResult[] = [];
 
+        const mapper = new ProductMapper(SourcePlatform.COMMERCETOOLS);
+
         for (const item of batch) {
             try {
-                // TODO: Proper reverse mapping via @cdo/mapping ProductMapper.fromCanonical()
-                // For now, fail gracefully per-item to emit DLQ events
-                throw new Error('Target mutation not fully implemented: Requires ProductType & Category resolution');
+                const payload = mapper.fromCanonical(item);
+                
+                try {
+                    const existing = await this.client.products().withKey({ key: item.key }).get().execute();
+                    // Update
+                    await this.client.products().withKey({ key: item.key }).post({
+                        body: {
+                            version: existing.body.version,
+                            actions: [{ action: 'changeName', name: payload.name }]
+                        }
+                    }).execute();
+                } catch (e: any) {
+                    if (e.statusCode === 404) {
+                        // Create
+                        await this.client.products().post({ body: payload }).execute();
+                    } else {
+                        throw e;
+                    }
+                }
 
-                // results.push({ key: item.key, success: true });
+                results.push({ key: item.key, success: true });
             } catch (error) {
                 results.push({
                     key: item.key,

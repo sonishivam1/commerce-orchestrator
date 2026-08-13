@@ -21,6 +21,9 @@
       "@cdo/ui": [
         "../../packages/ui/src/index.ts"
       ],
+      "@cdo/ui/*": [
+        "../../packages/ui/src/*"
+      ],
       "@cdo/gql": [
         "../../packages/gql/src/index.ts"
       ],

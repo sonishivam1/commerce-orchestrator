@@ -3,12 +3,17 @@ import { EtlEngine, type EtlContext } from '@cdo/core';
 import { ErrorType, type CanonicalEntity } from '@cdo/shared';
 import type { SourceConnector, TargetConnector } from '@cdo/core';
 import { JobRepository, DlqRepository } from '@cdo/db';
+import { LockService } from '../services/lock.service';
+import { LOCK_TTL_MS } from '@cdo/shared';
+import type { Lock } from 'redlock';
 
 export interface JobStrategyConfig {
     jobKind: string;
     source: SourceConnector;
     target: TargetConnector<CanonicalEntity>;
     context: EtlContext;
+    lock?: Lock;
+    lockService?: LockService;
 }
 
 /**
@@ -49,6 +54,15 @@ export class DataEtlOrchestrator {
             this.jobRepository.updateProgress(context.jobId, totalProcessed, totalFailed).catch(e => {
                 this.logger.error(`Failed to update job progress MongoDB: ${e.message}`);
             });
+
+            // Extend lock so long pipelines don't expire mid-run
+            if (config.lock && config.lockService) {
+                try {
+                    config.lock = await config.lockService.extend(config.lock, LOCK_TTL_MS);
+                } catch (e) {
+                    this.logger.error(`Failed to extend lock for job ${context.jobId}: ${(e as Error).message}`);
+                }
+            }
         });
 
         engine.on('failure', async (error: any, item: CanonicalEntity | undefined) => {

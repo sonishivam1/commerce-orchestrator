@@ -8,6 +8,12 @@ import { AuthModule as AppAuthModule } from './modules/auth/auth.module';
 import { CredentialModule } from './modules/credential/credential.module';
 import { JobModule } from './modules/job/job.module';
 import { TenantModule } from './modules/tenant/tenant.module';
+import { DlqModule } from './modules/dlq/dlq.module';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TraceInterceptor } from './common/interceptors/trace.interceptor';
+import { HealthModule } from './modules/health/health.module';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 
 /**
  * Root application module.
@@ -41,6 +47,13 @@ import { TenantModule } from './modules/tenant/tenant.module';
         TenantModule,
         CredentialModule,
         JobModule,
+        DlqModule,
+        HealthModule,
+    ],
+    providers: [
+        { provide: APP_GUARD, useClass: RateLimitGuard },
+        { provide: APP_INTERCEPTOR, useClass: TraceInterceptor },
+        { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     ],
 })
 export class AppModule { }

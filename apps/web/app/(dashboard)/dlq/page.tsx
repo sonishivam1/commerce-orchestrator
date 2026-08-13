@@ -1,9 +1,6 @@
 'use client';
 
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_DLQ_ITEMS } from '@/lib/graphql/queries/dlq.queries';
-import { GET_JOBS } from '@/lib/graphql/queries/job.queries';
-import { REPLAY_JOB } from '@/lib/graphql/mutations';
+import { useGetDlqItemsQuery, useGetJobsQuery, useReplayDlqItemMutation } from '@cdo/gql';
 import { 
     Loader2, 
     RotateCcw, 
@@ -153,7 +150,7 @@ function DlqJobItems({ job, onReplay, replaying }: {
     onReplay: (jobId: string, dlqItemId: string) => void;
     replaying: boolean;
 }) {
-    const { data, loading } = useQuery<{ dlqItems: DlqItem[] }>(GET_DLQ_ITEMS, {
+    const { data, loading } = useGetDlqItemsQuery({
         variables: { jobId: job.id },
     });
 
@@ -237,18 +234,18 @@ function DlqJobItems({ job, onReplay, replaying }: {
 
 /* ─── Main DLQ Page ────────────────────────────────────────── */
 export default function DlqPage() {
-    const { data: jobsData, loading: jobsLoading } = useQuery<{ jobs: Job[] }>(GET_JOBS, {
+    const { data: jobsData, loading: jobsLoading } = useGetJobsQuery({
         pollInterval: 15_000,
     });
 
-    const [replayItem, { loading: replaying }] = useMutation(REPLAY_JOB);
+    const [replayItem, { loading: replaying }] = useReplayDlqItemMutation();
 
     const jobs = jobsData?.jobs ?? [];
     const failedJobs = jobs.filter(j => j.status === 'FAILED' || j.failedCount > 0);
     const totalFailedItems = failedJobs.reduce((acc, j) => acc + (j.failedCount ?? 0), 0);
 
     const handleReplay = (jobId: string, dlqItemId: string) => {
-        replayItem({ variables: { jobId, dlqItemId } });
+        replayItem({ variables: { input: { dlqItemId } } });
     };
 
     return (

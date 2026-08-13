@@ -1,5 +1,8 @@
 import type { SourceConnector } from '@cdo/core';
 import type { CanonicalProduct } from '@cdo/shared';
+import pino from 'pino';
+
+const logger = pino();
 import { ProductMapper, SourcePlatform } from '@cdo/mapping';
 import { 
     createApiBuilderFromCtpClient, 
@@ -82,7 +85,7 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalPr
                     // For now, if a product fails mapping (e.g., validation fail), 
                     // we log it and drop it from the batch to avoid failing the whole pipeline.
                     // Ideally this would go to a DLQ from the source side.
-                    console.error(`Skipping product ${item.id} due to mapping error:`, (error as Error).message);
+                    logger.error(`Skipping product ${item.id} due to mapping error: ${(error as Error).message}`);
                 }
             }
 

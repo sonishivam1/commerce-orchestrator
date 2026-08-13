@@ -10,7 +10,11 @@
         ],
         "rootDir": "src",
         "composite": true,
-        "declaration": true
+        "declaration": true,
+        "baseUrl": ".",
+        "paths": {
+            "@cdo/ui/*": ["src/*"]
+        }
     },
     "include": [
         "src"

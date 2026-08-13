@@ -1,9 +1,7 @@
 'use client';
 
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_JOB } from '@/lib/graphql/queries/job.queries';
-import { GET_DLQ_ITEMS } from '@/lib/graphql/queries/dlq.queries';
-import { REPLAY_JOB } from '@/lib/graphql/mutations';
+import { useGetJobQuery, useGetDlqItemsQuery, useReplayDlqItemMutation } from '@cdo/gql';
+import { JobProgressCard } from '@/components/jobs/job-progress-card';
 import Link from 'next/link';
 import {
     CheckCircle2,
@@ -27,16 +25,7 @@ import {
     Map
 } from 'lucide-react';
 
-interface Job {
-    id: string;
-    kind: string;
-    status: string;
-    traceId?: string;
-    createdAt: string;
-    completedAt?: string;
-    processedCount: number;
-    failedCount: number;
-}
+import { JobType } from '@cdo/gql';
 
 interface DlqItem {
     id: string;
@@ -121,7 +110,7 @@ function MetricCard({
 }
 
 /* ─── Source-Destination Map Visual ────────────────────────── */
-function PipelineBridge({ job }: { job: Job }) {
+function PipelineBridge({ job }: { job: JobType }) {
     return (
         <div className="bg-[#1E293B]/20 border border-white/5 rounded-[32px] p-8 flex items-center justify-between gap-12 relative overflow-hidden group shadow-inner">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
@@ -174,12 +163,12 @@ function PipelineBridge({ job }: { job: Job }) {
 
 /* ─── Failed Items Section ─────────────────────────────────── */
 function FailedItemsTable({ jobId, failedCount }: { jobId: string; failedCount: number }) {
-    const { data, loading } = useQuery<{ dlqItems: DlqItem[] }>(GET_DLQ_ITEMS, {
+    const { data, loading } = useGetDlqItemsQuery({
         variables: { jobId },
         skip: failedCount === 0,
     });
 
-    const [replayItem, { loading: replaying }] = useMutation(REPLAY_JOB, {
+    const [replayItem, { loading: replaying }] = useReplayDlqItemMutation({
         refetchQueries: ['GetJob'],
     });
 
@@ -251,7 +240,7 @@ function FailedItemsTable({ jobId, failedCount }: { jobId: string; failedCount: 
                                         <div className="flex items-center justify-end gap-2">
                                             <button 
                                                 disabled={replaying || item.errorType === 'FATAL'}
-                                                onClick={() => replayItem({ variables: { jobId, dlqItemId: item.id } })}
+                                                onClick={() => replayItem({ variables: { input: { dlqItemId: item.id } } })}
                                                 className="h-9 px-4 rounded-xl bg-primary/20 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all text-[11px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-30"
                                             >
                                                 {replaying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />} 
@@ -274,7 +263,7 @@ function FailedItemsTable({ jobId, failedCount }: { jobId: string; failedCount: 
 
 /* ─── Main Page ────────────────────────────────────────────── */
 export default function JobDetailPage({ params }: { params: { id: string } }) {
-    const { data, loading, error } = useQuery<{ job: Job }>(GET_JOB, {
+    const { data, loading, error } = useGetJobQuery({
         variables: { id: params.id },
         pollInterval: 5_000,
     });
@@ -355,6 +344,9 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                 </div>
                 <StatusBadge status={job.status} />
             </div>
+
+            {/* Live Progress */}
+            <JobProgressCard jobId={job.id} />
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
