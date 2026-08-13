@@ -66,7 +66,6 @@ function ConfigCard({
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{status}</span>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2">Uptime: 99.98%</span>
                 </div>
             </div>
 
