@@ -30,6 +30,10 @@ export class JobRepository {
         await this.jobModel.updateOne({ _id: id }, { $set: { processedCount, failedCount } }).exec();
     }
 
+    async updateStatus(tenantId: string, id: string, status: string): Promise<void> {
+        await this.jobModel.updateOne({ _id: id, tenantId }, { $set: { status } }).exec();
+    }
+
     async markCompleted(id: string): Promise<void> {
         await this.jobModel.updateOne({ _id: id }, { $set: { status: 'COMPLETED', completedAt: new Date() } }).exec();
     }

@@ -10,6 +10,10 @@ build/
 out/
 .turbo/
 *.tsbuildinfo
+**/src/**/*.js
+**/src/**/*.js.map
+**/src/**/*.d.ts
+**/src/**/*.d.ts.map
 
 # Environment Variables
 .env
@@ -37,3 +41,7 @@ pnpm-debug.log*
 # Test Coverage
 coverage/
 .nyc_output/
+
+# Claude Code personal overrides
+CLAUDE.local.md
+.claude/settings.local.json

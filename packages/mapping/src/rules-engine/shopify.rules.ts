@@ -134,3 +134,42 @@ export const mapShopifyProduct = (shopifyProduct: any): CanonicalProduct => {
         }
     };
 };
+
+/**
+ * Reverses CanonicalProduct back into a Shopify Product.
+ */
+export const reverseMapShopifyProduct = (canonical: CanonicalProduct): any => {
+    const mapVariant = (v: CanonicalVariant) => {
+        const price = v.prices[0];
+        
+        return {
+            sku: v.sku,
+            price: price ? (price.centAmount / (10 ** price.fractionDigits)).toString() : undefined,
+            inventory_quantity: v.stockQuantity,
+            option1: v.attributes?.option1,
+            option2: v.attributes?.option2,
+            option3: v.attributes?.option3,
+            weight: v.attributes?.weight,
+            weight_unit: v.attributes?.weightUnit,
+            barcode: v.attributes?.barcode
+        };
+    };
+
+    const allVariants = [canonical.masterVariant, ...canonical.variants].map(mapVariant);
+
+    // Extract default locale string
+    const getLocaleString = (locales?: Record<string, string>) => locales ? Object.values(locales)[0] : '';
+
+    return {
+        product: {
+            title: getLocaleString(canonical.name),
+            body_html: getLocaleString(canonical.description),
+            handle: getLocaleString(canonical.slug),
+            status: canonical.isPublished ? 'active' : 'draft',
+            tags: canonical.categoryKeys.join(', '),
+            vendor: canonical.customAttributes?.vendor,
+            product_type: canonical.customAttributes?.productType,
+            variants: allVariants,
+        }
+    };
+};

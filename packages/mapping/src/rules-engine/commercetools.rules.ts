@@ -173,3 +173,43 @@ export const mapCommercetoolsProduct = (ctProduct: any): CanonicalProduct => {
         }
     };
 };
+
+/**
+ * Reverses CanonicalProduct back into a Commercetools ProductDraft.
+ */
+export const reverseMapCommercetoolsProduct = (canonical: CanonicalProduct): any => {
+    const mapVariant = (v: CanonicalVariant, isMaster: boolean) => {
+        const prices = v.prices.map(p => ({
+            value: {
+                currencyCode: p.currencyCode,
+                centAmount: p.centAmount,
+            }
+        }));
+
+        const attributes = Object.entries(v.attributes).map(([name, value]) => ({
+            name,
+            value
+        }));
+
+        const images = v.images.map(url => ({ url }));
+
+        return {
+            sku: v.sku,
+            prices,
+            attributes,
+            images
+        };
+    };
+
+    return {
+        key: canonical.key,
+        name: canonical.name,
+        description: canonical.description,
+        slug: canonical.slug,
+        productType: canonical.customAttributes?.productType ? { typeId: 'product-type', id: canonical.customAttributes.productType } : undefined,
+        categories: canonical.categoryKeys.map(id => ({ typeId: 'category', id })),
+        masterVariant: mapVariant(canonical.masterVariant, true),
+        variants: canonical.variants.map(v => mapVariant(v, false)),
+        publish: canonical.isPublished
+    };
+};

@@ -51,7 +51,8 @@ async function getMongoUri(): Promise<string> {
     const uri = process.env['MONGODB_URI'];
 
     if (!uri) {
-        console.log('🏗️  [Database] MONGODB_URI not set. Initializing Virtual MongoDB (MongoMemoryServer)');
+        const logger = new Logger('DatabaseModule');
+        logger.warn('MONGODB_URI not set. Initializing Virtual MongoDB (MongoMemoryServer)');
         // Defer load to avoid overhead if not needed
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { MongoMemoryServer } = require('mongodb-memory-server');

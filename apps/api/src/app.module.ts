@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ConfigModule } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { DatabaseModule } from '@cdo/db';
 import { QueueModule } from '@cdo/queue';
@@ -14,6 +14,7 @@ import { DlqModule } from './modules/dlq/dlq.module';
 import { HealthModule } from './modules/health/health.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TraceInterceptor } from './common/interceptors/trace.interceptor';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 
 /**
  * Root application module.
@@ -64,8 +65,9 @@ import { TraceInterceptor } from './common/interceptors/trace.interceptor';
         HealthModule,
     ],
     providers: [
-        { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+        { provide: APP_GUARD, useClass: RateLimitGuard },
         { provide: APP_INTERCEPTOR, useClass: TraceInterceptor },
+        { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     ],
 })
 export class AppModule {}

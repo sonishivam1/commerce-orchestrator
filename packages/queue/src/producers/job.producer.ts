@@ -27,9 +27,11 @@ export interface EtlJobPayload {
     tenantId: string;
     correlationId: string;
     traceId: string;
-    kind: 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT';
+    kind: 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT' | 'REPLAY';
     sourceCredentialId: string;
     targetCredentialId: string;
+    dlqItemId?: string;
+    rawPayload?: Record<string, unknown>;
 }
 
 /** Payload shape for Playwright-based scrape import jobs */
@@ -49,6 +51,10 @@ export class JobProducer {
         @InjectQueue(QUEUE_ETL) private readonly etlQueue: Queue,
         @InjectQueue(QUEUE_SCRAPE) private readonly scrapeQueue: Queue,
     ) { }
+
+    getEtlQueue(): Queue {
+        return this.etlQueue;
+    }
 
     /**
      * Enqueues an API-based ETL job (migration, clone, export).
