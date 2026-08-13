@@ -1,6 +1,69 @@
 import { CanonicalProduct, CanonicalVariant, DEFAULT_CURRENCY } from '@cdo/shared';
 import { normalizeLocaleString, normalizeMoney } from '../normalizers';
 
+// ─── Reverse Mapping: Canonical → Shopify ─────────────────────────────────────
+
+/**
+ * Converts a CanonicalProduct to a Shopify Admin GraphQL ProductInput shape.
+ * Pass the result directly to the `productCreate` or `productUpdate` mutation.
+ *
+ * @param canonical     - The normalised product.
+ * @param existingId    - Shopify GID (e.g. "gid://shopify/Product/123"). When
+ *                        supplied the input is suitable for `productUpdate`.
+ * @param locationId    - Shopify Location GID needed for `inventoryQuantities`.
+ *                        When absent inventory is left unchanged.
+ */
+export const canonicalToShopifyProductInput = (
+    canonical: CanonicalProduct,
+    existingId?: string,
+    locationId?: string,
+): Record<string, unknown> => {
+    // Shopify is single-locale: take the first available locale value.
+    const firstValue = (ls: Record<string, string>): string =>
+        Object.values(ls)[0] ?? '';
+
+    const allVariants = [canonical.masterVariant, ...canonical.variants];
+
+    const variants = allVariants.map(v => {
+        const price =
+            v.prices.length > 0
+                ? (v.prices[0].centAmount / Math.pow(10, v.prices[0].fractionDigits)).toFixed(
+                      v.prices[0].fractionDigits,
+                  )
+                : '0.00';
+
+        const variantInput: Record<string, unknown> = {
+            sku: v.sku,
+            price,
+        };
+
+        if (locationId && v.stockQuantity !== undefined) {
+            variantInput.inventoryQuantities = [
+                { availableQuantity: v.stockQuantity, locationId },
+            ];
+        }
+
+        return variantInput;
+    });
+
+    const input: Record<string, unknown> = {
+        title: firstValue(canonical.name) || canonical.key,
+        descriptionHtml: firstValue(canonical.description),
+        handle: firstValue(canonical.slug) || canonical.key,
+        tags: canonical.categoryKeys,
+        status: canonical.isPublished ? 'ACTIVE' : 'DRAFT',
+        variants,
+    };
+
+    if (existingId) input.id = existingId;
+
+    if (canonical.customAttributes?.vendor) {
+        input.vendor = canonical.customAttributes.vendor as string;
+    }
+
+    return input;
+};
+
 /**
  * Transforms Shopify Admin GET /admin/api/2024-01/products.json product representation
  * to our CanonicalProduct.
