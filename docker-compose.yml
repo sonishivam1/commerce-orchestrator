@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # ── Infrastructure ────────────────────────────────────────────────────────
   mongodb:
     image: mongo:6.0
     ports:
@@ -8,6 +9,12 @@ services:
     volumes:
       - mongodb_data:/data/db
     restart: always
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   redis:
     image: redis:7.0-alpine
@@ -16,6 +23,86 @@ services:
     volumes:
       - redis_data:/data
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Application Services ──────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - apps/api/.env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/cdo
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  worker-etl:
+    build:
+      context: .
+      dockerfile: apps/worker-etl/Dockerfile
+    env_file:
+      - apps/worker-etl/.env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/cdo
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-scrape:
+    build:
+      context: .
+      dockerfile: apps/worker-scrape/Dockerfile
+    env_file:
+      - apps/worker-scrape/.env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/cdo
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3001:3001"
+    env_file:
+      - apps/web/.env
+    environment:
+      - NEXT_PUBLIC_GRAPHQL_URL=http://api:3000/graphql
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   mongodb_data:
