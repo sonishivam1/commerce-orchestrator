@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useGetCredentialsQuery, useStoreCredentialMutation, useDeleteCredentialMutation } from '@cdo/gql';
+import { useQuery, useMutation } from '@apollo/client';
+import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
+import { STORE_CREDENTIAL, DELETE_CREDENTIAL } from '@/lib/graphql/mutations';
 import { 
     KeyRound, 
     Plus, 
@@ -86,7 +88,6 @@ function CredentialCard({ credential, onDelete }: { credential: Credential; onDe
                         </div>
                     </div>
                     <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                        <span className="flex items-center gap-1.5"><Globe className="h-3 w-3" /> us-central1</span>
                         <span className="flex items-center gap-1.5"><Cpu className="h-3 w-3" /> {credential.platform.toLowerCase()}</span>
                     </div>
                 </div>
@@ -94,8 +95,10 @@ function CredentialCard({ credential, onDelete }: { credential: Credential; onDe
 
             <div className="flex items-center gap-5 px-6 border-l border-white/5">
                 <div className="space-y-1">
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Project Key</p>
-                    <p className="font-mono text-[11px] text-slate-300 leading-none tracking-tight">ucp-demo-orchestrator-v2</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Registered</p>
+                    <p className="font-mono text-[11px] text-slate-300 leading-none tracking-tight">
+                        {new Date(credential.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
                 </div>
             </div>
 
@@ -128,8 +131,8 @@ function AddCredentialModal({ onClose }: { onClose: () => void }) {
     });
     const [error, setError] = useState<string | null>(null);
 
-    const [storeCredential, { loading }] = useStoreCredentialMutation({
-        refetchQueries: ['GetCredentials'],
+    const [storeCredential, { loading }] = useMutation(STORE_CREDENTIAL, {
+        refetchQueries: [GET_CREDENTIALS],
         onCompleted: onClose,
         onError(err) { setError(err.message); },
     });
@@ -304,10 +307,11 @@ function AddCredentialModal({ onClose }: { onClose: () => void }) {
 /* ── Main Component ────────────────────────────────────────── */
 export function CredentialList() {
     const [showModal, setShowModal] = useState(false);
-    const { data, loading, error } = useGetCredentialsQuery();
+    const [searchTerm, setSearchTerm] = useState('');
+    const { data, loading, error } = useQuery<{ credentials: Credential[] }>(GET_CREDENTIALS);
 
-    const [deleteCredential] = useDeleteCredentialMutation({
-        refetchQueries: ['GetCredentials'],
+    const [deleteCredential] = useMutation(DELETE_CREDENTIAL, {
+        refetchQueries: [GET_CREDENTIALS],
     });
 
     const handleDelete = (id: string) => {
@@ -317,6 +321,10 @@ export function CredentialList() {
     };
 
     const credentials = data?.credentials ?? [];
+    const filtered = credentials.filter(c =>
+        c.alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.platform.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
@@ -338,6 +346,8 @@ export function CredentialList() {
                             <input
                                 type="text"
                                 placeholder="Filter alias..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
                                 className="bg-[#1E293B]/60 border border-white/5 rounded-2xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 w-64 transition-all"
                             />
                         </div>
@@ -387,7 +397,7 @@ export function CredentialList() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-4">
-                    {credentials.map((c) => (
+                    {filtered.map((c) => (
                         <CredentialCard key={c.id} credential={c} onDelete={handleDelete} />
                     ))}
                 </div>

@@ -36,6 +36,9 @@ export class Job {
     failedCount: number;
 
     @Prop()
+    startedAt?: Date;
+
+    @Prop()
     completedAt?: Date;
 
     @Prop({ type: Object })

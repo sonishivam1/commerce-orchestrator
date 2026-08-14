@@ -1,7 +1,7 @@
 import { ErrorType, CanonicalProduct, validateCanonicalProduct } from '@cdo/shared';
 // Note: We're using CanonicalProductSchema directly or validating directly vs building custom error throws.
-import { mapShopifyProduct, reverseMapShopifyProduct } from '../rules-engine/shopify.rules';
-import { mapCommercetoolsProduct, reverseMapCommercetoolsProduct } from '../rules-engine/commercetools.rules';
+import { mapShopifyProduct, canonicalToShopifyProductInput } from '../rules-engine/shopify.rules';
+import { mapCommercetoolsProduct, canonicalToCtProductDraft } from '../rules-engine/commercetools.rules';
 import { mapScrapedProduct, ScrapedProductInput } from '../rules-engine/scrape.rules';
 
 export enum SourcePlatform {
@@ -64,16 +64,52 @@ export class ProductMapper implements EntityMapper<any, CanonicalProduct> {
         return validationResult.data as CanonicalProduct;
     }
 
-    fromCanonical(canonical: CanonicalProduct): any {
+    /**
+     * Converts a CanonicalProduct back to the platform-specific draft/input shape.
+     *
+     * For Commercetools the caller must supply `options.productTypeId` (or set
+     * `canonical.customAttributes.productType`) because CT requires a ProductType
+     * reference.  For Shopify the caller may optionally pass `options.existingId`
+     * and `options.locationId`.
+     *
+     * Scraper is a read-only source and throws FATAL on reverse mapping.
+     */
+    fromCanonical(canonical: CanonicalProduct, options?: Record<string, unknown>): any {
         switch (this.platform) {
-            case SourcePlatform.SHOPIFY:
-                return reverseMapShopifyProduct(canonical);
-            case SourcePlatform.COMMERCETOOLS:
-                return reverseMapCommercetoolsProduct(canonical);
-            case SourcePlatform.SCRAPER:
-                throw new Error('Cannot reverse map into a scraped product');
-            default:
-                throw new Error(`Unsupported target platform: ${this.platform}`);
+            case SourcePlatform.SHOPIFY: {
+                const existingId = options?.existingId as string | undefined;
+                const locationId = options?.locationId as string | undefined;
+                return canonicalToShopifyProductInput(canonical, existingId, locationId);
+            }
+
+            case SourcePlatform.COMMERCETOOLS: {
+                const productTypeId =
+                    (options?.productTypeId as string | undefined) ||
+                    (canonical.customAttributes?.productType as string | undefined);
+
+                if (!productTypeId) {
+                    const err = new Error(
+                        `fromCanonical(CT): product "${canonical.key}" has no productTypeId. ` +
+                        `Pass options.productTypeId or set canonical.customAttributes.productType.`,
+                    );
+                    (err as any).type = ErrorType.VALIDATION;
+                    throw err;
+                }
+
+                return canonicalToCtProductDraft(canonical, productTypeId);
+            }
+
+            case SourcePlatform.SCRAPER: {
+                const err = new Error('Scraper is a read-only source — reverse mapping is not supported.');
+                (err as any).type = ErrorType.FATAL;
+                throw err;
+            }
+
+            default: {
+                const err = new Error(`Unsupported platform for reverse mapping: ${this.platform}`);
+                (err as any).type = ErrorType.FATAL;
+                throw err;
+            }
         }
     }
 }

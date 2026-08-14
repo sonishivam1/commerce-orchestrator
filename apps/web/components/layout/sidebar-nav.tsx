@@ -1,18 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { 
-    LayoutDashboard, 
-    BriefcaseBusiness, 
-    KeyRound, 
-    Inbox, 
-    Layers,
+import { usePathname, useRouter } from 'next/navigation';
+import {
+    LayoutDashboard,
+    BriefcaseBusiness,
+    KeyRound,
+    Inbox,
     Hexagon,
-    AlertCircle,
     Settings,
-    History
+    LogOut,
+    History,
 } from 'lucide-react';
+import { clearToken, getTenantId } from '@/lib/auth/session';
 
 const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -22,7 +22,6 @@ const navItems = [
 ];
 
 const bottomItems = [
-    { href: '/history', label: 'History', icon: History },
     { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -32,10 +31,16 @@ function cn(...classes: (string | false | undefined | null)[]) {
 
 export function SidebarNav() {
     const pathname = usePathname();
+    const router = useRouter();
+
+    const handleLogout = () => {
+        clearToken();
+        router.push('/login');
+    };
 
     return (
         <aside className="w-64 bg-[#0F172A] border-r border-white/5 flex flex-col h-full z-20 shrink-0">
-            {/* Brand - Match Premium Preview */}
+            {/* Brand */}
             <div className="px-6 py-8">
                 <Link href="/dashboard" className="flex items-center gap-3 active:scale-95 transition-transform group">
                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.4)] group-hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] transition-all duration-300">
@@ -58,40 +63,32 @@ export function SidebarNav() {
                     </h3>
                     <nav className="space-y-1">
                         {navItems.map(({ href, label, icon: Icon }) => {
-                            const isActive = pathname === href || pathname.startsWith(`${href}/`);
+                            const isActive = pathname === href || pathname.startsWith(href + '/');
                             const isDLQ = href === '/dlq';
-                            
                             return (
                                 <Link
                                     key={href}
                                     href={href}
                                     className={cn(
-                                        'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group relative',
+                                        'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group',
                                         isActive
-                                            ? isDLQ 
-                                                ? 'bg-red-500/10 text-red-400 shadow-[inset_0_0_0_1px_rgba(239,68,68,0.2)]' 
-                                                : 'bg-white/5 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]'
-                                            : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]'
+                                            ? isDLQ
+                                                ? 'bg-red-500/10 text-red-400'
+                                                : 'bg-primary/10 text-primary'
+                                            : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]',
                                     )}
                                 >
-                                    {isActive && (
-                                        <div className={cn(
-                                            "absolute left-0 w-1 h-5 rounded-r-full",
-                                            isDLQ ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" : "bg-primary shadow-[0_0_10px_rgba(37,99,235,0.8)]"
-                                        )} />
-                                    )}
-                                    <Icon className={cn(
-                                        "h-5 w-5 shrink-0 transition-colors",
-                                        isActive 
-                                            ? isDLQ ? "text-red-500" : "text-primary" 
-                                            : "text-slate-500 group-hover:text-slate-400"
-                                    )} />
+                                    <Icon
+                                        className={cn(
+                                            'h-5 w-5 shrink-0 transition-colors',
+                                            isActive
+                                                ? isDLQ
+                                                    ? 'text-red-500'
+                                                    : 'text-primary'
+                                                : 'text-slate-500 group-hover:text-slate-400',
+                                        )}
+                                    />
                                     <span className="truncate tracking-wide">{label}</span>
-                                    {isDLQ && (
-                                        <span className="ml-auto inline-flex items-center justify-center h-5 w-5 rounded-md bg-red-500/20 text-[10px] text-red-400 border border-red-500/20">
-                                            3
-                                        </span>
-                                    )}
                                 </Link>
                             );
                         })}
@@ -113,10 +110,15 @@ export function SidebarNav() {
                                         'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group',
                                         isActive
                                             ? 'bg-white/5 text-white'
-                                            : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]'
+                                            : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]',
                                     )}
                                 >
-                                    <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-primary" : "text-slate-500 group-hover:text-slate-400")} />
+                                    <Icon
+                                        className={cn(
+                                            'h-5 w-5 shrink-0',
+                                            isActive ? 'text-primary' : 'text-slate-500 group-hover:text-slate-400',
+                                        )}
+                                    />
                                     <span className="truncate tracking-wide">{label}</span>
                                 </Link>
                             );
@@ -125,19 +127,27 @@ export function SidebarNav() {
                 </div>
             </div>
 
-            {/* User Profile - Matching Preview 01 style */}
-            <div className="p-4 mt-auto border-t border-white/5">
+            {/* User / Logout */}
+            <div className="p-4 mt-auto border-t border-white/5 space-y-2">
                 <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-slate-600 to-slate-400 flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
-                        SS
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-slate-600 to-slate-400 flex items-center justify-center text-[10px] font-bold text-white shadow-lg shrink-0">
+                        T
                     </div>
-                    <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-bold text-slate-200 truncate leading-none">Shivam Soni</span>
-                        <span className="text-[10px] text-slate-500 truncate mt-0.5">Admin Account</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-sm font-bold text-slate-200 truncate leading-none">Tenant</span>
+                        <span className="text-[10px] text-slate-500 truncate mt-0.5 font-mono">
+                            {getTenantId()?.substring(0, 12) ?? '—'}...
+                        </span>
                     </div>
                 </div>
+                <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-500 hover:text-red-400 hover:bg-red-500/5 transition-all"
+                >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sign Out</span>
+                </button>
             </div>
         </aside>
     );
 }
-

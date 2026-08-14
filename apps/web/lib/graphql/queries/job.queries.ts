@@ -9,9 +9,13 @@ export const GET_JOBS = gql`
       status
       traceId
       createdAt
+      startedAt
       completedAt
       processedCount
       failedCount
+      sourceCredentialId
+      targetCredentialId
+      sourceUrl
     }
   }
 `;
@@ -25,9 +29,13 @@ export const GET_JOB = gql`
       status
       traceId
       createdAt
+      startedAt
       completedAt
       processedCount
       failedCount
+      sourceCredentialId
+      targetCredentialId
+      sourceUrl
     }
   }
 `;

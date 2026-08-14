@@ -11,9 +11,24 @@ export const CREATE_JOB = gql`
   }
 `;
 
-export const REPLAY_DLQ_ITEM = gql`
-  mutation ReplayDlqItem($input: ReplayDlqItemInput!) {
-    replayDlqItem(input: $input)
+export const DELETE_JOB = gql`
+  mutation DeleteJob($id: String!) {
+    deleteJob(id: $id)
+  }
+`;
+
+export const REPLAY_JOB = gql`
+  mutation ReplayJob($jobId: String!, $dlqItemId: String!) {
+    replayJob(jobId: $jobId, dlqItemId: $dlqItemId) {
+      id
+      status
+    }
+  }
+`;
+
+export const DELETE_DLQ_ITEM = gql`
+  mutation DeleteDlqItem($id: String!) {
+    deleteDlqItem(id: $id)
   }
 `;
 

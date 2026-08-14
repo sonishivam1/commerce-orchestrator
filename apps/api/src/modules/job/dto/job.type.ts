@@ -39,6 +39,9 @@ export class JobType {
     createdAt: Date;
 
     @Field({ nullable: true })
+    startedAt?: Date;
+
+    @Field({ nullable: true })
     completedAt?: Date;
 
     @Field({ defaultValue: 0 })
@@ -46,4 +49,13 @@ export class JobType {
 
     @Field({ defaultValue: 0 })
     failedCount: number;
+
+    @Field({ nullable: true })
+    sourceCredentialId?: string;
+
+    @Field({ nullable: true })
+    targetCredentialId?: string;
+
+    @Field({ nullable: true })
+    sourceUrl?: string;
 }

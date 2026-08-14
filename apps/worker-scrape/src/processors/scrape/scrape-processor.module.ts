@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ScrapeProcessor } from './scrape.processor';
 import { ScrapeOrchestrator } from '../../orchestrator/scrape.orchestrator';
-import { LockModule } from '../../services/lock.module';
-import { CredentialDecryptorService } from '../../services/credential-decryptor.service';
-import { AsyncContextService } from '../../common/context/async-context.service';
+import { CredentialDecryptor } from '../../services/credential.decryptor';
+import { LockService } from '../../services/lock.service';
 
 @Module({
-    imports: [LockModule],
-    providers: [ScrapeProcessor, ScrapeOrchestrator, CredentialDecryptorService, AsyncContextService],
+    providers: [ScrapeProcessor, ScrapeOrchestrator, CredentialDecryptor, LockService],
 })
 export class ScrapeProcessorModule { }
