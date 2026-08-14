@@ -3,8 +3,11 @@ import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from '@cdo/db';
 import { QueueModule } from '@cdo/queue';
 import { EtlProcessorModule } from './processors/etl/etl-processor.module';
-import { ScrapeProcessorModule } from './processors/scrape/scrape-processor.module';
 
+/**
+ * ETL Worker — processes the etl-queue.
+ * Scrape jobs are handled by apps/worker-scrape, not this worker.
+ */
 @Module({
     imports: [
         ConfigModule.forRoot({
@@ -13,8 +16,7 @@ import { ScrapeProcessorModule } from './processors/scrape/scrape-processor.modu
         }),
         DatabaseModule,
         QueueModule,
-        EtlProcessorModule, 
-        ScrapeProcessorModule
+        EtlProcessorModule,
     ],
 })
 export class WorkerModule { }

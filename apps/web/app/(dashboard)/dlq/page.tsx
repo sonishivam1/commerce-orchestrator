@@ -3,26 +3,27 @@
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_DLQ_ITEMS } from '@/lib/graphql/queries/dlq.queries';
 import { GET_JOBS } from '@/lib/graphql/queries/job.queries';
-import { REPLAY_JOB } from '@/lib/graphql/mutations';
-import { 
-    Loader2, 
-    RotateCcw, 
-    AlertCircle, 
-    Bug, 
-    Layers, 
-    Zap, 
-    Trash2, 
-    Play, 
-    ChevronDown, 
+import { REPLAY_JOB, DELETE_DLQ_ITEM } from '@/lib/graphql/mutations';
+import {
+    Loader2,
+    RotateCcw,
+    AlertCircle,
+    Layers,
+    Zap,
+    Trash2,
+    Play,
+    ChevronDown,
     ArrowUpRight,
     Filter,
     Search,
     RefreshCw,
     XCircle,
     Database,
+    CheckCircle2,
     CloudOff,
-    CheckCircle2
 } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 
 interface Job {
     id: string;
@@ -33,11 +34,15 @@ interface Job {
 
 interface DlqItem {
     id: string;
+    jobId: string;
     itemKey: string;
     errorType: string;
     errorMessage: string;
     rawPayload?: string;
-    jobId?: string;
+    canReplay: boolean;
+    replayed: boolean;
+    replayedAt?: string;
+    createdAt: string;
 }
 
 function cn(...classes: (string | false | undefined | null)[]) {
@@ -45,20 +50,18 @@ function cn(...classes: (string | false | undefined | null)[]) {
 }
 
 /* ─── Error Type Badge ─────────────────────────────────────── */
-const ERROR_TYPE_STYLE: Record<string, { bg: string, text: string, border: string }> = {
-    ERR_CANONICAL: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/20' },
-    ERR_PLATFORM: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20' },
-    ERR_EXTERNAL: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/20' },
-    TRANSIENT: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' },
-    FATAL: { bg: 'bg-red-700/10', text: 'text-red-500', border: 'border-red-700/20' },
+const ERROR_TYPE_STYLE: Record<string, { bg: string; text: string; border: string }> = {
+    VALIDATION: { bg: 'bg-red-500/10',    text: 'text-red-400',    border: 'border-red-500/20'    },
+    TRANSIENT:  { bg: 'bg-blue-500/10',   text: 'text-blue-400',   border: 'border-blue-500/20'   },
+    FATAL:      { bg: 'bg-red-700/10',    text: 'text-red-500',    border: 'border-red-700/20'    },
 };
 
 function ErrorTypeBadge({ type }: { type: string }) {
     const style = ERROR_TYPE_STYLE[type] ?? ERROR_TYPE_STYLE.TRANSIENT;
     return (
         <span className={cn(
-            "inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-black tracking-widest uppercase border",
-            style.bg, style.text, style.border
+            'inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-black tracking-widest uppercase border',
+            style.bg, style.text, style.border,
         )}>
             {type.replace(/_/g, ' ')}
         </span>
@@ -74,90 +77,70 @@ function MetricCard({
 }: {
     title: string;
     value: number;
-    icon: any;
+    icon: React.ComponentType<{ className?: string }>;
     color?: 'blue' | 'emerald' | 'red' | 'amber' | 'indigo';
 }) {
-    const themes = {
-        blue: 'border-t-blue-500 shadow-blue-500/5',
+    const themes: Record<string, string> = {
+        blue:    'border-t-blue-500 shadow-blue-500/5',
         emerald: 'border-t-emerald-500 shadow-emerald-500/5',
-        red: 'border-t-red-500 shadow-red-500/5',
-        amber: 'border-t-amber-500 shadow-amber-500/5',
-        indigo: 'border-t-indigo-500 shadow-indigo-500/5',
+        red:     'border-t-red-500 shadow-red-500/5',
+        amber:   'border-t-amber-500 shadow-amber-500/5',
+        indigo:  'border-t-indigo-500 shadow-indigo-500/5',
     };
-
-    const iconColors = {
-        blue: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+    const iconColors: Record<string, string> = {
+        blue:    'text-blue-400 bg-blue-500/10 border-blue-500/20',
         emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-        red: 'text-red-400 bg-red-500/10 border-red-500/20',
-        amber: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-        indigo: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+        red:     'text-red-400 bg-red-500/10 border-red-500/20',
+        amber:   'text-amber-400 bg-amber-500/10 border-amber-500/20',
+        indigo:  'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
     };
 
     return (
         <div className={cn(
-            "bg-[#1E293B]/40 backdrop-blur-sm border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] border-t-2 shadow-2xl relative",
-            themes[color]
+            'bg-[#1E293B]/40 backdrop-blur-sm border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] border-t-2 shadow-2xl relative',
+            themes[color],
         )}>
             <div className="flex items-center gap-3 mb-4">
-                <div className={cn("h-10 w-10 flex items-center justify-center rounded-xl border shrink-0", iconColors[color])}>
+                <div className={cn('h-10 w-10 flex items-center justify-center rounded-xl border shrink-0', iconColors[color])}>
                     <Icon className="h-5 w-5" />
                 </div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{title}</span>
             </div>
             <div className="flex items-baseline gap-2">
                 <span className="text-4xl font-black tracking-tighter text-white">{value}</span>
-                <span className="text-[10px] font-bold text-slate-500 tracking-wider">EVENTS</span>
             </div>
         </div>
     );
 }
 
-/* ─── DLQ Table Section ─────────────────────────────────── */
-function DlqTableSection({ jobs, onReplay, replaying }: {
-    jobs: Job[];
-    onReplay: (jobId: string, dlqItemId: string) => void;
-    replaying: boolean;
-}) {
-    const failedJobs = jobs.filter(j => j.status === 'FAILED' || j.failedCount > 0);
-    const selectedJob = failedJobs[0];
-
-    return (
-        <div className="bg-[#1E293B]/40 backdrop-blur-md border border-white/5 rounded-[32px] overflow-hidden shadow-2xl">
-            <div className="px-8 py-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <Layers className="h-5 w-5 text-primary" />
-                    <h2 className="text-sm font-black text-white uppercase tracking-widest">DLQ Snapshot</h2>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Selected Context:</span>
-                    <span className="text-xs font-bold text-primary px-3 py-1 bg-primary/10 rounded-lg border border-primary/20">
-                        {selectedJob ? `Job ${selectedJob.id.substring(0, 8).toUpperCase()}` : 'Global Mesh'}
-                    </span>
-                </div>
-            </div>
-
-            {selectedJob ? (
-                <DlqJobItems job={selectedJob} onReplay={onReplay} replaying={replaying} />
-            ) : (
-                <div className="py-32 text-center opacity-30">
-                    <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-emerald-500" />
-                    <p className="text-sm font-black tracking-[0.3em] uppercase text-slate-400">Mesh Health Optimized</p>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function DlqJobItems({ job, onReplay, replaying }: {
+/* ─── DLQ Items for one job ────────────────────────────────── */
+function DlqJobItems({
+    job,
+    onReplay,
+    replaying,
+    search,
+}: {
     job: Job;
     onReplay: (jobId: string, dlqItemId: string) => void;
     replaying: boolean;
+    search: string;
 }) {
-    const { data, loading } = useQuery<{ dlqItems: DlqItem[] }>(GET_DLQ_ITEMS, {
+    const { data, loading, refetch } = useQuery<{ dlqItems: DlqItem[] }>(GET_DLQ_ITEMS, {
         variables: { jobId: job.id },
     });
 
-    const items = data?.dlqItems ?? [];
+    const [deleteItem] = useMutation(DELETE_DLQ_ITEM, {
+        onCompleted: () => refetch(),
+    });
+
+    const allItems = data?.dlqItems ?? [];
+    const items = search.trim()
+        ? allItems.filter(i =>
+            i.itemKey.toLowerCase().includes(search.toLowerCase()) ||
+            i.errorMessage.toLowerCase().includes(search.toLowerCase()) ||
+            i.errorType.toLowerCase().includes(search.toLowerCase()),
+          )
+        : allItems;
 
     if (loading) {
         return (
@@ -168,84 +151,169 @@ function DlqJobItems({ job, onReplay, replaying }: {
         );
     }
 
+    if (items.length === 0) {
+        return (
+            <div className="py-16 text-center opacity-30">
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-500" />
+                <p className="text-sm font-black tracking-[0.2em] uppercase text-slate-400">
+                    {search ? 'No matching items' : 'No DLQ items'}
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
                 <thead className="text-[11px] font-bold text-slate-500 uppercase tracking-widest bg-white/[0.01]">
                     <tr>
                         <th className="px-8 py-5">Correlation Key</th>
-                        <th className="px-6 py-5">Source Node</th>
+                        <th className="px-6 py-5">Job</th>
                         <th className="px-6 py-5">Fault Type</th>
-                        <th className="px-6 py-5">Status Log</th>
+                        <th className="px-6 py-5">Message</th>
                         <th className="px-8 py-5 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                    {items.length === 0 ? (
-                        <tr>
-                            <td colSpan={5} className="px-8 py-20 text-center text-slate-500">
-                                No entries present in current buffer.
+                    {items.map((item) => (
+                        <tr key={item.id} className="hover:bg-white/[0.03] transition-colors group">
+                            <td className="px-8 py-4">
+                                <div className="flex items-center gap-2">
+                                    <div className={cn(
+                                        'h-1.5 w-1.5 rounded-full',
+                                        item.replayed ? 'bg-emerald-500' : 'bg-red-500/50 group-hover:bg-red-500 transition-colors',
+                                    )} />
+                                    <span className="font-mono text-xs text-slate-300">{item.itemKey}</span>
+                                </div>
+                            </td>
+                            <td className="px-6 py-4">
+                                <Link
+                                    href={`/jobs/${job.id}`}
+                                    className="text-[11px] font-black text-primary px-2 py-0.5 bg-primary/10 rounded-md uppercase tracking-tighter hover:bg-primary/20 transition-colors"
+                                >
+                                    JOB-{job.id.substring(0, 4).toUpperCase()}
+                                </Link>
+                            </td>
+                            <td className="px-6 py-4">
+                                <ErrorTypeBadge type={item.errorType} />
+                            </td>
+                            <td className="px-6 py-4">
+                                <p className="text-xs text-slate-400 max-w-[300px] truncate group-hover:text-slate-200 transition-colors">
+                                    {item.errorMessage}
+                                </p>
+                            </td>
+                            <td className="px-8 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                    <Link
+                                        href={`/jobs/${job.id}`}
+                                        className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-primary transition-all group/btn"
+                                        title="View job"
+                                    >
+                                        <ArrowUpRight className="h-4 w-4 group-hover/btn:scale-110 transition-transform" />
+                                    </Link>
+                                    <button
+                                        disabled={replaying || !item.canReplay || item.replayed}
+                                        onClick={() => onReplay(job.id, item.id)}
+                                        title={item.replayed ? 'Already replayed' : !item.canReplay ? 'Not replayable' : 'Retry'}
+                                        className="h-9 w-9 flex items-center justify-center rounded-xl bg-primary/20 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed group/btn"
+                                    >
+                                        <Play className="h-3.5 w-3.5 fill-current group-hover/btn:scale-110 transition-transform" />
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (confirm('Delete this DLQ item?')) {
+                                                deleteItem({ variables: { id: item.id } });
+                                            }
+                                        }}
+                                        title="Delete DLQ item"
+                                        className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-red-400 hover:border-red-400/20 transition-all group/btn"
+                                    >
+                                        <Trash2 className="h-4 w-4 group-hover/btn:scale-110 transition-transform" />
+                                    </button>
+                                </div>
                             </td>
                         </tr>
-                    ) : (
-                        items.map((item) => (
-                            <tr key={item.id} className="hover:bg-white/[0.03] transition-colors group">
-                                <td className="px-8 py-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-red-500/50 group-hover:bg-red-500 transition-colors" />
-                                        <span className="font-mono text-xs text-slate-300">{item.itemKey}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className="text-[11px] font-black text-primary px-2 py-0.5 bg-primary/10 rounded-md uppercase tracking-tighter">
-                                        JOB-{job.id.substring(0, 4).toUpperCase()}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <ErrorTypeBadge type={item.errorType === 'VALIDATION' ? 'ERR_CANONICAL' : item.errorType} />
-                                </td>
-                                <td className="px-6 py-4">
-                                    <p className="text-xs text-slate-400 max-w-[300px] truncate group-hover:text-slate-200 transition-colors">
-                                        {item.errorMessage}
-                                    </p>
-                                </td>
-                                <td className="px-8 py-4 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                        <button className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-primary transition-all group/btn">
-                                            <ArrowUpRight className="h-4 w-4 group-hover/btn:scale-110 transition-transform" />
-                                        </button>
-                                        <button
-                                            disabled={replaying || item.errorType === 'FATAL'}
-                                            onClick={() => onReplay(job.id, item.id)}
-                                            className="h-9 w-9 flex items-center justify-center rounded-xl bg-primary/20 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all disabled:opacity-30 group/btn"
-                                        >
-                                            <Play className="h-3.5 w-3.5 fill-current group-hover/btn:scale-110 transition-transform" />
-                                        </button>
-                                        <button className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-red-400 transition-all group/btn">
-                                            <Trash2 className="h-4 w-4 group-hover/btn:scale-110 transition-transform" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))
-                    )}
+                    ))}
                 </tbody>
             </table>
         </div>
     );
 }
 
+/* ─── DLQ Table Section (all failed jobs) ──────────────────── */
+function DlqTableSection({
+    jobs,
+    onReplay,
+    replaying,
+    search,
+}: {
+    jobs: Job[];
+    onReplay: (jobId: string, dlqItemId: string) => void;
+    replaying: boolean;
+    search: string;
+}) {
+    const failedJobs = jobs.filter(j => j.status === 'FAILED' || j.failedCount > 0);
+    const [selectedJobId, setSelectedJobId] = useState<string>(failedJobs[0]?.id ?? '');
+
+    const selectedJob = failedJobs.find(j => j.id === selectedJobId) ?? failedJobs[0];
+
+    return (
+        <div className="bg-[#1E293B]/40 backdrop-blur-md border border-white/5 rounded-[32px] overflow-hidden shadow-2xl">
+            <div className="px-8 py-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Layers className="h-5 w-5 text-primary" />
+                    <h2 className="text-sm font-black text-white uppercase tracking-widest">DLQ Snapshot</h2>
+                </div>
+                {failedJobs.length > 0 && (
+                    <select
+                        value={selectedJob?.id ?? ''}
+                        onChange={e => setSelectedJobId(e.target.value)}
+                        className="bg-[#0F172A] border border-white/10 text-primary text-xs font-bold px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    >
+                        {failedJobs.map(j => (
+                            <option key={j.id} value={j.id}>
+                                JOB-{j.id.substring(0, 8).toUpperCase()} ({j.failedCount} errors)
+                            </option>
+                        ))}
+                    </select>
+                )}
+            </div>
+
+            {selectedJob ? (
+                <DlqJobItems
+                    job={selectedJob}
+                    onReplay={onReplay}
+                    replaying={replaying}
+                    search={search}
+                />
+            ) : (
+                <div className="py-32 text-center opacity-30">
+                    <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-emerald-500" />
+                    <p className="text-sm font-black tracking-[0.3em] uppercase text-slate-400">No DLQ entries found</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
 /* ─── Main DLQ Page ────────────────────────────────────────── */
 export default function DlqPage() {
+    const [search, setSearch] = useState('');
+
     const { data: jobsData, loading: jobsLoading } = useQuery<{ jobs: Job[] }>(GET_JOBS, {
         pollInterval: 15_000,
     });
 
-    const [replayItem, { loading: replaying }] = useMutation(REPLAY_JOB);
+    const [replayItem, { loading: replaying }] = useMutation(REPLAY_JOB, {
+        refetchQueries: ['GetDlqItems', 'GetJobs'],
+    });
 
-    const jobs = jobsData?.jobs ?? [];
-    const failedJobs = jobs.filter(j => j.status === 'FAILED' || j.failedCount > 0);
-    const totalFailedItems = failedJobs.reduce((acc, j) => acc + (j.failedCount ?? 0), 0);
+    const jobs           = jobsData?.jobs ?? [];
+    const failedJobs     = jobs.filter(j => j.status === 'FAILED' || j.failedCount > 0);
+    const healthyJobs    = jobs.length - failedJobs.length;
+    const totalFailed    = failedJobs.reduce((acc, j) => acc + (j.failedCount ?? 0), 0);
+    const fatalItems     = failedJobs.filter(j => j.status === 'FAILED').length;
+    const transientItems = Math.max(0, totalFailed - fatalItems);
 
     const handleReplay = (jobId: string, dlqItemId: string) => {
         replayItem({ variables: { jobId, dlqItemId } });
@@ -270,43 +338,22 @@ export default function DlqPage() {
                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-primary transition-colors" />
                             <input
                                 type="text"
-                                placeholder="Search trace..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Search key, error..."
                                 className="bg-[#1E293B]/60 border border-white/5 rounded-2xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-primary/50 focus:ring-4 focus:ring-primary/10 w-64 transition-all"
                             />
                         </div>
-                        <button className="p-3 bg-white/5 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all">
-                            <Filter className="h-5 w-5" />
-                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* Metric Cards */}
+            {/* Metric Cards — derived from real job data */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <MetricCard
-                    title="DLQ Depth"
-                    value={totalFailedItems}
-                    icon={AlertCircle}
-                    color="red"
-                />
-                <MetricCard
-                    title="Processing Errors"
-                    value={Math.floor(totalFailedItems * 0.7)}
-                    icon={XCircle}
-                    color="red"
-                />
-                <MetricCard
-                    title="Warning Events"
-                    value={Math.floor(totalFailedItems * 0.3)}
-                    icon={Zap}
-                    color="amber"
-                />
-                <MetricCard
-                    title="Operational Jobs"
-                    value={jobs.length - failedJobs.length}
-                    icon={Database}
-                    color="blue"
-                />
+                <MetricCard title="DLQ Depth"          value={totalFailed}    icon={AlertCircle} color="red"     />
+                <MetricCard title="Fatal Failures"      value={fatalItems}     icon={XCircle}     color="red"     />
+                <MetricCard title="Transient Errors"    value={transientItems} icon={Zap}         color="amber"   />
+                <MetricCard title="Healthy Jobs"        value={healthyJobs}    icon={Database}    color="blue"    />
             </div>
 
             {/* Items Table */}
@@ -316,21 +363,23 @@ export default function DlqPage() {
                     <span className="text-xs font-black uppercase tracking-widest opacity-40">Polling Fault Buffers...</span>
                 </div>
             ) : (
-                <DlqTableSection jobs={jobs} onReplay={handleReplay} replaying={replaying} />
+                <DlqTableSection
+                    jobs={jobs}
+                    onReplay={handleReplay}
+                    replaying={replaying}
+                    search={search}
+                />
             )}
 
-            {/* Global Actions */}
+            {/* Footer actions */}
             <div className="flex items-center gap-4 pt-4">
-                <button className="flex items-center gap-3 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-widest px-8 py-4 rounded-2xl transition-all shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-95">
-                    <RotateCcw className="h-4 w-4 stroke-[3]" />
-                    Purge & Retry Transient
-                </button>
                 <div className="flex items-center gap-3 text-slate-500 ml-auto">
                     <CloudOff className="h-4 w-4" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Mesh Isolation Active</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">
+                        {totalFailed === 0 ? 'All Clear — No DLQ Items' : `${totalFailed} item${totalFailed !== 1 ? 's' : ''} pending review`}
+                    </span>
                 </div>
             </div>
         </div>
     );
 }
-

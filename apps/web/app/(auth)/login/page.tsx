@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { LoginForm } from '@/components/auth/login-form';
 
@@ -13,8 +14,11 @@ export default function LoginPage() {
                 <h1 className="text-2xl font-bold tracking-tight text-white">Welcome back</h1>
                 <p className="text-sm text-slate-400">Commerce Data Orchestrator</p>
             </div>
-            
-            <LoginForm />
+
+            {/* LoginForm uses useSearchParams() which requires a Suspense boundary in Next.js 14 */}
+            <Suspense fallback={<div className="h-64 animate-pulse rounded-lg bg-white/5" />}>
+                <LoginForm />
+            </Suspense>
         </div>
     );
 }

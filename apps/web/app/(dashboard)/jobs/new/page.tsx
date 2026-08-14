@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { NewJobForm } from '@/components/jobs/new-job-form';
+import { CreateJobWizard } from '@/components/jobs/create-job-wizard';
 
 export const metadata: Metadata = {
     title: 'New Job | Commerce Orchestrator',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function NewJobPage() {
-    return <NewJobForm />;
+    return <CreateJobWizard />;
 }

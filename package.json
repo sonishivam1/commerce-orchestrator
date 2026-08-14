@@ -11,6 +11,7 @@
     "devDependencies": {
         "@swc/core": "^1.15.18",
         "@swc/helpers": "^0.5.19",
+        "@types/jest": "^30.0.0",
         "prettier": "^3.1.1",
         "swc-loader": "^0.2.7",
         "swc-node": "^1.0.0",
@@ -23,5 +24,9 @@
     "packageManager": "pnpm@8.14.0",
     "engines": {
         "node": ">=18"
+    },
+    "dependencies": {
+        "pino": "^10.3.1",
+        "pino-pretty": "^13.1.3"
     }
 }

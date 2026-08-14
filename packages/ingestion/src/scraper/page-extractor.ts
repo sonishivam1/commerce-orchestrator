@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 /**
  * @file page-extractor.ts
  * @package @cdo/ingestion

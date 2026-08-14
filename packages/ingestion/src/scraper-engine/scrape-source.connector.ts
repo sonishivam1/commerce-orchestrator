@@ -1,8 +1,11 @@
 import type { SourceConnector } from '@cdo/core';
 import type { CanonicalProduct } from '@cdo/shared';
+import pino from 'pino';
 import { mapScrapedProduct } from '@cdo/mapping';
 import { ScraperService } from '../scraper/scraper.service';
 import { parseRawProduct } from '../parsers/product.parser';
+
+const logger = pino();
 
 export class ScrapeSourceConnector implements SourceConnector<CanonicalProduct> {
     private scraperService: ScraperService | null = null;
@@ -46,7 +49,7 @@ export class ScrapeSourceConnector implements SourceConnector<CanonicalProduct> 
             
             for (const res of results) {
                 if (!res.success || !res.data) {
-                    console.warn(`[ScrapeSourceConnector] Extraction failed for url: ${res.url}. Error: ${res.error}`);
+                    logger.warn(`[ScrapeSourceConnector] Extraction failed for url: ${res.url}. Error: ${res.error}`);
                     continue; // Skip failed URLs to avoid crashing the whole job
                 }
                 

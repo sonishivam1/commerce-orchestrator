@@ -1,4 +1,7 @@
 import Redis from 'ioredis';
+import pino from 'pino';
+
+const logger = pino();
 
 /**
  * Creates a Redis connection based on the environment.
@@ -13,11 +16,11 @@ export function createRedisConnection() {
         // We defer the require to avoid loading the mock unless strictly needed
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const RedisMock = require('ioredis-mock');
-        console.log('🏗️  [Redis] REDIS_HOST not set. Initializing Virtual Redis (In-Memory Mock)');
+        logger.warn('[Redis] REDIS_HOST not set. Initializing Virtual Redis (In-Memory Mock)');
         return new RedisMock();
     }
 
-    console.log(`🔌 [Redis] Connecting to real Redis at ${host}:${port}`);
+    logger.info(`[Redis] Connecting to real Redis at ${host}:${port}`);
     return new Redis({
         host,
         port,

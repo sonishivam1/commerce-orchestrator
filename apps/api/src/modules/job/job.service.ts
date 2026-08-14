@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { randomUUID } from 'crypto';
 import { JobRepository, DlqRepository } from '@cdo/db';
 import { JobProducer } from '@cdo/queue';
-import { QUEUE_ETL } from '@cdo/shared';
 import { CreateJobInput } from './dto/create-job.input';
 import { JobKind } from './dto/job.type';
 
@@ -20,9 +19,7 @@ export class JobService {
 
     async findOne(tenantId: string, id: string) {
         const job = await this.jobRepository.findOneForTenant(tenantId, id);
-        if (!job) {
-            throw new NotFoundException(`Job ${id} not found`);
-        }
+        if (!job) throw new NotFoundException(`Job ${id} not found`);
         return job;
     }
 
@@ -35,14 +32,14 @@ export class JobService {
         if (!isScrapeJob && !input.sourceCredentialId) {
             throw new BadRequestException('sourceCredentialId is required for ETL jobs');
         }
-        if (!isScrapeJob && !input.targetCredentialId) {
-            throw new BadRequestException('targetCredentialId is required for ETL jobs');
+        const isExport = input.kind === JobKind.EXPORT;
+        if (!isScrapeJob && !isExport && !input.targetCredentialId) {
+            throw new BadRequestException('targetCredentialId is required for migration/clone jobs');
         }
 
         const correlationId = randomUUID();
         const traceId = randomUUID();
 
-        // Persist job record first — so the worker can update it by ID
         const jobDoc = await this.jobRepository.create({
             tenantId,
             kind: input.kind,
@@ -56,7 +53,6 @@ export class JobService {
 
         const jobId = String(jobDoc._id);
 
-        // Enqueue via the shared JobProducer — keeps queue logic inside @cdo/queue
         if (isScrapeJob) {
             await this.jobProducer.enqueueScrapeJob({
                 jobId,
@@ -82,38 +78,55 @@ export class JobService {
         return jobDoc;
     }
 
+    async deleteJob(tenantId: string, id: string): Promise<boolean> {
+        const job = await this.jobRepository.findOneForTenant(tenantId, id);
+        if (!job) throw new NotFoundException(`Job ${id} not found`);
+        if (job.status === 'RUNNING') {
+            throw new BadRequestException('Cannot delete a RUNNING job. Wait for it to complete or fail.');
+        }
+        return this.jobRepository.delete(tenantId, id);
+    }
+
     async replayDlqItem(tenantId: string, jobId: string, dlqItemId: string) {
         const dlqItem = await this.dlqRepository.findOneForTenant(tenantId, dlqItemId);
 
-        if (!dlqItem) {
-            throw new NotFoundException(`DLQ item ${dlqItemId} not found`);
-        }
-        if (dlqItem.replayed) {
-            throw new BadRequestException(`DLQ item ${dlqItemId} has already been replayed`);
-        }
+        if (!dlqItem) throw new NotFoundException(`DLQ item ${dlqItemId} not found`);
+        if (dlqItem.replayed) throw new BadRequestException(`DLQ item ${dlqItemId} already replayed`);
         if (!dlqItem.canReplay) {
-            throw new BadRequestException(`DLQ item ${dlqItemId} is not replayable (Validation error requires manual intervention)`);
+            throw new BadRequestException(
+                `DLQ item ${dlqItemId} is not replayable (ValidationError requires manual intervention)`,
+            );
         }
 
         const parentJob = await this.jobRepository.findOneForTenant(tenantId, jobId);
-        if (!parentJob) {
-            throw new NotFoundException(`Parent job ${jobId} not found`);
+        if (!parentJob) throw new NotFoundException(`Parent job ${jobId} not found`);
+
+        if (parentJob.kind === 'SCRAPE_IMPORT') {
+            if (!parentJob.sourceUrl) {
+                throw new BadRequestException(`Cannot replay: parent job ${jobId} has no sourceUrl`);
+            }
+            await this.jobProducer.enqueueScrapeJob({
+                jobId: dlqItem.jobId,
+                tenantId,
+                correlationId: randomUUID(),
+                traceId: randomUUID(),
+                kind: 'SCRAPE_IMPORT',
+                sourceUrl: parentJob.sourceUrl,
+                targetCredentialId: parentJob.targetCredentialId!,
+            });
+        } else {
+            await this.jobProducer.enqueueEtlJob({
+                jobId: dlqItem.jobId,
+                tenantId,
+                correlationId: randomUUID(),
+                traceId: randomUUID(),
+                kind: parentJob.kind as 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT',
+                sourceCredentialId: parentJob.sourceCredentialId!,
+                targetCredentialId: parentJob.targetCredentialId!,
+            });
         }
 
-        // Re-enqueue original job to ETL queue for retry of this single item
-        // The replay payload mirrors the original job but marks this as a replay
-        await this.jobProducer.enqueueEtlJob({
-            jobId: dlqItem.jobId,
-            tenantId,
-            correlationId: randomUUID(),
-            traceId: randomUUID(),
-            kind: parentJob.kind as 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT',
-            sourceCredentialId: parentJob.sourceCredentialId!,
-            targetCredentialId: parentJob.targetCredentialId!,
-        });
-
         await this.dlqRepository.markReplayed(dlqItemId);
-
         return parentJob;
     }
 
