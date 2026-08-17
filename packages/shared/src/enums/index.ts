@@ -16,10 +16,27 @@ export enum JobStatus {
     PAUSED = 'PAUSED',
 }
 
+/**
+ * Platform — authoritative lowercase values stored in the DB and used for all
+ * platform-string comparisons across the monorepo.
+ * Always use this enum; never compare raw strings.
+ */
 export enum Platform {
     COMMERCETOOLS = 'commercetools',
     SHOPIFY = 'shopify',
     BIGCOMMERCE = 'bigcommerce',
+}
+
+/**
+ * EntityType — what kind of data an ETL job migrates.
+ * A single job can request multiple entity types; the orchestrator
+ * runs one EtlEngine pass per type.
+ */
+export enum EntityType {
+    PRODUCTS = 'PRODUCTS',
+    CATEGORIES = 'CATEGORIES',
+    CUSTOMERS = 'CUSTOMERS',
+    ORDERS = 'ORDERS',
 }
 
 export enum ErrorType {

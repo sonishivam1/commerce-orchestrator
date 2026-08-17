@@ -1,4 +1,4 @@
-import { CanonicalEntity, ErrorType, DEFAULT_BATCH_SIZE, MAX_JOB_RETRIES } from '@cdo/shared';
+import { CanonicalEntity, EntityType, ErrorType, DEFAULT_BATCH_SIZE, MAX_JOB_RETRIES } from '@cdo/shared';
 import type { SourceConnector, TargetConnector, LoadResult } from '../interfaces/index';
 import { CircuitBreaker } from './circuit-breaker';
 import { withRetry } from './retry';
@@ -14,6 +14,11 @@ export interface EtlContext {
     sourceCredentials: Record<string, unknown>;
     /** Decrypted credentials for the target platform — injected by the Worker orchestrator */
     targetCredentials: Record<string, unknown>;
+    /**
+     * Which entity types this job should migrate.
+     * Defaults to [EntityType.PRODUCTS] when omitted for backward compatibility.
+     */
+    entityTypes?: EntityType[];
 }
 
 export interface EtlEngineOptions {

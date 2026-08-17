@@ -3,7 +3,6 @@ import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { CredentialRepository, JobRepository } from '@cdo/db';
 import { DataEtlOrchestrator } from '../../orchestrator/data-etl.orchestrator';
-import { ConnectorFactory } from '@cdo/connectors';
 import { EtlContext } from '@cdo/core';
 import { QUEUE_ETL } from '@cdo/shared';
 import { CredentialDecryptor } from '../../services/credential.decryptor';
@@ -24,9 +23,9 @@ export class EtlProcessor extends WorkerHost {
     }
 
     async process(job: Job): Promise<void> {
-        const { tenantId, jobId, kind, sourceCredentialId, targetCredentialId } = job.data;
+        const { tenantId, jobId, kind, sourceCredentialId, targetCredentialId, entityTypes } = job.data;
 
-        this.logger.log(`[${jobId}] ETL job picked up — kind=${kind} tenant=${tenantId}`);
+        this.logger.log(`[${jobId}] ETL job picked up — kind=${kind} tenant=${tenantId} entityTypes=${entityTypes?.join(',') ?? 'PRODUCTS'}`);
 
         // Mark RUNNING immediately so the UI reflects live status
         await this.jobRepository.markRunning(jobId);
@@ -63,13 +62,7 @@ export class EtlProcessor extends WorkerHost {
             // Step 3: Acquire distributed Redlock — prevents concurrent destructive writes
             lock = targetCredentialId ? await this.lockService.acquire(tenantId, targetCredentialId) : null;
 
-            // Step 4: Instantiate connectors for this platform pair
-            const source = ConnectorFactory.createSource(sourceDoc.platform);
-            // For EXPORT, target platform doesn't matter — use source platform as placeholder
-            const targetPlatform = targetDoc?.platform ?? sourceDoc.platform;
-            const target = ConnectorFactory.createTarget(targetPlatform);
-
-            // Step 5: Build context and hand off to orchestrator
+            // Step 4: Build context — the Orchestrator handles connector creation per entity type
             const context: EtlContext = {
                 tenantId,
                 jobId,
@@ -77,9 +70,16 @@ export class EtlProcessor extends WorkerHost {
                 lockToken: undefined, // lockToken tracked by LockService internally
                 sourceCredentials,
                 targetCredentials,
+                entityTypes: entityTypes?.length ? entityTypes : ['PRODUCTS'],
             };
 
-            await this.orchestrator.execute({ jobKind: kind, source, target, context });
+            // Step 5: Delegate to Orchestrator — it creates connectors and runs the EtlEngine per entity type
+            await this.orchestrator.execute({
+                jobKind: kind,
+                context,
+                sourcePlatform: sourceDoc.platform,
+                targetPlatform: targetDoc?.platform ?? sourceDoc.platform,
+            });
 
             this.logger.log(`[${jobId}] ETL job completed successfully`);
         } catch (error) {

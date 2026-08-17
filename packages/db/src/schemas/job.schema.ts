@@ -29,6 +29,13 @@ export class Job {
     @Prop()
     sourceUrl?: string;
 
+    /**
+     * Entity types this job should migrate.
+     * Defaults to ['PRODUCTS'] for backward compatibility with existing jobs.
+     */
+    @Prop({ type: [String], enum: ['PRODUCTS', 'CATEGORIES', 'CUSTOMERS', 'ORDERS'], default: ['PRODUCTS'] })
+    entityTypes: string[];
+
     @Prop({ default: 0 })
     processedCount: number;
 
@@ -43,6 +50,10 @@ export class Job {
 
     @Prop({ type: Object })
     errorSummary?: Record<string, unknown>;
+
+    /** Absolute path to the exported JSONL file — set by EXPORT jobs on completion. */
+    @Prop()
+    exportFilePath?: string;
 }
 
 export const JobSchema = SchemaFactory.createForClass(Job);

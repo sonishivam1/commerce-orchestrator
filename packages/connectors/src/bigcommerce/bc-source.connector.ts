@@ -1,10 +1,13 @@
 import type { SourceConnector } from '@cdo/core';
-import type { CanonicalProduct, CanonicalVariant } from '@cdo/shared';
+import type { CanonicalProduct, CanonicalVariant, CanonicalEntity } from '@cdo/shared';
+import { EntityType, ErrorType } from '@cdo/shared';
 import fetch from 'node-fetch';
 
-export class BigCommerceSourceConnector implements SourceConnector<CanonicalProduct> {
+export class BigCommerceSourceConnector implements SourceConnector<CanonicalEntity> {
     private baseUrl!: string;
     private accessToken!: string;
+
+    constructor(private readonly entityType: EntityType = EntityType.PRODUCTS) {}
 
     async initialize(credentials: Record<string, unknown>): Promise<void> {
         const { storeHash, accessToken } = credentials;
@@ -80,7 +83,13 @@ export class BigCommerceSourceConnector implements SourceConnector<CanonicalProd
         };
     }
 
-    async *extract(cursor?: string): AsyncIterableIterator<CanonicalProduct[]> {
+    async *extract(cursor?: string): AsyncIterableIterator<CanonicalEntity[]> {
+        if (this.entityType !== EntityType.PRODUCTS) {
+            const err = new Error(`BigCommerce source connector currently only supports PRODUCTS entity type (requested: ${this.entityType})`);
+            (err as any).type = ErrorType.FATAL;
+            throw err;
+        }
+
         let page = cursor ? parseInt(cursor, 10) : 1;
         let hasMore = true;
 
@@ -88,12 +97,15 @@ export class BigCommerceSourceConnector implements SourceConnector<CanonicalProd
             const { data, meta } = await this.fetchPage(page);
             const pagination = meta?.pagination ?? {};
 
-            const batch: CanonicalProduct[] = [];
+            const batch: CanonicalEntity[] = [];
             for (const bc of data) {
                 try {
                     batch.push(this.mapProduct(bc));
                 } catch (error) {
-                    console.error(`Skipping BC product ${bc.id}: ${(error as Error).message}`);
+                    // VALIDATION-level mapping error — skip item, continue batch
+                    const e = error as Error & { type?: ErrorType };
+                    if (e.type !== ErrorType.FATAL) continue;
+                    throw error;
                 }
             }
 

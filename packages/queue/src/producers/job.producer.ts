@@ -30,6 +30,8 @@ export interface EtlJobPayload {
     kind: 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT' | 'REPLAY';
     sourceCredentialId: string;
     targetCredentialId: string;
+    /** Entity types to migrate. Defaults to ['PRODUCTS'] when omitted. */
+    entityTypes?: string[];
     dlqItemId?: string;
     rawPayload?: Record<string, unknown>;
 }

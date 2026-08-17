@@ -1,15 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EtlEngine, type EtlContext, type LoadResult } from '@cdo/core';
-import { ErrorType, type CanonicalEntity, JobKind } from '@cdo/shared';
-import type { SourceConnector, TargetConnector } from '@cdo/core';
+import { EntityType, ErrorType, type CanonicalEntity, JobKind } from '@cdo/shared';
+import { ConnectorFactory } from '@cdo/connectors';
 import { JobRepository, DlqRepository } from '@cdo/db';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
 export interface JobStrategyConfig {
     jobKind: string;
-    source: SourceConnector;
-    target: TargetConnector<CanonicalEntity>;
+    /** Resolved platform string from the source credential document (e.g. 'commercetools'). */
+    sourcePlatform: string;
+    /** Resolved platform string from the target credential document. */
+    targetPlatform: string;
     context: EtlContext;
     /** For EXPORT jobs: destination directory for the output file */
     exportDir?: string;
@@ -19,10 +21,13 @@ export interface JobStrategyConfig {
  * DataEtlOrchestrator — orchestrates the ETL pipeline for a single job.
  *
  * Handles all four job kinds:
- * - CROSS_PLATFORM_MIGRATION: Source → Canonical → Target (standard ETL)
+ * - CROSS_PLATFORM_MIGRATION: Source → Canonical → Target (one pass per entity type)
  * - PLATFORM_CLONE: Phase 1 schema replication, Phase 2 entity replication
  * - SCRAPE_IMPORT: Playwright → Canonical → Target
  * - EXPORT: Source → Canonical → JSONL file on disk
+ *
+ * The Orchestrator owns connector creation via ConnectorFactory — the Worker
+ * processor only handles infrastructure concerns (credential decryption, Redlock).
  */
 @Injectable()
 export class DataEtlOrchestrator {
@@ -49,52 +54,68 @@ export class DataEtlOrchestrator {
     // ── Standard ETL (CROSS_PLATFORM_MIGRATION / SCRAPE_IMPORT) ──────────────
 
     private async executeStandardEtl(config: JobStrategyConfig): Promise<void> {
-        const { source, target, context } = config;
-        const engine = new EtlEngine(source, target, context);
+        const { sourcePlatform, targetPlatform, context } = config;
+        const entityTypes = context.entityTypes?.length ? context.entityTypes as EntityType[] : [EntityType.PRODUCTS];
+
         let totalProcessed = 0;
         let totalFailed = 0;
 
-        engine.on('progress', async (results) => {
-            const ok = results.filter((r) => r.success).length;
-            const fail = results.filter((r) => !r.success).length;
-            totalProcessed += ok + fail;
-            totalFailed += fail;
-            this.logger.log(`[${context.jobId}] +${ok} ok / +${fail} failed`);
-            this.jobRepository
-                .updateProgress(context.jobId, totalProcessed, totalFailed)
-                .catch((e) => this.logger.error(`Progress update failed: ${e.message}`));
-        });
+        for (const entityType of entityTypes) {
+            this.logger.log(`[${context.jobId}] ETL pass — entityType=${entityType} source=${sourcePlatform} → target=${targetPlatform}`);
 
-        engine.on('failure', async (error: any, item: CanonicalEntity | undefined) => {
-            this.logger.error(`[${context.jobId}] Item failure: ${error.message}`);
-            if (item) {
-                await this.pushToDlq(context, item, error).catch((e) =>
-                    this.logger.error(`DLQ push failed for ${item.key}: ${e.message}`),
-                );
-            }
-        });
+            const source = ConnectorFactory.createSource(sourcePlatform, entityType);
+            const target = ConnectorFactory.createTarget(targetPlatform, entityType);
 
-        try {
-            await engine.run();
-            await this.jobRepository.markCompleted(context.jobId);
-        } catch (error) {
-            await this.jobRepository.markFailed(context.jobId, {
-                message: (error as Error).message,
-                stack: (error as Error).stack,
+            const engine = new EtlEngine(source, target, context);
+
+            engine.on('progress', async (results: LoadResult[]) => {
+                const ok = results.filter((r) => r.success).length;
+                const fail = results.filter((r) => !r.success).length;
+                totalProcessed += ok + fail;
+                totalFailed += fail;
+                this.logger.log(`[${context.jobId}][${entityType}] +${ok} ok / +${fail} failed`);
+                this.jobRepository
+                    .updateProgress(context.jobId, totalProcessed, totalFailed)
+                    .catch((e) => this.logger.error(`Progress update failed: ${e.message}`));
             });
-            throw error;
+
+            engine.on('failure', async (error: any, item: CanonicalEntity | undefined) => {
+                this.logger.error(`[${context.jobId}][${entityType}] Item failure: ${error.message}`);
+                if (item) {
+                    await this.pushToDlq(context, item, error).catch((e) =>
+                        this.logger.error(`DLQ push failed for ${item.key}: ${e.message}`),
+                    );
+                }
+            });
+
+            try {
+                await engine.run();
+            } catch (error) {
+                // Fail the whole job if a fatal error occurs on any entity type
+                await this.jobRepository.markFailed(context.jobId, {
+                    message: (error as Error).message,
+                    entityType,
+                    stack: (error as Error).stack,
+                });
+                throw error;
+            }
         }
+
+        await this.jobRepository.markCompleted(context.jobId);
     }
 
     // ── PLATFORM_CLONE — two-phase: schema first, then entities ──────────────
 
     private async executePlatformClone(config: JobStrategyConfig): Promise<void> {
-        const { source, target, context } = config;
+        const { sourcePlatform, targetPlatform, context } = config;
 
         this.logger.log(`[${context.jobId}] PLATFORM_CLONE Phase 1: schema replication`);
 
-        // Phase 1: replicate the taxonomy / schema from source → target
+        // Phase 1: replicate the taxonomy / schema from source → target (products only for schema)
         try {
+            const source = ConnectorFactory.createSource(sourcePlatform, EntityType.PRODUCTS);
+            const target = ConnectorFactory.createTarget(targetPlatform, EntityType.PRODUCTS);
+
             if (typeof (source as any).extractSchema === 'function') {
                 const schema = await (source as any).extractSchema(context.sourceCredentials);
                 this.logger.log(`[${context.jobId}] Schema extracted, deploying to target...`);
@@ -110,7 +131,6 @@ export class DataEtlOrchestrator {
             }
         } catch (err) {
             this.logger.error(`[${context.jobId}] Schema replication failed: ${(err as Error).message}`);
-            // Fail the job rather than proceeding with entity replication on a broken schema
             await this.jobRepository.markFailed(context.jobId, {
                 message: `Schema replication failed: ${(err as Error).message}`,
                 phase: 'schema',
@@ -120,56 +140,65 @@ export class DataEtlOrchestrator {
 
         this.logger.log(`[${context.jobId}] PLATFORM_CLONE Phase 2: entity replication`);
 
-        // Phase 2: run standard ETL for entities
+        // Phase 2: run standard ETL for all requested entity types
         await this.executeStandardEtl(config);
     }
 
     // ── EXPORT — Source → Canonical → JSONL file ──────────────────────────────
 
     private async executeExport(config: JobStrategyConfig): Promise<void> {
-        const { source, context, exportDir } = config;
+        const { sourcePlatform, context, exportDir } = config;
+        const entityTypes = context.entityTypes?.length ? context.entityTypes as EntityType[] : [EntityType.PRODUCTS];
         const outputDir = exportDir ?? join(process.cwd(), 'exports');
         const outputFile = join(outputDir, `export-${context.jobId}.jsonl`);
 
-        this.logger.log(`[${context.jobId}] EXPORT job — writing to ${outputFile}`);
+        this.logger.log(`[${context.jobId}] EXPORT job — writing to ${outputFile} entityTypes=${entityTypes.join(',')}`);
 
         await mkdir(outputDir, { recursive: true });
 
-        await source.initialize(context.sourceCredentials);
-
-        const lines: string[] = [];
         let totalProcessed = 0;
+        let firstWrite = true;
 
         try {
-            for await (const batch of source.extract()) {
-                for (const item of batch) {
-                    lines.push(JSON.stringify(item));
-                    totalProcessed++;
+            for (const entityType of entityTypes) {
+                this.logger.log(`[${context.jobId}] EXPORT — extracting ${entityType}`);
+                const source = ConnectorFactory.createSource(sourcePlatform, entityType);
+                await source.initialize(context.sourceCredentials);
+
+                const lines: string[] = [];
+
+                for await (const batch of source.extract()) {
+                    for (const item of batch) {
+                        lines.push(JSON.stringify({ _entityType: entityType, ...item }));
+                        totalProcessed++;
+                    }
+
+                    // Flush to disk every 1000 items to keep memory bounded
+                    if (lines.length >= 1000) {
+                        await writeFile(outputFile, lines.join('\n') + '\n', {
+                            flag: firstWrite ? 'w' : 'a',
+                            encoding: 'utf8',
+                        });
+                        firstWrite = false;
+                        lines.length = 0;
+
+                        await this.jobRepository.updateProgress(context.jobId, totalProcessed, 0);
+                        this.logger.log(`[${context.jobId}] EXPORT — ${totalProcessed} items written`);
+                    }
                 }
 
-                // Flush to disk every 1000 items to keep memory bounded
-                if (lines.length >= 1000) {
+                // Flush remaining for this entity type
+                if (lines.length > 0) {
                     await writeFile(outputFile, lines.join('\n') + '\n', {
-                        flag: lines.length === totalProcessed ? 'w' : 'a',
+                        flag: firstWrite ? 'w' : 'a',
                         encoding: 'utf8',
                     });
-                    lines.length = 0; // clear buffer
-
-                    await this.jobRepository.updateProgress(context.jobId, totalProcessed, 0);
-                    this.logger.log(`[${context.jobId}] EXPORT — ${totalProcessed} items written`);
+                    firstWrite = false;
                 }
-            }
-
-            // Flush remaining
-            if (lines.length > 0) {
-                await writeFile(outputFile, lines.join('\n') + '\n', {
-                    flag: 'a',
-                    encoding: 'utf8',
-                });
             }
 
             await this.jobRepository.updateProgress(context.jobId, totalProcessed, 0);
-            await this.jobRepository.markCompleted(context.jobId);
+            await this.jobRepository.markCompleted(context.jobId, outputFile);
             this.logger.log(`[${context.jobId}] EXPORT complete — ${totalProcessed} items → ${outputFile}`);
         } catch (error) {
             await this.jobRepository.markFailed(context.jobId, {
