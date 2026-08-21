@@ -49,6 +49,16 @@ export async function requestShopifyToken(
 ): Promise<ShopifyTokenResult> {
     const url = `https://${shop}.myshopify.com/admin/oauth/access_token`;
 
+    // ── Safe diagnostics — no secret values are logged ───────────────────────
+    // These lines are intentionally verbose to help diagnose OAuth failures.
+    // client_id and client_secret values are NEVER logged — only presence and length.
+    console.log(`   [oauth] shop domain    : ${shop}.myshopify.com`);
+    console.log(`   [oauth] token endpoint : ${url}`);
+    console.log(`   [oauth] client_id      : ${clientId ? `present (length=${clientId.length})` : 'MISSING OR EMPTY'}`);
+    console.log(`   [oauth] client_secret  : ${clientSecret ? `present (length=${clientSecret.length})` : 'MISSING OR EMPTY'}`);
+    console.log(`   [oauth] grant_type     : client_credentials`);
+    // ─────────────────────────────────────────────────────────────────────────
+
     const formBody = new URLSearchParams({
         grant_type: 'client_credentials',
         client_id: clientId,
@@ -61,9 +71,12 @@ export async function requestShopifyToken(
         body: formBody.toString(),
     });
 
+    console.log(`   [oauth] HTTP status    : ${response.status}`);
+
     if (!response.ok) {
         const rawText = await response.text().catch(() => '(unreadable response)');
         const sanitized = sanitizeErrorBody(rawText);
+        console.log(`   [oauth] response body  : ${sanitized}`);
         throw new Error(
             `Shopify authentication failed (HTTP ${response.status}): ${sanitized}`,
         );
