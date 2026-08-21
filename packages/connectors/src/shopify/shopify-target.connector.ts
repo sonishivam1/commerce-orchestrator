@@ -436,7 +436,10 @@ export class ShopifyTargetConnector implements TargetConnector<CanonicalEntity> 
         const input: Record<string, unknown> = {
             lineItems,
             note: `Migrated from source order: ${canonical.key} (original currency: ${canonical.currency})`,
-            tags: [`source-key:${canonical.key}`],
+            // Shopify enforces a hard 40-character limit on tag values. The full
+            // `source-key:{key}` string may exceed this when the key is a UUID.
+            // Slice to 40 chars — the note field always carries the full key.
+            tags: [`source-key:${canonical.key}`.slice(0, 40)],
         };
 
         if (customerId) input['customerId'] = customerId;

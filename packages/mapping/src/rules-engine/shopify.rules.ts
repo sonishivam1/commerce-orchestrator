@@ -71,9 +71,13 @@ export const canonicalVariantToShopifyVariantInput = (
               )
             : '0.00';
 
+    // NOTE: `sku` is NOT a top-level field on ProductVariantsBulkInput in
+    // Shopify Admin API 2024-01. Passing it produces:
+    //   "Field is not defined on ProductVariantsBulkInput"
+    // SKU in Shopify is owned by the variant's InventoryItem and requires a
+    // separate inventoryItemUpdate call. For this sync pass we set price only.
     const input: Record<string, unknown> = {
         id: variantId,
-        sku: variant.sku,
         price,
     };
 

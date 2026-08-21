@@ -421,7 +421,10 @@ describe('ShopifyTargetConnector — Products', () => {
         expect(variantsBody.query).toContain('GetProductVariants');
     });
 
-    it('syncMasterVariant calls PRODUCT_VARIANTS_BULK_UPDATE with correct productId, SKU, and price', async () => {
+    it('syncMasterVariant calls PRODUCT_VARIANTS_BULK_UPDATE with correct productId and price (no sku field)', async () => {
+        // ProductVariantsBulkInput in Shopify Admin API 2024-01 does NOT accept `sku`
+        // as a top-level field — the API rejects it. SKU lives on the InventoryItem.
+        // We sync price only via productVariantsBulkUpdate.
         await connector.initialize(BASE_CREDENTIALS);
 
         mockFetch
@@ -449,8 +452,8 @@ describe('ShopifyTargetConnector — Products', () => {
         expect(variants[0].id).toBe('gid://shopify/ProductVariant/1');
         // PRODUCT.masterVariant: centAmount=99900, fractionDigits=2 → '999.00'
         expect(variants[0].price).toBe('999.00');
-        // SKU from PRODUCT.masterVariant
-        expect(variants[0].sku).toBe('IPHONE-15-BLK');
+        // sku must NOT be in the input — API 2024-01 rejects it on ProductVariantsBulkInput
+        expect(variants[0]).not.toHaveProperty('sku');
     });
 });
 
@@ -643,6 +646,8 @@ describe('ShopifyTargetConnector — Orders', () => {
         const input = (mutBody.variables as any).input;
         expect(input.note).toContain('order-001');
         expect(input.tags).toContain('source-key:order-001');
+        // Shopify enforces a hard 40-char limit on tag values
+        (input.tags as string[]).forEach(tag => expect(tag.length).toBeLessThanOrEqual(40));
     });
 
     it('DraftOrderInput line items carry title, quantity, and originalUnitPrice', async () => {
