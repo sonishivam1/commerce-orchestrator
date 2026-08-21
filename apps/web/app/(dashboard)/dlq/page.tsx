@@ -60,7 +60,7 @@ function ErrorTypeBadge({ type }: { type: string }) {
     const style = ERROR_TYPE_STYLE[type] ?? ERROR_TYPE_STYLE.TRANSIENT;
     return (
         <span className={cn(
-            'inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-black tracking-widest uppercase border',
+            'inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase border',
             style.bg, style.text, style.border,
         )}>
             {type.replace(/_/g, ' ')}
@@ -97,17 +97,17 @@ function MetricCard({
 
     return (
         <div className={cn(
-            'bg-[#1E293B]/40 backdrop-blur-sm border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] border-t-2 shadow-2xl relative',
+            'bg-[#131B2C]/70 border border-white/8 rounded-xl p-5 transition-all duration-200 border-t-2',
             themes[color],
         )}>
             <div className="flex items-center gap-3 mb-4">
                 <div className={cn('h-10 w-10 flex items-center justify-center rounded-xl border shrink-0', iconColors[color])}>
                     <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{title}</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">{title}</span>
             </div>
             <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black tracking-tighter text-white">{value}</span>
+                <span className="text-4xl font-bold font-mono text-white">{value}</span>
             </div>
         </div>
     );
@@ -146,7 +146,7 @@ function DlqJobItems({
         return (
             <div className="py-40 flex flex-col items-center gap-4 opacity-50">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <span className="text-xs font-black uppercase tracking-widest">Indexing Rejects...</span>
+                <span className="text-xs font-semibold uppercase tracking-widest">Indexing Rejects...</span>
             </div>
         );
     }
@@ -155,7 +155,7 @@ function DlqJobItems({
         return (
             <div className="py-16 text-center opacity-30">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-500" />
-                <p className="text-sm font-black tracking-[0.2em] uppercase text-slate-400">
+                <p className="text-sm font-semibold text-slate-400">
                     {search ? 'No matching items' : 'No DLQ items'}
                 </p>
             </div>
@@ -189,7 +189,7 @@ function DlqJobItems({
                             <td className="px-6 py-4">
                                 <Link
                                     href={`/jobs/${job.id}`}
-                                    className="text-[11px] font-black text-primary px-2 py-0.5 bg-primary/10 rounded-md uppercase tracking-tighter hover:bg-primary/20 transition-colors"
+                                    className="text-[11px] font-semibold text-primary px-2 py-0.5 bg-primary/10 rounded-md uppercase tracking-tight hover:bg-primary/20 transition-colors"
                                 >
                                     JOB-{job.id.substring(0, 4).toUpperCase()}
                                 </Link>
@@ -258,11 +258,11 @@ function DlqTableSection({
     const selectedJob = failedJobs.find(j => j.id === selectedJobId) ?? failedJobs[0];
 
     return (
-        <div className="bg-[#1E293B]/40 backdrop-blur-md border border-white/5 rounded-[32px] overflow-hidden shadow-2xl">
+        <div className="bg-[#131B2C]/70 border border-white/8 rounded-xl overflow-hidden">
             <div className="px-8 py-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Layers className="h-5 w-5 text-primary" />
-                    <h2 className="text-sm font-black text-white uppercase tracking-widest">DLQ Snapshot</h2>
+                    <h2 className="text-sm font-semibold text-slate-300">DLQ Snapshot</h2>
                 </div>
                 {failedJobs.length > 0 && (
                     <select
@@ -289,7 +289,7 @@ function DlqTableSection({
             ) : (
                 <div className="py-32 text-center opacity-30">
                     <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-emerald-500" />
-                    <p className="text-sm font-black tracking-[0.3em] uppercase text-slate-400">No DLQ entries found</p>
+                    <p className="text-sm font-semibold text-slate-400">No DLQ entries found</p>
                 </div>
             )}
         </div>
@@ -330,8 +330,8 @@ export default function DlqPage() {
                 </nav>
                 <div className="flex items-end justify-between gap-4">
                     <div>
-                        <h1 className="text-4xl font-black tracking-tighter text-white mb-2">Dead Letter Queue</h1>
-                        <p className="text-sm font-medium text-slate-400">Investigate and resolve operational faults within the mesh</p>
+                        <h1 className="text-2xl font-bold text-white mb-2">Dead Letter Queue</h1>
+                        <p className="text-sm text-slate-400">Investigate and resolve operational faults within the mesh</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="relative group">
@@ -360,7 +360,7 @@ export default function DlqPage() {
             {jobsLoading ? (
                 <div className="flex flex-col items-center justify-center py-40 gap-4">
                     <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    <span className="text-xs font-black uppercase tracking-widest opacity-40">Polling Fault Buffers...</span>
+                    <span className="text-xs font-semibold uppercase tracking-widest opacity-40">Polling Fault Buffers...</span>
                 </div>
             ) : (
                 <DlqTableSection
@@ -375,7 +375,7 @@ export default function DlqPage() {
             <div className="flex items-center gap-4 pt-4">
                 <div className="flex items-center gap-3 text-slate-500 ml-auto">
                     <CloudOff className="h-4 w-4" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest">
                         {totalFailed === 0 ? 'All Clear — No DLQ Items' : `${totalFailed} item${totalFailed !== 1 ? 's' : ''} pending review`}
                     </span>
                 </div>
