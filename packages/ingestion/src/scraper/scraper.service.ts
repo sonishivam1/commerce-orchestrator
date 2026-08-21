@@ -15,7 +15,8 @@
  * The service is stateful — call close() when done to release browser resources.
  */
 
-import { chromium, type Browser, type BrowserContext } from 'playwright';
+// @ts-ignore
+import { Browser, BrowserContext, Page, chromium, Route } from 'playwright';
 import {
     ScraperConfig,
     DEFAULT_SCRAPER_CONCURRENCY,

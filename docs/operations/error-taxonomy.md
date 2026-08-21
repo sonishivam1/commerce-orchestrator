@@ -1,64 +1,24 @@
 # Error Taxonomy
 
-The platform strictly differentiates error types to ensure that millions of records can be processed without single toxic payloads destroying the overall job compute lifecycle.
+Errors during the ETL pipeline are categorized into three explicit types to determine how the worker should handle them.
 
-## Classification
+## 1. ValidationError
+- **Cause**: Bad data, missing required fields, or failure to pass Zod schema validation.
+- **Action**: The item is skipped and pushed to the Dead Letter Queue (DLQ).
+- **Impact**: The batch continues processing. The job remains healthy.
 
-### 1. `ValidationError`
-* **What**: The input Canonical Model failed Zod validation, or the target platform rejected the payload for explicit semantic reasons (e.g., "Missing tax category").
-* **Action**: NO RETRY. Immediate push to Dead Letter Queue (DLQ). The worker moves on to the next entity.
+## 2. TransientError
+- **Cause**: Network timeouts, HTTP 502/503/504, or rate limiting (HTTP 429).
+- **Action**: The specific request is retried using exponential backoff.
+- **Impact**: Pauses the batch temporarily. If retries are exhausted, it elevates to a `FatalError`.
 
-### 2. `TransientError`
-* **What**: Target API Rate limited, DNS resolution failed, Target Platform returned a 502 Bad Gateway.
-* **Action**: EXPONENTIAL RETRY.
+## 3. FatalError
+- **Cause**: Invalid credentials, missing API permissions, target platform outage, or an unhandled exception.
+- **Action**: Trips the Circuit Breaker.
+- **Impact**: Halts the entire pipeline and marks the Job as `FAILED`. No further items are processed for this job.
 
-### 3. `FatalError`
-* **What**: Target API keys revoked. Source API completely shut down. Disk out of space on Worker.
-* **Action**: CIRCUIT BREAKER TRIPPED. Pause Job immediately. Do not attempt further records. Notify Tenant.
-
-## Decision Flow Diagram
-
-```mermaid
-flowchart TD
-    classDef error fill:#ef4444,stroke:#991b1b,color:#fff
-    classDef warn fill:#f59e0b,stroke:#b45309,color:#fff
-    classDef ok fill:#10b981,stroke:#047857,color:#fff
-    classDef store fill:#6366f1,stroke:#4338ca,color:#fff
-
-    Err([Error Thrown in Pipeline]):::error
-    Check[Analyze Error Instance]
-
-    Val["GraphQL / Semantic Error"]:::error
-    Trans["Rate Limit / Network Issue"]:::warn
-    Fatal["Auth Revoked"]:::error
-
-    Retry{"Attempt below Max Retries?"}
-    Wait["Delay Backoff"]:::warn
-    Pipeline["Retry Load"]:::ok
-    MaxLimit["Exhausted"]:::error
-
-    DLQ[("Dead Letter Queue - Mongo")]:::store
-    Note["Log to progress: failed++"]
-    Continue["Continue Pipeline"]:::ok
-
-    Break["Trip Circuit Breaker"]:::error
-    Halt["Halt Entire Job"]:::error
-    NoteFail["Mark Job Status = FAILED"]:::error
-
-    Err --> Check
-    Check -->|ValidationError| Val
-    Check -->|TransientError| Trans
-    Check -->|FatalError| Fatal
-
-    Trans --> Retry
-    Retry -->|Yes| Wait --> Pipeline
-    Retry -->|No| MaxLimit --> DLQ
-
-    Val --> DLQ
-    DLQ --> Note
-    DLQ --> Continue
-
-    Fatal --> Break
-    Break --> Halt
-    Halt --> NoteFail
-```
+## Dead Letter Queue (DLQ)
+Items that fail with a `ValidationError` (or exhausted `TransientError`s on an item-by-item basis) are recorded in the DLQ repository. The DLQ stores:
+- `tenantId`, `jobId`, `itemKey`
+- The `errorType` and raw payload
+- A boolean flag `canReplay` (Validation errors are generally false until data is manually fixed).

@@ -1,34 +1,44 @@
-# Canonical Models
+# Canonical Data Models
 
-## Purpose
-The Canonical Model is the ultimate "lingua franca" of the platform. It is a deterministic, unified interface designed to abstract away the quirks of individual platforms (e.g. Shopify's graph connections vs. Commercetools' masterVariants).
+To facilitate a clean migration, all data is transformed into a Universal Canonical Contract in transit. This prevents an N x M mapping problem and enforces a strict, typed schema.
 
-By utilizing a Canonical Model, any source system can talk to any target system simply by mapping its proprietary fields to the contract once.
+## MVP Supported Entities
 
-## Canonical Transformation Flow
+The MVP restricts the canonical models to the following 4 entities:
 
-```mermaid
-flowchart TD
-    ScrapeJSON[Raw Scraped JSON] --> Normalizer[Raw Normalizer]
-    ShopifyRes[Shopify Object] --> Normalizer
-    BigComRes[BigCommerce Object] --> Normalizer
-    Normalizer --> Mapper[Rule-Based Mapper]
-    Mapper --> Canon[Canonical Contract v1]
-    Canon --> Val[Zod Validator]
-    Val -->|Upsert| CT[commercetools]
-    Val -->|Mutation| Shop[Shopify]
-```
+### 1. CanonicalCategory
+- `key`: Unique identifier (String)
+- `name`: Localized name map (`Record<string, string>`)
+- `slug`: Localized slug map (`Record<string, string>`)
+- `parentId`: Optional reference to parent category key
+- `metadata`: Platform-agnostic custom attributes
 
-## Structure
-All models exist in `@cdo/shared` and follow a strict TypeScript interface coupled with runtime `Zod` validation schemas.
+### 2. CanonicalProduct
+- `key`: Unique identifier (String)
+- `name`: Localized name map (`Record<string, string>`)
+- `description`: Localized description map
+- `categories`: Array of Category keys
+- `masterVariant`: The primary `CanonicalVariant`
+- `variants`: Array of additional `CanonicalVariant` objects
 
-### 1. `CanonicalProduct`
-- `id`: System unique identifier.
-- `sku`: Master SKU.
-- `name`: Map of string (Locale $\rightarrow$ value).
-- `description`: Map of string html.
-- `categories`: Array of Canonical Category IDs.
-- `variants`: Array of Canonical Variants (combining Shopify variant options into structured attributes).
+### 3. CanonicalCustomer
+- `key`: Unique identifier (String)
+- `email`: Primary email
+- `firstName`: String
+- `lastName`: String
+- `addresses`: Array of canonical addresses
 
-### 2. `CanonicalCategory`, `CanonicalCustomer`, `CanonicalOrder`
-Defined using comparable agnostic structures covering B2C and B2B requirements globally.
+### 4. CanonicalOrder
+- `key`: Unique identifier (String)
+- `customerId`: Reference to customer key
+- `lineItems`: Array of ordered items and quantities
+- `totalAmount`: Canonical Money format
+- `currencyCode`: ISO 4217 currency string
+
+## Canonical Standards
+- **Money**: Always represented as an integer (cents). Never float.
+- **Locales**: Always represented as a `Record<string, string>` map, never bare strings.
+
+---
+
+> **Future Scope**: Additional entities (e.g., Inventory, Promotions, Reviews) and specialized fields required by other platforms (BigCommerce, CSV, etc.) will be added to the Canonical Models *only* when those platforms are implemented.

@@ -13,7 +13,8 @@
  * This class is stateless — one instance can be reused across pages.
  */
 
-import type { Page } from 'playwright';
+// @ts-ignore
+import { Browser, Page, chromium } from 'playwright';
 import type { RawScrapedProduct, RawPrice, RawVariant } from '../parsers/parser.types';
 
 /** CSS selectors tried in order for product title (heuristic fallback) */
