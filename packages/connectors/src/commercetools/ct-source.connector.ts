@@ -120,8 +120,15 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalEn
         let hasMore = true;
 
         while (hasMore) {
-            const response = await this.client.products().get({
+            // Use productProjections (not products) because mapCommercetoolsProduct expects
+            // the flat ProductProjection shape (name/slug/masterVariant at the top level).
+            // The full Product representation nests these under masterData.current, which
+            // would cause Zod validation to fail for every item.
+            // staged: true — include unpublished/staged products, required for B2B projects
+            // where products may never be published to a storefront channel.
+            const response = await this.client.productProjections().get({
                 queryArgs: {
+                    staged: true,
                     limit: 50,
                     sort: 'id asc',
                     where: lastId ? `id > "${lastId}"` : undefined,
