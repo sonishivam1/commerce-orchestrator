@@ -247,10 +247,11 @@ const MOCK_VARIANTS_RESPONSE = mockOkResponse({
     },
 });
 
-/** Default response for PRODUCT_VARIANT_UPDATE — success. */
+/** Default response for PRODUCT_VARIANTS_BULK_UPDATE — success. */
 const MOCK_VARIANT_UPDATE_RESPONSE = mockOkResponse({
-    productVariantUpdate: {
-        productVariant: { id: 'gid://shopify/ProductVariant/1', sku: 'IPHONE-15-BLK' },
+    productVariantsBulkUpdate: {
+        product: { id: 'gid://shopify/Product/placeholder' },
+        productVariants: [{ id: 'gid://shopify/ProductVariant/1', sku: 'IPHONE-15-BLK' }],
         userErrors: [],
     },
 });
@@ -420,7 +421,7 @@ describe('ShopifyTargetConnector — Products', () => {
         expect(variantsBody.query).toContain('GetProductVariants');
     });
 
-    it('syncMasterVariant calls PRODUCT_VARIANT_UPDATE with correct SKU and price', async () => {
+    it('syncMasterVariant calls PRODUCT_VARIANTS_BULK_UPDATE with correct productId, SKU, and price', async () => {
         await connector.initialize(BASE_CREDENTIALS);
 
         mockFetch
@@ -438,15 +439,18 @@ describe('ShopifyTargetConnector — Products', () => {
 
         await connector.load([PRODUCT]);
 
-        // Fourth fetch call is PRODUCT_VARIANT_UPDATE
+        // Fourth fetch call is PRODUCT_VARIANTS_BULK_UPDATE
         const variantUpdateBody = bodyOf(3);
-        const variantInput = (variantUpdateBody.variables as any).input;
+        // productVariantsBulkUpdate takes productId + variants[] (not a single input object)
+        expect((variantUpdateBody.variables as any).productId).toBe('gid://shopify/Product/902');
+        const variants = (variantUpdateBody.variables as any).variants as any[];
+        expect(variants).toHaveLength(1);
         // Must include the variant GID returned by GET_PRODUCT_VARIANTS
-        expect(variantInput.id).toBe('gid://shopify/ProductVariant/1');
+        expect(variants[0].id).toBe('gid://shopify/ProductVariant/1');
         // PRODUCT.masterVariant: centAmount=99900, fractionDigits=2 → '999.00'
-        expect(variantInput.price).toBe('999.00');
+        expect(variants[0].price).toBe('999.00');
         // SKU from PRODUCT.masterVariant
-        expect(variantInput.sku).toBe('IPHONE-15-BLK');
+        expect(variants[0].sku).toBe('IPHONE-15-BLK');
     });
 });
 
@@ -596,7 +600,10 @@ describe('ShopifyTargetConnector — Orders', () => {
         expect(input).not.toHaveProperty('currency');
     });
 
-    it('DraftOrderInput contains presentmentCurrencyCode matching canonical.currency', async () => {
+    it('DraftOrderInput does NOT contain presentmentCurrencyCode (unsupported currencies crash the API)', async () => {
+        // presentmentCurrencyCode is intentionally omitted: if the order's source currency
+        // is not enabled on the target Shopify store, the API rejects the entire mutation.
+        // The original currency is preserved in the note field instead.
         await connector.initialize(BASE_CREDENTIALS);
 
         mockFetch.mockResolvedValueOnce(
@@ -612,8 +619,10 @@ describe('ShopifyTargetConnector — Orders', () => {
 
         const mutBody = bodyOf(0);
         const input = (mutBody.variables as any).input;
-        // ORDER.currency = 'USD' — must flow through to presentmentCurrencyCode
-        expect(input.presentmentCurrencyCode).toBe('USD');
+        // Must NOT send presentmentCurrencyCode — target store may not support source currency
+        expect(input).not.toHaveProperty('presentmentCurrencyCode');
+        // Original currency must be preserved in the note so no data is lost
+        expect(input.note).toContain('USD');
     });
 
     it('DraftOrderInput preserves note and tags (source metadata not dropped)', async () => {
@@ -685,8 +694,9 @@ describe('ShopifyTargetConnector — Orders', () => {
         const mutBody = bodyOf(0);
         const input = (mutBody.variables as any).input;
         expect(input.customerId).toBe('gid://shopify/Customer/999');
-        // presentmentCurrencyCode still present after identity map resolution
-        expect(input.presentmentCurrencyCode).toBe('USD');
+        // presentmentCurrencyCode is intentionally absent — currency goes to note
+        expect(input).not.toHaveProperty('presentmentCurrencyCode');
+        expect(input.note).toContain('USD');
     });
 
     // ── assertNoUserErrors null-field guard ───────────────────────────────────────

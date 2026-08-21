@@ -96,7 +96,7 @@ const DRAFT_ORDER_CREATE = /* GraphQL */ `
 `;
 
 // Used after productCreate / productUpdate to retrieve the auto-created default
-// variant's GID so we can sync SKU + price via productVariantUpdate.
+// variant's GID so we can sync SKU + price via productVariantsBulkUpdate.
 const GET_PRODUCT_VARIANTS = /* GraphQL */ `
     query GetProductVariants($id: ID!) {
         product(id: $id) {
@@ -109,12 +109,14 @@ const GET_PRODUCT_VARIANTS = /* GraphQL */ `
     }
 `;
 
-// Shopify Admin API 2024-01 does not accept `variants` inline in ProductInput, so
-// we update the auto-created default variant separately after every product upsert.
-const PRODUCT_VARIANT_UPDATE = /* GraphQL */ `
-    mutation ProductVariantUpdate($input: ProductVariantInput!) {
-        productVariantUpdate(input: $input) {
-            productVariant { id sku }
+// Shopify Admin API 2024-01 removed the standalone productVariantUpdate mutation.
+// productVariantsBulkUpdate is the supported replacement — it accepts a productId
+// and an array of ProductVariantsBulkInput (can be a single-element array).
+const PRODUCT_VARIANTS_BULK_UPDATE = /* GraphQL */ `
+    mutation ProductVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+            product { id }
+            productVariants { id sku }
             userErrors { field message }
         }
     }
@@ -339,14 +341,20 @@ export class ShopifyTargetConnector implements TargetConnector<CanonicalEntity> 
             this.locationId,
         );
 
-        const mutData = (await this.execute(PRODUCT_VARIANT_UPDATE, { input: variantInput })) as {
-            productVariantUpdate: {
-                productVariant: { id: string; sku: string } | null;
+        // productVariantsBulkUpdate takes the product GID separately from the
+        // variants array, even when syncing only the single master variant.
+        const mutData = (await this.execute(PRODUCT_VARIANTS_BULK_UPDATE, {
+            productId,
+            variants: [variantInput],
+        })) as {
+            productVariantsBulkUpdate: {
+                product: { id: string } | null;
+                productVariants: Array<{ id: string; sku: string }>;
                 userErrors: Array<{ field: string[] | null; message: string }>;
             };
         };
 
-        this.assertNoUserErrors(mutData.productVariantUpdate, canonical.key);
+        this.assertNoUserErrors(mutData.productVariantsBulkUpdate, canonical.key);
     }
 
     private async loadProducts(batch: CanonicalProduct[]): Promise<LoadResult[]> {
@@ -414,19 +422,20 @@ export class ShopifyTargetConnector implements TargetConnector<CanonicalEntity> 
             ).toFixed(li.unitPrice.fractionDigits),
         }));
 
-        // DraftOrderInput.presentmentCurrencyCode (CurrencyCode enum, ISO 4217) is the
-        // correct field for specifying the order currency. The field 'currency' does not
-        // exist on DraftOrderInput and is rejected by the Shopify Admin GraphQL API.
-        // Preserving the source currency here ensures the draft order presents in the
-        // same currency as the CT source order rather than the store's default currency.
-        //
         // Fields from CanonicalOrder with no DraftOrderInput equivalent:
-        //   - status      → DraftOrder is always OPEN at creation (CT status is not mappable)
-        //   - totalPrice  → Shopify derives the total from line items; cannot be set directly
+        //   - status             → DraftOrder is always OPEN at creation (CT status is not mappable)
+        //   - totalPrice         → Shopify derives the total from line items; cannot be set directly
+        //   - currency           → See note below.
+        //
+        // presentmentCurrencyCode is intentionally OMITTED.
+        // When the source order's currency is not enabled on the target Shopify store,
+        // passing presentmentCurrencyCode causes a hard validation error that prevents
+        // the draft order from being created at all. Shopify will use the store's
+        // default currency for the draft; the original source currency is recorded in
+        // the note field so the information is not lost.
         const input: Record<string, unknown> = {
             lineItems,
-            presentmentCurrencyCode: canonical.currency,
-            note: `Migrated from source order: ${canonical.key}`,
+            note: `Migrated from source order: ${canonical.key} (original currency: ${canonical.currency})`,
             tags: [`source-key:${canonical.key}`],
         };
 
