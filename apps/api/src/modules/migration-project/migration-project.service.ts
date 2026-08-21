@@ -11,7 +11,8 @@ import {
     ReconciliationReportRepository,
     CredentialRepository,
 } from '@cdo/db';
-import { MigrationProjectStatus, MigrationRunStatus } from '@cdo/shared';
+import { MigrationProjectStatus, MigrationRunStatus, JobKind } from '@cdo/shared';
+import { JobProducer } from '@cdo/queue';
 import {
     CreateMigrationProjectInput,
     UpdateMigrationProjectInput,
@@ -30,6 +31,7 @@ export class MigrationProjectService {
         private readonly runRepository: MigrationRunRepository,
         private readonly reportRepository: ReconciliationReportRepository,
         private readonly credentialRepository: CredentialRepository,
+        private readonly jobProducer: JobProducer,
     ) {}
 
     // ── MigrationProject CRUD ──────────────────────────────────────────────────
@@ -182,6 +184,25 @@ export class MigrationProjectService {
 
         this.logger.log(
             `[${tenantId}] MigrationRun created — id=${runId} projectId=${input.migrationProjectId} dryRun=${input.dryRun ?? false}`,
+        );
+
+        // Enqueue the BullMQ job — worker picks this up and drives the run to completion.
+        // The jobId is the runId so duplicate enqueues for the same run are deduplicated.
+        await this.jobProducer.enqueueEtlJob({
+            jobId: runId,
+            tenantId,
+            correlationId: run.correlationId ?? runId,
+            traceId: run.traceId ?? runId,
+            kind: JobKind.MIGRATION_RUN,
+            sourceCredentialId: project.sourceConnectionId,
+            targetCredentialId: project.targetConnectionId,
+            entityTypes: project.entityTypes,
+            migrationRunId: runId,
+            dryRun: input.dryRun ?? false,
+        });
+
+        this.logger.log(
+            `[${tenantId}] MigrationRun enqueued — id=${runId} kind=${JobKind.MIGRATION_RUN}`,
         );
 
         // Return fresh document with waves populated

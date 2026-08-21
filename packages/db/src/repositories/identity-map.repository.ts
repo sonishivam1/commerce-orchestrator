@@ -39,6 +39,9 @@ export class IdentityMapRepository {
     /**
      * Bulk upsert — more efficient than calling upsert() in a loop.
      * Uses bulkWrite with individual upsert operations.
+     *
+     * Returns the count of newly created entries and updated entries so the
+     * wave executor can build accurate ReconciliationReport statistics.
      */
     async bulkUpsert(
         entries: {
@@ -48,8 +51,8 @@ export class IdentityMapRepository {
             sourceKey: string;
             targetId: string;
         }[],
-    ): Promise<void> {
-        if (entries.length === 0) return;
+    ): Promise<{ created: number; updated: number }> {
+        if (entries.length === 0) return { created: 0, updated: 0 };
 
         const ops = entries.map((entry) => ({
             updateOne: {
@@ -64,7 +67,11 @@ export class IdentityMapRepository {
             },
         }));
 
-        await this.model.bulkWrite(ops);
+        const result = await this.model.bulkWrite(ops);
+        return {
+            created: result.upsertedCount,
+            updated: result.modifiedCount,
+        };
     }
 
     /**

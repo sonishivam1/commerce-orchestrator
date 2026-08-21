@@ -6,6 +6,11 @@ export enum JobKind {
     CROSS_PLATFORM_MIGRATION = 'CROSS_PLATFORM_MIGRATION',
     PLATFORM_CLONE = 'PLATFORM_CLONE',
     EXPORT = 'EXPORT',
+    /**
+     * Wave-based migration run — processed by MigrationRunOrchestrator.
+     * Job payload carries migrationRunId instead of jobId.
+     */
+    MIGRATION_RUN = 'MIGRATION_RUN',
 }
 
 export enum JobStatus {
