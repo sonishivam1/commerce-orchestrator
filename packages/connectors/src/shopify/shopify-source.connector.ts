@@ -2,7 +2,7 @@ import type { SourceConnector } from '@cdo/core';
 import type { CanonicalEntity } from '@cdo/shared';
 import { EntityType, ErrorType } from '@cdo/shared';
 import { ProductMapper, CategoryMapper, CustomerMapper, SourcePlatform } from '@cdo/mapping';
-import fetch from 'node-fetch';
+// Native fetch is available in Node 18+ (global)
 
 export class ShopifySourceConnector implements SourceConnector<CanonicalEntity> {
     private shopUrl!: string;

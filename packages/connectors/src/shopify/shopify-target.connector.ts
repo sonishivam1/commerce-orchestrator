@@ -7,7 +7,7 @@ import {
     canonicalToShopifyCategoryInput,
     canonicalToShopifyCustomerInput,
 } from '@cdo/mapping';
-import fetch from 'node-fetch';
+// Native fetch is available in Node 18+ (global)
 
 // ─── GraphQL Operations ───────────────────────────────────────────────────────
 

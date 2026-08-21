@@ -18,7 +18,7 @@ import {
     AuthMiddlewareOptions,
     HttpMiddlewareOptions,
 } from '@commercetools/sdk-client-v2';
-import fetch from 'node-fetch';
+// Native fetch is available in Node 18+ (global)
 
 // Scopes required per entity type for target operations
 const TARGET_SCOPE_MAP: Record<EntityType, string[]> = {
@@ -90,12 +90,12 @@ export class CommercetoolsTargetConnector implements TargetConnector<CanonicalEn
                 clientSecret: clientSecret as string,
             },
             scopes: scopesWithProject,
-            fetch,
+            fetch: globalThis.fetch,
         };
 
         const httpMiddlewareOptions: HttpMiddlewareOptions = {
             host: apiUrl as string,
-            fetch,
+            fetch: globalThis.fetch,
         };
 
         const ctpClient = new ClientBuilder()

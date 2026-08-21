@@ -1,7 +1,7 @@
 import type { SourceConnector } from '@cdo/core';
 import type { CanonicalProduct, CanonicalVariant, CanonicalEntity } from '@cdo/shared';
 import { EntityType, ErrorType } from '@cdo/shared';
-import fetch from 'node-fetch';
+// Native fetch is available in Node 18+ (global)
 
 export class BigCommerceSourceConnector implements SourceConnector<CanonicalEntity> {
     private baseUrl!: string;
