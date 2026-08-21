@@ -154,18 +154,27 @@ importers:
       '@types/bcryptjs':
         specifier: ^3.0.0
         version: 3.0.0
+      '@types/jest':
+        specifier: ^30.0.0
+        version: 30.0.0
       '@types/passport':
         specifier: ^1.0.17
         version: 1.0.17
       '@types/passport-jwt':
         specifier: ^4.0.0
         version: 4.0.1
+      jest:
+        specifier: ^30.3.0
+        version: 30.3.0(@types/node@20.19.35)(ts-node@10.9.2)
       run-script-webpack-plugin:
         specifier: ^0.2.3
         version: 0.2.3
       swc-loader:
         specifier: ^0.2.7
         version: 0.2.7(@swc/core@1.15.18)(webpack@5.105.4)
+      ts-jest:
+        specifier: ^29.4.6
+        version: 29.4.6(@babel/core@7.29.0)(jest@30.3.0)(typescript@5.9.3)
       ts-loader:
         specifier: ^9.5.4
         version: 9.5.4(typescript@5.9.3)(webpack@5.105.4)

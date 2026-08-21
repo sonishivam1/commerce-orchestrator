@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { JobRepository, DlqRepository } from '@cdo/db';
+import { JobRepository, DlqRepository, CredentialRepository } from '@cdo/db';
 import { JobProducer } from '@cdo/queue';
 import { CreateJobInput } from './dto/create-job.input';
 import { JobKind } from './dto/job.type';
@@ -11,7 +11,26 @@ export class JobService {
         private readonly jobRepository: JobRepository,
         private readonly dlqRepository: DlqRepository,
         private readonly jobProducer: JobProducer,
+        private readonly credentialRepository: CredentialRepository,
     ) {}
+
+    /**
+     * Verifies that the named credential exists and belongs to tenantId.
+     * Throws ForbiddenException in both cases (missing or wrong tenant) so
+     * callers cannot infer whether a credential exists from the error type.
+     */
+    private async assertCredentialOwnership(
+        tenantId: string,
+        credentialId: string,
+        role: 'source' | 'target',
+    ): Promise<void> {
+        const cred = await this.credentialRepository.findOneForTenant(tenantId, credentialId);
+        if (!cred) {
+            throw new ForbiddenException(
+                `${role} credential does not exist or does not belong to this tenant`,
+            );
+        }
+    }
 
     async findAll(tenantId: string) {
         return this.jobRepository.findAllForTenant(tenantId);
@@ -35,6 +54,14 @@ export class JobService {
         const isExport = input.kind === JobKind.EXPORT;
         if (!isScrapeJob && !isExport && !input.targetCredentialId) {
             throw new BadRequestException('targetCredentialId is required for migration/clone jobs');
+        }
+
+        // Ownership checks — before any state mutation (no job doc, no enqueue on denial)
+        if (input.sourceCredentialId) {
+            await this.assertCredentialOwnership(tenantId, input.sourceCredentialId, 'source');
+        }
+        if (input.targetCredentialId) {
+            await this.assertCredentialOwnership(tenantId, input.targetCredentialId, 'target');
         }
 
         const correlationId = randomUUID();
@@ -104,6 +131,15 @@ export class JobService {
 
         const parentJob = await this.jobRepository.findOneForTenant(tenantId, jobId);
         if (!parentJob) throw new NotFoundException(`Parent job ${jobId} not found`);
+
+        // Defense-in-depth: re-validate ownership of credentials from the stored parent job
+        // (credentials stored at job-creation time may now belong to another tenant)
+        if (parentJob.sourceCredentialId) {
+            await this.assertCredentialOwnership(tenantId, parentJob.sourceCredentialId, 'source');
+        }
+        if (parentJob.targetCredentialId) {
+            await this.assertCredentialOwnership(tenantId, parentJob.targetCredentialId, 'target');
+        }
 
         if (parentJob.kind === 'SCRAPE_IMPORT') {
             if (!parentJob.sourceUrl) {
