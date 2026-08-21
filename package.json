@@ -7,7 +7,7 @@
         "dev": "turbo run dev",
         "lint": "turbo run lint",
         "test": "turbo run test",
-        "smoke": "ts-node -r tsconfig-paths/register scripts/e2e-smoke.ts"
+        "smoke": "node --env-file=.env -r ts-node/register -r tsconfig-paths/register scripts/e2e-smoke.ts"
     },
     "devDependencies": {
         "@swc/core": "^1.15.18",

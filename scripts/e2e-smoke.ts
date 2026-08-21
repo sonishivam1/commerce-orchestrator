@@ -11,18 +11,25 @@
  *
  * ─── Usage ───────────────────────────────────────────────────────────────────
  *
- *   npx ts-node -r tsconfig-paths/register scripts/e2e-smoke.ts
+ *   pnpm smoke
+ *
+ *   The root .env is loaded automatically by the npm script (node --env-file).
+ *   Alternatively: source .env && ts-node -r tsconfig-paths/register scripts/e2e-smoke.ts
  *
  * ─── Required env vars ───────────────────────────────────────────────────────
  *
- *   CT_PROJECT_KEY       Commercetools project key
- *   CT_CLIENT_ID         API client ID (must have view_* scopes for all entities)
- *   CT_CLIENT_SECRET     API client secret
- *   CT_API_URL           e.g. https://api.europe-west1.gcp.commercetools.com
- *   CT_AUTH_URL          e.g. https://auth.europe-west1.gcp.commercetools.com
+ *   CTP_PROJECT_KEY      Commercetools project key
+ *   CTP_CLIENT_ID        API client ID (must have view_* scopes for all entities)
+ *   CTP_CLIENT_SECRET    API client secret
+ *   CTP_API_URL          e.g. https://api.europe-west1.gcp.commercetools.com
+ *   CTP_AUTH_URL         e.g. https://auth.europe-west1.gcp.commercetools.com
  *
- *   SHOPIFY_SHOP_NAME    Shopify shop subdomain (without .myshopify.com)
- *   SHOPIFY_ACCESS_TOKEN Shopify Admin API access token
+ *   SHOPIFY_SHOP         Shopify shop subdomain (without .myshopify.com)
+ *   SHOPIFY_CLIENT_ID    Shopify app client ID
+ *   SHOPIFY_CLIENT_SECRET Shopify app client secret (never logged)
+ *
+ *   A Shopify Admin API access token is obtained automatically at startup via
+ *   the client_credentials grant. Do NOT add SHOPIFY_ACCESS_TOKEN to .env.
  *
  * ─── Optional env vars ───────────────────────────────────────────────────────
  *
@@ -45,6 +52,7 @@
 
 import { CommercetoolsSourceConnector } from '../packages/connectors/src/commercetools/ct-source.connector';
 import { ShopifyTargetConnector } from '../packages/connectors/src/shopify/shopify-target.connector';
+import { requestShopifyToken, validateShopifyScopes } from '../packages/connectors/src/shopify/shopify-oauth';
 import { EntityType } from '../packages/shared/src/enums';
 import type { CanonicalEntity } from '../packages/shared/src/models/canonical.types';
 import type { LoadResult } from '../packages/core/src/interfaces/target.interface';
@@ -61,18 +69,18 @@ function requireEnv(name: string): string {
 }
 
 const ctCredentials = {
-    projectKey:   requireEnv('CT_PROJECT_KEY'),
-    clientId:     requireEnv('CT_CLIENT_ID'),
-    clientSecret: requireEnv('CT_CLIENT_SECRET'),
-    apiUrl:       requireEnv('CT_API_URL'),
-    authUrl:      requireEnv('CT_AUTH_URL'),
+    projectKey:   requireEnv('CTP_PROJECT_KEY'),
+    clientId:     requireEnv('CTP_CLIENT_ID'),
+    clientSecret: requireEnv('CTP_CLIENT_SECRET'),
+    apiUrl:       requireEnv('CTP_API_URL'),
+    authUrl:      requireEnv('CTP_AUTH_URL'),
 };
 
-const shopifyCredentials = {
-    shopName:    requireEnv('SHOPIFY_SHOP_NAME'),
-    accessToken: requireEnv('SHOPIFY_ACCESS_TOKEN'),
-    ...(process.env.SHOPIFY_LOCATION_ID ? { locationId: process.env.SHOPIFY_LOCATION_ID } : {}),
-};
+// Shopify credentials — accessToken is obtained at runtime via client_credentials grant.
+// SHOPIFY_CLIENT_SECRET is never logged or printed.
+const shopifyShop         = requireEnv('SHOPIFY_SHOP');
+const shopifyClientId     = requireEnv('SHOPIFY_CLIENT_ID');
+const shopifyClientSecret = requireEnv('SHOPIFY_CLIENT_SECRET');
 
 const SMOKE_LIMIT = process.env.SMOKE_LIMIT !== undefined
     ? Number(process.env.SMOKE_LIMIT)
@@ -97,17 +105,25 @@ async function drainSource(
     return limit > 0 ? items.slice(0, limit) : items;
 }
 
+/** Resolved Shopify credentials (built in main() after token exchange). */
+interface ShopifyCreds {
+    shopName: string;
+    accessToken: string;
+    locationId?: string;
+}
+
 /** Run one wave: extract from CT, load to Shopify, return LoadResults. */
 async function runWave(
     entityType: EntityType,
     identityMaps: Record<string, Record<string, string>>,
+    shopifyCreds: ShopifyCreds,
 ): Promise<{ items: CanonicalEntity[]; results: LoadResult[] }> {
     const source = new CommercetoolsSourceConnector(entityType);
     await source.initialize(ctCredentials);
 
     const target = new ShopifyTargetConnector(entityType);
     await target.initialize({
-        ...shopifyCredentials,
+        ...shopifyCreds,
         __identityMaps: identityMaps,
     });
 
@@ -189,9 +205,10 @@ function printReport(report: WaveReport): void {
 async function rerunForIdempotency(
     entityType: EntityType,
     identityMaps: Record<string, Record<string, string>>,
+    shopifyCreds: ShopifyCreds,
 ): Promise<boolean> {
     console.log(`\n   ↩️  Re-running ${entityType} to verify upsert idempotency...`);
-    const { results } = await runWave(entityType, identityMaps);
+    const { results } = await runWave(entityType, identityMaps, shopifyCreds);
     const allSucceeded = results.every(r => r.success);
     if (allSucceeded) {
         console.log(`   ✅ All ${results.length} items still succeed on re-run (no duplicates)`);
@@ -285,9 +302,31 @@ function printCheckpointSummary(reports: WaveReport[], idempotencyOk: boolean): 
 async function main(): Promise<void> {
     console.log('🚀 CT → Shopify smoke migration');
     console.log(`   Project: ${ctCredentials.projectKey}`);
-    console.log(`   Shop:    ${shopifyCredentials.shopName}.myshopify.com`);
+    console.log(`   Shop:    ${shopifyShop}.myshopify.com`);
     console.log(`   Limit:   ${SMOKE_LIMIT === 0 ? 'all items' : `${SMOKE_LIMIT} per entity type`}`);
     console.log();
+
+    // ── Step 1: Shopify client-credentials authentication ─────────────────────
+    // The access token is obtained at runtime — never stored, never logged.
+    console.log('── Auth: requesting Shopify Admin API access token...');
+    const { accessToken, scopes } = await requestShopifyToken(
+        shopifyShop,
+        shopifyClientId,
+        shopifyClientSecret,
+    );
+    // Log scopes (safe) but never log the token itself
+    console.log(`   ✅ Token obtained. Granted scopes: ${scopes}`);
+
+    // ── Step 2: Scope validation ──────────────────────────────────────────────
+    // Fail fast before touching any data if required scopes are missing.
+    validateShopifyScopes(scopes);
+    console.log('   ✅ All required scopes verified.\n');
+
+    const shopifyCreds: ShopifyCreds = {
+        shopName: shopifyShop,
+        accessToken,
+        ...(process.env.SHOPIFY_LOCATION_ID ? { locationId: process.env.SHOPIFY_LOCATION_ID } : {}),
+    };
 
     // Accumulated identity maps — each wave feeds the next
     const identityMaps: Record<string, Record<string, string>> = {};
@@ -296,7 +335,7 @@ async function main(): Promise<void> {
 
     // ── Wave 1: Categories ────────────────────────────────────────────────────
     console.log('── Wave 1: CATEGORIES');
-    const { results: catResults } = await runWave(EntityType.CATEGORIES, identityMaps);
+    const { results: catResults } = await runWave(EntityType.CATEGORIES, identityMaps, shopifyCreds);
     const catReport = buildReport(EntityType.CATEGORIES, 'Collection', catResults);
     printReport(catReport);
     identityMaps[EntityType.CATEGORIES] = catReport.identityMap;
@@ -304,7 +343,7 @@ async function main(): Promise<void> {
 
     // ── Wave 2: Products (needs category GIDs to populate collectionsToJoin) ──
     console.log('\n── Wave 2: PRODUCTS');
-    const { results: prodResults } = await runWave(EntityType.PRODUCTS, identityMaps);
+    const { results: prodResults } = await runWave(EntityType.PRODUCTS, identityMaps, shopifyCreds);
     const prodReport = buildReport(EntityType.PRODUCTS, 'Product', prodResults);
     printReport(prodReport);
     identityMaps[EntityType.PRODUCTS] = prodReport.identityMap;
@@ -312,7 +351,7 @@ async function main(): Promise<void> {
 
     // ── Wave 3: Customers ─────────────────────────────────────────────────────
     console.log('\n── Wave 3: CUSTOMERS');
-    const { results: custResults } = await runWave(EntityType.CUSTOMERS, identityMaps);
+    const { results: custResults } = await runWave(EntityType.CUSTOMERS, identityMaps, shopifyCreds);
     const custReport = buildReport(EntityType.CUSTOMERS, 'Customer', custResults);
     printReport(custReport);
     identityMaps[EntityType.CUSTOMERS] = custReport.identityMap;
@@ -320,14 +359,14 @@ async function main(): Promise<void> {
 
     // ── Wave 4: Orders (needs customer GIDs to populate customerId) ───────────
     console.log('\n── Wave 4: ORDERS');
-    const { results: orderResults } = await runWave(EntityType.ORDERS, identityMaps);
+    const { results: orderResults } = await runWave(EntityType.ORDERS, identityMaps, shopifyCreds);
     const orderReport = buildReport(EntityType.ORDERS, 'DraftOrder', orderResults);
     printReport(orderReport);
     identityMaps[EntityType.ORDERS] = orderReport.identityMap;
     reports.push(orderReport);
 
     // ── Checkpoint [7]: Re-run categories to verify upsert idempotency ────────
-    const idempotencyOk = await rerunForIdempotency(EntityType.CATEGORIES, identityMaps);
+    const idempotencyOk = await rerunForIdempotency(EntityType.CATEGORIES, identityMaps, shopifyCreds);
 
     // ── Final checkpoint summary ──────────────────────────────────────────────
     printCheckpointSummary(reports, idempotencyOk);
