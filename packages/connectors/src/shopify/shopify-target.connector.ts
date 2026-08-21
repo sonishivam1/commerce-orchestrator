@@ -3,6 +3,7 @@ import type { CanonicalEntity, CanonicalProduct, CanonicalCategory, CanonicalCus
 import { EntityType, ErrorType } from '@cdo/shared';
 import {
     canonicalToShopifyProductInput,
+    canonicalVariantToShopifyVariantInput,
     canonicalToShopifyCategoryInput,
     canonicalToShopifyCustomerInput,
 } from '@cdo/mapping';
@@ -94,6 +95,31 @@ const DRAFT_ORDER_CREATE = /* GraphQL */ `
     }
 `;
 
+// Used after productCreate / productUpdate to retrieve the auto-created default
+// variant's GID so we can sync SKU + price via productVariantUpdate.
+const GET_PRODUCT_VARIANTS = /* GraphQL */ `
+    query GetProductVariants($id: ID!) {
+        product(id: $id) {
+            variants(first: 10) {
+                edges {
+                    node { id sku }
+                }
+            }
+        }
+    }
+`;
+
+// Shopify Admin API 2024-01 does not accept `variants` inline in ProductInput, so
+// we update the auto-created default variant separately after every product upsert.
+const PRODUCT_VARIANT_UPDATE = /* GraphQL */ `
+    mutation ProductVariantUpdate($input: ProductVariantInput!) {
+        productVariantUpdate(input: $input) {
+            productVariant { id sku }
+            userErrors { field message }
+        }
+    }
+`;
+
 // ─── Error Classification ─────────────────────────────────────────────────────
 
 function classifyShopifyError(error: unknown): Error {
@@ -176,11 +202,15 @@ export class ShopifyTargetConnector implements TargetConnector<CanonicalEntity> 
     }
 
     private assertNoUserErrors(
-        result: { userErrors: Array<{ field: string[]; message: string }> },
+        result: { userErrors: Array<{ field: string[] | null; message: string }> },
         itemKey: string,
     ): void {
         if (result.userErrors.length > 0) {
-            const detail = result.userErrors.map(e => `[${e.field.join('.')}] ${e.message}`).join('; ');
+            // Shopify may return field: null for non-field-specific errors (e.g. permission
+            // errors, plan limits). Guard with nullish coalescing to avoid a crash.
+            const detail = result.userErrors
+                .map(e => `[${(e.field ?? []).join('.')}] ${e.message}`)
+                .join('; ');
             const err = new Error(`Shopify validation errors for "${itemKey}": ${detail}`);
             (err as any).type = ErrorType.VALIDATION;
             throw err;
@@ -270,11 +300,53 @@ export class ShopifyTargetConnector implements TargetConnector<CanonicalEntity> 
 
         const mutData = (await this.execute(mutation, { input })) as Record<
             string,
-            { product: { id: string } | null; userErrors: Array<{ field: string[]; message: string }> }
+            { product: { id: string } | null; userErrors: Array<{ field: string[] | null; message: string }> }
         >;
 
         this.assertNoUserErrors(mutData[operationKey], canonical.key);
-        return mutData[operationKey].product!.id;
+        const productId = mutData[operationKey].product!.id;
+
+        // Sync the master variant's SKU + price via a separate mutation.
+        // Shopify Admin API 2024-01 does not accept `variants` inline in ProductInput,
+        // so we query the auto-created default variant and update it in place.
+        await this.syncMasterVariant(productId, canonical);
+
+        return productId;
+    }
+
+    /**
+     * Fetches the first variant on the just-upserted product and updates it with the
+     * canonical master variant's SKU and price.
+     *
+     * Shopify auto-creates a default variant on every new product. Instead of creating
+     * additional variants (which would leave a blank default), we update the existing
+     * one in place via `productVariantUpdate`.
+     */
+    private async syncMasterVariant(
+        productId: string,
+        canonical: CanonicalProduct,
+    ): Promise<void> {
+        const variantsData = (await this.execute(GET_PRODUCT_VARIANTS, { id: productId })) as {
+            product?: { variants: { edges: Array<{ node: { id: string; sku: string } }> } } | null;
+        };
+
+        const variantId = variantsData.product?.variants.edges[0]?.node?.id;
+        if (!variantId) return; // No variants found — bail gracefully.
+
+        const variantInput = canonicalVariantToShopifyVariantInput(
+            canonical.masterVariant,
+            variantId,
+            this.locationId,
+        );
+
+        const mutData = (await this.execute(PRODUCT_VARIANT_UPDATE, { input: variantInput })) as {
+            productVariantUpdate: {
+                productVariant: { id: string; sku: string } | null;
+                userErrors: Array<{ field: string[] | null; message: string }>;
+            };
+        };
+
+        this.assertNoUserErrors(mutData.productVariantUpdate, canonical.key);
     }
 
     private async loadProducts(batch: CanonicalProduct[]): Promise<LoadResult[]> {
