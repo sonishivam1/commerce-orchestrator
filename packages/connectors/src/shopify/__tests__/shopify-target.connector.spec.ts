@@ -462,6 +462,119 @@ describe('ShopifyTargetConnector — Orders', () => {
         const input = (mutBody.variables as any).input;
         expect(input.customerId).toBeUndefined();
     });
+
+    it('DraftOrderInput does NOT contain the invalid "currency" field', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/104', name: '#D104' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const input = (mutBody.variables as any).input;
+        // 'currency' is not a valid DraftOrderInput field — Shopify rejects it
+        expect(input).not.toHaveProperty('currency');
+    });
+
+    it('DraftOrderInput contains presentmentCurrencyCode matching canonical.currency', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/105', name: '#D105' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const input = (mutBody.variables as any).input;
+        // ORDER.currency = 'USD' — must flow through to presentmentCurrencyCode
+        expect(input.presentmentCurrencyCode).toBe('USD');
+    });
+
+    it('DraftOrderInput preserves note and tags (source metadata not dropped)', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/106', name: '#D106' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const input = (mutBody.variables as any).input;
+        expect(input.note).toContain('order-001');
+        expect(input.tags).toContain('source-key:order-001');
+    });
+
+    it('DraftOrderInput line items carry title, quantity, and originalUnitPrice', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/107', name: '#D107' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const lineItems = (mutBody.variables as any).input.lineItems as any[];
+        expect(lineItems).toHaveLength(1);
+        const li = lineItems[0];
+        // title uses variantSku when present
+        expect(li.title).toBe('IPHONE-15-BLK');
+        expect(li.quantity).toBe(1);
+        // centAmount 99900, fractionDigits 2 → '999.00'
+        expect(li.originalUnitPrice).toBe('999.00');
+    });
+
+    it('customer identity mapping: __identityMaps propagates GID to DraftOrderInput', async () => {
+        // This test duplicates the named identity-map test above, confirming the fix
+        // did not break the customer resolution path.
+        await connector.initialize({
+            ...BASE_CREDENTIALS,
+            __identityMaps: {
+                [EntityType.CUSTOMERS]: { 'cust-jane': 'gid://shopify/Customer/999' },
+            },
+        });
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/108', name: '#D108' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const input = (mutBody.variables as any).input;
+        expect(input.customerId).toBe('gid://shopify/Customer/999');
+        // presentmentCurrencyCode still present after identity map resolution
+        expect(input.presentmentCurrencyCode).toBe('USD');
+    });
 });
 
 describe('ShopifyTargetConnector — Error classification', () => {

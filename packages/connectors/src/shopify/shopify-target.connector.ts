@@ -342,9 +342,18 @@ export class ShopifyTargetConnector implements TargetConnector<CanonicalEntity> 
             ).toFixed(li.unitPrice.fractionDigits),
         }));
 
+        // DraftOrderInput.presentmentCurrencyCode (CurrencyCode enum, ISO 4217) is the
+        // correct field for specifying the order currency. The field 'currency' does not
+        // exist on DraftOrderInput and is rejected by the Shopify Admin GraphQL API.
+        // Preserving the source currency here ensures the draft order presents in the
+        // same currency as the CT source order rather than the store's default currency.
+        //
+        // Fields from CanonicalOrder with no DraftOrderInput equivalent:
+        //   - status      → DraftOrder is always OPEN at creation (CT status is not mappable)
+        //   - totalPrice  → Shopify derives the total from line items; cannot be set directly
         const input: Record<string, unknown> = {
             lineItems,
-            currency: canonical.currency,
+            presentmentCurrencyCode: canonical.currency,
             note: `Migrated from source order: ${canonical.key}`,
             tags: [`source-key:${canonical.key}`],
         };
