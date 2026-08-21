@@ -32,8 +32,7 @@ describe('EtlEngine', () => {
         correlationId: 'corr-1',
         sourceCredentials: {},
         targetCredentials: {},
-        entityType: EntityType.PRODUCT,
-        resolveIdentity: async () => null
+        entityTypes: [EntityType.PRODUCTS]
     };
     const dummyItems = Array.from({ length: 5 }).map((_, i) => ({
         key: `item-${i}`
@@ -140,47 +139,48 @@ describe('EtlEngine', () => {
         expect(failureFn.mock.calls[0][1]).toEqual(dummyItems[1]); // the item that failed
     });
 
-    it('should persist identity mapping only after successful target load', async () => {
+    it('progress event receives only successful results (with targetId)', async () => {
         const source = new MockSource([dummyItems[0], dummyItems[1]]);
         const target = new MockTarget();
-        
+
         target.mockLoad.mockImplementation((batch: CanonicalEntity[]) => {
             return Promise.resolve([
                 { key: 'item-0', success: true, targetId: 'target-0' },
-                { key: 'item-1', success: false, error: 'Failed' } // No targetId or success
+                { key: 'item-1', success: false, error: 'Failed' }
             ]);
         });
 
-        const recordIdentities = jest.fn().mockResolvedValue(undefined);
-        const testContext = { ...context, recordIdentities };
-        const engine = new EtlEngine(source, target, testContext, { batchSize: 2 });
-        
+        const progressFn = jest.fn();
+        const engine = new EtlEngine(source, target, context, { batchSize: 2 });
+        engine.on('progress', progressFn);
+
         await engine.run();
-        
-        expect(recordIdentities).toHaveBeenCalledTimes(1);
-        const passedResults = recordIdentities.mock.calls[0][0];
-        expect(passedResults.length).toBe(1); // Only the successful one
+
+        // progress fires once with only the single successful item
+        expect(progressFn).toHaveBeenCalledTimes(1);
+        const passedResults = progressFn.mock.calls[0][0];
+        expect(passedResults.length).toBe(1);
         expect(passedResults[0].key).toBe('item-0');
         expect(passedResults[0].targetId).toBe('target-0');
     });
 
-    it('failed target load does not create an identity mapping', async () => {
+    it('progress event is NOT called when all items in a batch fail', async () => {
         const source = new MockSource([dummyItems[0]]);
         const target = new MockTarget();
-        
-        target.mockLoad.mockImplementation((batch: CanonicalEntity[]) => {
+
+        target.mockLoad.mockImplementation((_batch: CanonicalEntity[]) => {
             return Promise.resolve([
                 { key: 'item-0', success: false, error: 'Failed' }
             ]);
         });
 
-        const recordIdentities = jest.fn().mockResolvedValue(undefined);
-        const testContext = { ...context, recordIdentities };
-        const engine = new EtlEngine(source, target, testContext, { batchSize: 2 });
-        
+        const progressFn = jest.fn();
+        const engine = new EtlEngine(source, target, context, { batchSize: 2 });
+        engine.on('progress', progressFn);
+
         await engine.run();
-        
-        // recordIdentities should not be called because there are no successful results
-        expect(recordIdentities).not.toHaveBeenCalled();
+
+        // No successful results → progress handler never fires
+        expect(progressFn).not.toHaveBeenCalled();
     });
 });
