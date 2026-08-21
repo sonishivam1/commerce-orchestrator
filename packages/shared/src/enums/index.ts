@@ -44,3 +44,46 @@ export enum ErrorType {
     TRANSIENT = 'TransientError',
     FATAL = 'FatalError',
 }
+
+/**
+ * ConnectionHealth — real-time health state of a platform connection.
+ * Stored on the Connection document; updated when credentials are tested.
+ */
+export enum ConnectionHealth {
+    UNTESTED = 'UNTESTED',
+    CONNECTED = 'CONNECTED',
+    DISCONNECTED = 'DISCONNECTED',
+    ERROR = 'ERROR',
+}
+
+/**
+ * WaveStatus — execution state of a single entity-type wave within a MigrationRun.
+ * Stored inside MigrationRun.waves[].status.
+ */
+export enum WaveStatus {
+    PENDING = 'PENDING',
+    RUNNING = 'RUNNING',
+    COMPLETED = 'COMPLETED',
+    FAILED = 'FAILED',
+    SKIPPED = 'SKIPPED',
+}
+
+/**
+ * MigrationProjectStatus — lifecycle state of a MigrationProject.
+ */
+export enum MigrationProjectStatus {
+    DRAFT = 'DRAFT',
+    ACTIVE = 'ACTIVE',
+    ARCHIVED = 'ARCHIVED',
+}
+
+/**
+ * MigrationRunStatus — execution state of a single MigrationRun.
+ */
+export enum MigrationRunStatus {
+    PENDING = 'PENDING',
+    RUNNING = 'RUNNING',
+    COMPLETED = 'COMPLETED',
+    FAILED = 'FAILED',
+    CANCELLED = 'CANCELLED',
+}

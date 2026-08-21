@@ -19,6 +19,18 @@ export interface EtlContext {
      * Defaults to [EntityType.PRODUCTS] when omitted for backward compatibility.
      */
     entityTypes?: EntityType[];
+    /**
+     * The MigrationProject this run belongs to.
+     * When present, the orchestrator writes IdentityMap entries keyed by this project ID.
+     * Absent on legacy Job-originated runs (backward compatible).
+     */
+    migrationProjectId?: string;
+    /**
+     * When true, the orchestrator skips all target.load() calls.
+     * The full extract + transform + validate path still runs — only the write is suppressed.
+     * Defaults to false when absent (backward compatible).
+     */
+    dryRun?: boolean;
 }
 
 export interface EtlEngineOptions {
