@@ -1,4 +1,4 @@
-import type { SourceConnector } from '@cdo/core';
+import type { SourceConnector, EtlContext } from '@cdo/core';
 import type { CanonicalProduct } from '@cdo/shared';
 import pino from 'pino';
 import { mapScrapedProduct } from '@cdo/mapping';
@@ -17,7 +17,8 @@ export class ScrapeSourceConnector implements SourceConnector<CanonicalProduct> 
      * Initializes the scraper. Scrape jobs pass the target URL in the credentials object
      * because the SourceConnector interface assumes an API connection payload.
      */
-    async initialize(credentials: Record<string, unknown>): Promise<void> {
+    async initialize(context: EtlContext): Promise<void> {
+        const credentials = context.sourceCredentials;
         if (!credentials.sourceUrl || typeof credentials.sourceUrl !== 'string') {
             throw new Error('[ScrapeSourceConnector] sourceUrl is required in initialization payload');
         }

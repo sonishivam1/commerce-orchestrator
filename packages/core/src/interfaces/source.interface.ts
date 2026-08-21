@@ -8,9 +8,9 @@ import type { CanonicalEntity } from '@cdo/shared';
  */
 export interface SourceConnector<T extends CanonicalEntity = CanonicalEntity> {
     /**
-     * Called once before extract(). Receives decrypted credentials from the Orchestrator.
+     * Called once before extract(). Receives context including decrypted credentials from the Orchestrator.
      */
-    initialize(credentials: Record<string, unknown>): Promise<void>;
+    initialize(context: import('../engine/etl.engine').EtlContext): Promise<void>;
 
     /**
      * Async generator that yields batches of Canonical entities.
