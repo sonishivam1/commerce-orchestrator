@@ -74,6 +74,10 @@ const ctCredentials = {
     clientSecret: requireEnv('CTP_CLIENT_SECRET'),
     apiUrl:       requireEnv('CTP_API_URL'),
     authUrl:      requireEnv('CTP_AUTH_URL'),
+    // The smoke-harness API client was created with manage_project scope.
+    // Pass it explicitly so the connector doesn't request granular view_* scopes
+    // that the client isn't authorized for.
+    scopes:       ['manage_project'],
 };
 
 // Shopify credentials — accessToken is obtained at runtime via client_credentials grant.
@@ -338,8 +342,10 @@ async function main(): Promise<void> {
     console.log(`   CTP_CLIENT_SECRET: present, length=${ctCredentials.clientSecret.length}${ctCredentials.clientSecret.includes('#') ? '  ⚠️  CONTAINS #' : ''}`);
     console.log(`   CTP_API_URL     : ${ctCredentials.apiUrl}${ctCredentials.apiUrl.includes('#') ? '  ⚠️  CONTAINS # — inline comment may have been captured' : ''}`);
     console.log(`   CTP_AUTH_URL    : ${ctCredentials.authUrl}${ctCredentials.authUrl.includes('#') ? '  ⚠️  CONTAINS # — inline comment may have been captured' : ''}`);
-    // Derived scope that will be sent to the CT auth server for Wave 1 (categories)
-    console.log(`   Wave 1 scope    : view_categories:${ctCredentials.projectKey}`);
+    // Scope(s) that will be sent to the CT auth server (override takes precedence over SCOPE_MAP)
+    const effectiveScopes = (ctCredentials.scopes ?? ['view_categories'])
+        .map((s: string) => s.includes(':') ? s : `${s}:${ctCredentials.projectKey}`);
+    console.log(`   CT scopes       : ${effectiveScopes.join(', ')}`);
     console.log();
     // ─────────────────────────────────────────────────────────────────────────
 

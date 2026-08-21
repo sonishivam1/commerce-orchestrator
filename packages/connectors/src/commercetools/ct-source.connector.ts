@@ -56,8 +56,14 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalEn
             throw new Error('Missing required Commercetools credentials (projectKey, clientId, clientSecret)');
         }
 
-        const scopes = SCOPE_MAP[this.entityType] ?? ['view_products'];
-        const scopesWithProject = scopes.map(s => `${s}:${projectKey}`);
+        // Allow callers to pass an explicit scopes list (e.g. ['manage_project'] when the
+        // CT API client was created with the manage_project scope rather than granular
+        // view_* scopes). Falls back to the minimal per-entity SCOPE_MAP when absent.
+        const overrideScopes = credentials.scopes as string[] | undefined;
+        const scopeNames = overrideScopes ?? SCOPE_MAP[this.entityType] ?? ['view_products'];
+        const scopesWithProject = scopeNames.map(s =>
+            s.includes(':') ? s : `${s}:${projectKey}`,
+        );
 
         const authMiddlewareOptions: AuthMiddlewareOptions = {
             host: authUrl as string,
