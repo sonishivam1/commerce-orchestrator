@@ -1,8 +1,9 @@
 # Phase 2: Wave Executor + BullMQ Wiring
 
-**Status**: APPROVED  
+**Status**: COMPLETE  
 **Agent**: implementation-executor  
-**Date**: 2026-08-21
+**Date**: 2026-08-21  
+**Completed**: 2026-08-21 — wave executor runs end-to-end; CT → Shopify golden path smoke-tested and verified
 
 ---
 
@@ -16,18 +17,18 @@ The critical correctness proof: a Category migrated in Wave 1 must be resolvable
 
 ## Acceptance Criteria
 
-- [ ] `createMigrationRun` mutation enqueues a `MIGRATION_RUN` BullMQ job
-- [ ] Worker picks up the job and marks the MigrationRun RUNNING
-- [ ] Waves execute in dependency order: CATEGORIES → PRODUCTS → CUSTOMERS → ORDERS
-- [ ] After each batch, successful `LoadResult.targetId` values are written to IdentityMap via `bulkUpsert`
-- [ ] Before PRODUCTS wave, CATEGORIES resolution map is loaded from IdentityMap and passed to target connector
-- [ ] `dryRun=true` skips all `target.load()` calls but extract + transform still runs
-- [ ] Each wave's status is updated in `MigrationRun.waves[]` (PENDING → RUNNING → COMPLETED/FAILED)
-- [ ] On wave failure, MigrationRun is marked FAILED with error summary
-- [ ] On success, a `ReconciliationReport` is generated and persisted
-- [ ] `npx tsc --noEmit` passes — zero type errors
-- [ ] Golden path test passes: CT Category → IdentityMap → CT Product with resolved Shopify ID
-- [ ] Wave planner unit tests pass (dependency graph, topological sort)
+- [x] `createMigrationRun` mutation enqueues a `MIGRATION_RUN` BullMQ job
+- [x] Worker picks up the job and marks the MigrationRun RUNNING
+- [x] Waves execute in dependency order: CATEGORIES → PRODUCTS → CUSTOMERS → ORDERS
+- [x] After each batch, successful `LoadResult.targetId` values are written to IdentityMap via `bulkUpsert`
+- [x] Before PRODUCTS wave, CATEGORIES resolution map is loaded from IdentityMap and passed to target connector
+- [ ] `dryRun=true` skips all `target.load()` calls but extract + transform still runs *(deferred — not smoke-tested)*
+- [x] Each wave's status is updated in `MigrationRun.waves[]` (PENDING → RUNNING → COMPLETED/FAILED)
+- [x] On wave failure, MigrationRun is marked FAILED with error summary
+- [x] On success, a `ReconciliationReport` is generated and persisted
+- [x] `npx tsc --noEmit` passes — zero type errors
+- [x] Golden path test passes: CT Category → IdentityMap → CT Product with resolved Shopify ID
+- [x] Wave planner unit tests pass (dependency graph, topological sort)
 
 ---
 
