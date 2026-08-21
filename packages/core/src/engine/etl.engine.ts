@@ -31,6 +31,17 @@ export interface EtlContext {
      * Defaults to false when absent (backward compatible).
      */
     dryRun?: boolean;
+
+    /**
+     * Opaque cursor from which the source connector should resume extraction.
+     * Passed through to source.extract(startCursor) verbatim.
+     *
+     * When present, the source connector skips all records that precede this cursor value.
+     * When absent extraction starts from the beginning of the dataset.
+     *
+     * Set by the wave executor when resuming a partially-completed wave (Phase 2.5).
+     */
+    startCursor?: string;
 }
 
 export interface EtlEngineOptions {
@@ -88,7 +99,7 @@ export class EtlEngine<T extends CanonicalEntity = CanonicalEntity> {
         let currentBatch: T[] = [];
 
         try {
-            for await (const sourceBatch of this.source.extract()) {
+            for await (const sourceBatch of this.source.extract(this.context.startCursor)) {
                 for (const item of sourceBatch) {
                     currentBatch.push(item);
 

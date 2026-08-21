@@ -49,4 +49,22 @@ export class CreateMigrationRunInput {
      */
     @Field({ defaultValue: false })
     dryRun: boolean;
+
+    /**
+     * B1 Resume: ID of a previous MigrationRun whose wave cursors should be inherited.
+     *
+     * When supplied, the new run is initialised with the cursor offsets from the
+     * referenced run, so each wave resumes from where the previous run left off
+     * rather than re-processing data from the beginning.
+     *
+     * Requirements:
+     * - The referenced run must belong to the same tenant.
+     * - The referenced run must belong to the same MigrationProject.
+     * - The referenced run is left completely untouched (immutable audit record).
+     *
+     * This field is intentionally explicit (not automatic) so the operator can
+     * decide when and from which run to resume.
+     */
+    @Field({ nullable: true })
+    resumeFromRunId?: string;
 }

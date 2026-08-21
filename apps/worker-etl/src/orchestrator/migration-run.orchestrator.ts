@@ -133,6 +133,21 @@ export class MigrationRunOrchestrator {
         const waveStatsMap: Record<string, WaveStats> = {};
 
         for (const entityType of plannedWaves) {
+            // Read persisted cursor from the wave stub — present when:
+            //   (a) This wave partially completed in a previous run and the B1 resume
+            //       flow copied the cursor into this run at creation time, OR
+            //   (b) This wave started but crashed mid-run and checkpointed a cursor.
+            // In both cases we forward it as startCursor so extraction resumes from
+            // the correct position rather than re-processing items from the beginning.
+            const waveRecord = run.waves?.find((w) => w.entityType === entityType);
+            const startCursor = waveRecord?.cursor;
+
+            if (startCursor) {
+                this.logger.log(
+                    `[${runId}] Wave ${entityType} resuming from cursor=${startCursor}`,
+                );
+            }
+
             try {
                 const stats = await this.waveExecutor.executeWave({
                     entityType,
@@ -148,6 +163,7 @@ export class MigrationRunOrchestrator {
                     sourceCredentials,
                     targetCredentials,
                     context: baseContext,
+                    startCursor,
                 });
                 waveStatsMap[entityType] = stats;
             } catch (error) {

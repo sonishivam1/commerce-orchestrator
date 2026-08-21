@@ -109,4 +109,26 @@ export class MigrationRunRepository {
         }));
         await this.model.updateOne({ _id: id }, { $set: { waves } }).exec();
     }
+
+    /**
+     * Returns a Map of entityType → cursor for all waves in a run that have a
+     * persisted cursor value.  Used by the B1 resume flow to copy wave offsets
+     * from a previous run into a new run at creation time.
+     *
+     * Scoped by tenantId — returns an empty Map when the run is not found or
+     * does not belong to the tenant (no error is thrown so the caller decides).
+     */
+    async getWaveCursors(tenantId: string, runId: string): Promise<Map<string, string>> {
+        const run = await this.model
+            .findOne({ _id: runId, tenantId }, { waves: 1 })
+            .exec();
+
+        const result = new Map<string, string>();
+        if (!run) return result;
+
+        for (const wave of run.waves ?? []) {
+            if (wave.cursor) result.set(wave.entityType, wave.cursor);
+        }
+        return result;
+    }
 }

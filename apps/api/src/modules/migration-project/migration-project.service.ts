@@ -182,6 +182,43 @@ export class MigrationProjectService {
         // Initialise wave stubs — one per entity type in the project, in project order
         await this.runRepository.initWaves(runId, project.entityTypes);
 
+        // B1 Resume — copy wave cursors from a previous run into the new run's stubs.
+        // Each wave in the new run starts extraction from the position where the
+        // referenced run left off; the referenced run is never modified.
+        if (input.resumeFromRunId) {
+            // The previous run must belong to this tenant and this project.
+            const previousRun = await this.runRepository.findOneForTenant(
+                tenantId,
+                input.resumeFromRunId,
+            );
+            if (!previousRun) {
+                throw new NotFoundException(
+                    `Resume source run ${input.resumeFromRunId} not found`,
+                );
+            }
+            if (String(previousRun.migrationProjectId) !== input.migrationProjectId) {
+                throw new BadRequestException(
+                    `Run ${input.resumeFromRunId} does not belong to project ${input.migrationProjectId}`,
+                );
+            }
+
+            // Fetch per-wave cursors from the previous run (only waves that have a cursor are returned).
+            const waveCursors = await this.runRepository.getWaveCursors(
+                tenantId,
+                input.resumeFromRunId,
+            );
+
+            // Write each cursor into the corresponding wave stub of the new run.
+            // updateWave uses the positional $ operator to target the correct wave entry.
+            for (const [entityType, cursor] of waveCursors) {
+                await this.runRepository.updateWave(runId, entityType, { cursor });
+            }
+
+            this.logger.log(
+                `[${tenantId}] MigrationRun ${runId} inherited ${waveCursors.size} wave cursor(s) from ${input.resumeFromRunId}`,
+            );
+        }
+
         this.logger.log(
             `[${tenantId}] MigrationRun created — id=${runId} projectId=${input.migrationProjectId} dryRun=${input.dryRun ?? false}`,
         );

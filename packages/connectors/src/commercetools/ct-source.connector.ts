@@ -23,7 +23,25 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalEn
     private readonly categoryMapper = new CategoryMapper(SourcePlatform.COMMERCETOOLS);
     private readonly customerMapper = new CustomerMapper(SourcePlatform.COMMERCETOOLS);
 
+    /**
+     * Most-recently-checkpointed cursor value.
+     * Set to the last page's final item ID immediately BEFORE yielding each batch,
+     * so that getCursor() returns the correct value when the progress handler fires
+     * (while the generator is suspended at the yield point).
+     */
+    private currentCursor?: string;
+
     constructor(private readonly entityType: EntityType = EntityType.PRODUCTS) {}
+
+    /**
+     * Returns the cursor that corresponds to the last successfully-processed batch.
+     * Implements SourceConnector.getCursor?() — called by the wave executor from
+     * inside the progress event handler (while the generator is paused at yield),
+     * so the value is guaranteed to reflect the batch that was just committed.
+     */
+    getCursor(): string | undefined {
+        return this.currentCursor;
+    }
 
     async initialize(credentials: Record<string, unknown>): Promise<void> {
         const {
@@ -124,9 +142,17 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalEn
                 }
             }
 
-            if (batch.length > 0) yield batch;
+            // Advance pagination cursor unconditionally — even if batch is empty after mapping
+            // failures, we must not loop forever on the same page.
+            const pageLastId = results[results.length - 1].id;
+            lastId = pageLastId;
 
-            lastId = results[results.length - 1].id;
+            if (batch.length > 0) {
+                // Checkpoint BEFORE yield so getCursor() returns the correct value when
+                // the progress handler fires (generator is paused at the yield point).
+                this.currentCursor = pageLastId;
+                yield batch;
+            }
         }
     }
 
@@ -164,9 +190,13 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalEn
                 }
             }
 
-            if (batch.length > 0) yield batch;
+            const pageLastId = results[results.length - 1].id;
+            lastId = pageLastId;
 
-            lastId = results[results.length - 1].id;
+            if (batch.length > 0) {
+                this.currentCursor = pageLastId;
+                yield batch;
+            }
         }
     }
 
@@ -204,9 +234,13 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalEn
                 }
             }
 
-            if (batch.length > 0) yield batch;
+            const pageLastId = results[results.length - 1].id;
+            lastId = pageLastId;
 
-            lastId = results[results.length - 1].id;
+            if (batch.length > 0) {
+                this.currentCursor = pageLastId;
+                yield batch;
+            }
         }
     }
 
@@ -258,9 +292,13 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalEn
                 status: mapCtOrderStatus(order.orderState),
             }));
 
-            if (batch.length > 0) yield batch;
+            const pageLastId = results[results.length - 1].id;
+            lastId = pageLastId;
 
-            lastId = results[results.length - 1].id;
+            if (batch.length > 0) {
+                this.currentCursor = pageLastId;
+                yield batch;
+            }
         }
     }
 }

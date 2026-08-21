@@ -34,6 +34,13 @@ export interface WaveExecutionConfig {
     /** Decrypted target credentials (from worker memory only) */
     targetCredentials: Record<string, unknown>;
     context: EtlContext;
+    /**
+     * Opaque resume cursor inherited from a previous run (B1 resume) or from an
+     * earlier partial execution of this wave.  When present it is forwarded to
+     * the EtlEngine context as `startCursor`, which passes it to source.extract().
+     * When absent the wave starts from the beginning of the dataset.
+     */
+    startCursor?: string;
 }
 
 /**
@@ -72,6 +79,7 @@ export class WaveExecutorService {
             sourceCredentials,
             targetCredentials,
             context,
+            startCursor,
         } = config;
 
         const { tenantId, migrationProjectId } = run;
@@ -121,10 +129,13 @@ export class WaveExecutorService {
                 __identityMaps: resolutionMaps,
             };
 
-            // Step 4: Build enhanced context for this wave
+            // Step 4: Build enhanced context for this wave.
+            // startCursor is forwarded to the EtlEngine so source.extract(startCursor)
+            // resumes from the correct position (cursor-based pagination).
             const waveContext: EtlContext = {
                 ...context,
                 entityTypes: [entityType],
+                startCursor,
             };
 
             // Step 5: Create connectors
@@ -151,6 +162,19 @@ export class WaveExecutorService {
                 stats.processedCount += succeeded.length;
                 stats.failedCount += failed.length;
 
+                // Capture cursor SYNCHRONOUSLY before any await.
+                //
+                // The EtlEngine calls this handler synchronously (no await) from inside
+                // processTargetResults → processBatch.  At this exact moment the source
+                // generator is still suspended at the yield point that emitted this
+                // engine batch — so getCursor() reflects the last committed page.
+                //
+                // After the first await below, the event loop can resume the engine's
+                // `for await` loop, which in turn resumes the generator and advances
+                // currentCursor to the NEXT page.  Capturing synchronously avoids that
+                // race.
+                const batchCursor = source.getCursor?.();
+
                 this.logger.log(
                     `[${runId}][${entityType}] +${succeeded.length} ok / +${failed.length} failed`,
                 );
@@ -176,12 +200,20 @@ export class WaveExecutorService {
                     );
                 }
 
-                // Update wave progress in DB (fire-and-forget, non-critical path)
+                // Persist the pre-captured cursor and update progress counts.
+                if (batchCursor) {
+                    stats.cursor = batchCursor;
+                }
+
+                // Update wave progress + cursor in DB (fire-and-forget, non-critical path)
+                const progressUpdate: Record<string, unknown> = {
+                    processedCount: stats.processedCount,
+                    failedCount: stats.failedCount,
+                };
+                if (batchCursor) progressUpdate['cursor'] = batchCursor;
+
                 this.migrationRunRepository
-                    .updateWave(runId, entityType, {
-                        processedCount: stats.processedCount,
-                        failedCount: stats.failedCount,
-                    })
+                    .updateWave(runId, entityType, progressUpdate)
                     .catch((e: Error) =>
                         this.logger.error(`[${runId}] Wave progress update failed: ${e.message}`),
                     );
