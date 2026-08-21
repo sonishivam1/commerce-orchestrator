@@ -328,6 +328,21 @@ async function main(): Promise<void> {
         ...(process.env.SHOPIFY_LOCATION_ID ? { locationId: process.env.SHOPIFY_LOCATION_ID } : {}),
     };
 
+    // ── Step 3: Commercetools credential diagnostics ──────────────────────────
+    // Safe fields (not secrets) are printed in full.
+    // clientId and clientSecret are printed as presence + length only — never the value.
+    // A '#' in any value indicates node --env-file included an inline comment in the value.
+    console.log('── CT credential diagnostics:');
+    console.log(`   CTP_PROJECT_KEY : ${ctCredentials.projectKey}${ctCredentials.projectKey.includes('#') ? '  ⚠️  CONTAINS # — inline comment may have been captured' : ''}`);
+    console.log(`   CTP_CLIENT_ID   : present, length=${ctCredentials.clientId.length}${ctCredentials.clientId.includes('#') ? '  ⚠️  CONTAINS #' : ''}`);
+    console.log(`   CTP_CLIENT_SECRET: present, length=${ctCredentials.clientSecret.length}${ctCredentials.clientSecret.includes('#') ? '  ⚠️  CONTAINS #' : ''}`);
+    console.log(`   CTP_API_URL     : ${ctCredentials.apiUrl}${ctCredentials.apiUrl.includes('#') ? '  ⚠️  CONTAINS # — inline comment may have been captured' : ''}`);
+    console.log(`   CTP_AUTH_URL    : ${ctCredentials.authUrl}${ctCredentials.authUrl.includes('#') ? '  ⚠️  CONTAINS # — inline comment may have been captured' : ''}`);
+    // Derived scope that will be sent to the CT auth server for Wave 1 (categories)
+    console.log(`   Wave 1 scope    : view_categories:${ctCredentials.projectKey}`);
+    console.log();
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Accumulated identity maps — each wave feeds the next
     const identityMaps: Record<string, Record<string, string>> = {};
 
