@@ -4,10 +4,16 @@ import { mapShopifyProduct, canonicalToShopifyProductInput } from '../rules-engi
 import { mapCommercetoolsProduct, canonicalToCtProductDraft } from '../rules-engine/commercetools.rules';
 import { mapScrapedProduct, ScrapedProductInput } from '../rules-engine/scrape.rules';
 
+/**
+ * SourcePlatform — mirrors Platform from @cdo/shared using the same lowercase values.
+ * Kept here so @cdo/mapping stays decoupled from @cdo/shared while remaining compatible
+ * with the platform strings stored in the database.
+ */
 export enum SourcePlatform {
-    SHOPIFY = 'SHOPIFY',
-    COMMERCETOOLS = 'COMMERCETOOLS',
-    SCRAPER = 'SCRAPER'
+    SHOPIFY = 'shopify',
+    COMMERCETOOLS = 'commercetools',
+    BIGCOMMERCE = 'bigcommerce',
+    SCRAPER = 'scraper',
 }
 
 /**

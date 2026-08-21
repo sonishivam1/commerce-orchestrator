@@ -6,6 +6,7 @@ export const CREATE_JOB = gql`
       id
       kind
       status
+      entityTypes
       createdAt
     }
   }

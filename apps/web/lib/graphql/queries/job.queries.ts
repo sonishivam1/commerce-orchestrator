@@ -7,6 +7,7 @@ export const GET_JOBS = gql`
       tenantId
       kind
       status
+      entityTypes
       traceId
       createdAt
       startedAt
@@ -16,6 +17,7 @@ export const GET_JOBS = gql`
       sourceCredentialId
       targetCredentialId
       sourceUrl
+      exportFilePath
     }
   }
 `;
@@ -27,6 +29,7 @@ export const GET_JOB = gql`
       tenantId
       kind
       status
+      entityTypes
       traceId
       createdAt
       startedAt
@@ -36,6 +39,7 @@ export const GET_JOB = gql`
       sourceCredentialId
       targetCredentialId
       sourceUrl
+      exportFilePath
     }
   }
 `;
