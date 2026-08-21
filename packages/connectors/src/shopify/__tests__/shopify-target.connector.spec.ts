@@ -10,8 +10,11 @@
  *   - Category upsert → targetId (create + update paths)
  *   - Correct mutation argument names (input: not collection:)
  *   - Product upsert → targetId + collectionsToJoin resolution
+ *   - Product upsert does NOT include variants in ProductInput (API 2024-01 rejects it)
+ *   - Product upsert syncs master variant via GET_PRODUCT_VARIANTS + PRODUCT_VARIANT_UPDATE
  *   - Customer upsert → targetId (create + update paths)
  *   - Order creation via draftOrderCreate → targetId + customerId resolution
+ *   - assertNoUserErrors handles field: null without crashing
  *   - Error classification (userErrors → VALIDATION, HTTP 429 → TRANSIENT, etc.)
  *   - Per-item isolation: one item's failure does not abort the rest of the batch
  */
@@ -233,6 +236,26 @@ describe('ShopifyTargetConnector — Categories', () => {
     });
 });
 
+// ─── Variant sync mock helpers ────────────────────────────────────────────────
+
+/** Default response for GET_PRODUCT_VARIANTS — one auto-created variant. */
+const MOCK_VARIANTS_RESPONSE = mockOkResponse({
+    product: {
+        variants: {
+            edges: [{ node: { id: 'gid://shopify/ProductVariant/1', sku: '' } }],
+        },
+    },
+});
+
+/** Default response for PRODUCT_VARIANTS_BULK_UPDATE — success. */
+const MOCK_VARIANT_UPDATE_RESPONSE = mockOkResponse({
+    productVariantsBulkUpdate: {
+        product: { id: 'gid://shopify/Product/placeholder' },
+        productVariants: [{ id: 'gid://shopify/ProductVariant/1', sku: 'IPHONE-15-BLK' }],
+        userErrors: [],
+    },
+});
+
 describe('ShopifyTargetConnector — Products', () => {
     let connector: ShopifyTargetConnector;
 
@@ -244,6 +267,7 @@ describe('ShopifyTargetConnector — Products', () => {
     it('creates new product and returns product GID as targetId', async () => {
         await connector.initialize(BASE_CREDENTIALS);
 
+        // 4 calls: find → create → GET_PRODUCT_VARIANTS → PRODUCT_VARIANT_UPDATE
         mockFetch
             .mockResolvedValueOnce(mockOkResponse({ productByHandle: null }) as any)
             .mockResolvedValueOnce(
@@ -253,7 +277,9 @@ describe('ShopifyTargetConnector — Products', () => {
                         userErrors: [],
                     },
                 }) as any,
-            );
+            )
+            .mockResolvedValueOnce(MOCK_VARIANTS_RESPONSE as any)
+            .mockResolvedValueOnce(MOCK_VARIANT_UPDATE_RESPONSE as any);
 
         const [result] = await connector.load([PRODUCT]);
 
@@ -271,6 +297,7 @@ describe('ShopifyTargetConnector — Products', () => {
             },
         });
 
+        // 4 calls: find → create → GET_PRODUCT_VARIANTS → PRODUCT_VARIANT_UPDATE
         mockFetch
             .mockResolvedValueOnce(mockOkResponse({ productByHandle: null }) as any)
             .mockResolvedValueOnce(
@@ -280,7 +307,9 @@ describe('ShopifyTargetConnector — Products', () => {
                         userErrors: [],
                     },
                 }) as any,
-            );
+            )
+            .mockResolvedValueOnce(MOCK_VARIANTS_RESPONSE as any)
+            .mockResolvedValueOnce(MOCK_VARIANT_UPDATE_RESPONSE as any);
 
         const [result] = await connector.load([PRODUCT]);
 
@@ -298,6 +327,7 @@ describe('ShopifyTargetConnector — Products', () => {
             __identityMaps: { [EntityType.CATEGORIES]: {} },
         });
 
+        // 4 calls: find → create → GET_PRODUCT_VARIANTS → PRODUCT_VARIANT_UPDATE
         mockFetch
             .mockResolvedValueOnce(mockOkResponse({ productByHandle: null }) as any)
             .mockResolvedValueOnce(
@@ -307,7 +337,9 @@ describe('ShopifyTargetConnector — Products', () => {
                         userErrors: [],
                     },
                 }) as any,
-            );
+            )
+            .mockResolvedValueOnce(MOCK_VARIANTS_RESPONSE as any)
+            .mockResolvedValueOnce(MOCK_VARIANT_UPDATE_RESPONSE as any);
 
         await connector.load([PRODUCT]);
 
@@ -316,9 +348,10 @@ describe('ShopifyTargetConnector — Products', () => {
         expect(input.collectionsToJoin).toBeUndefined();
     });
 
-    it('userErrors on product create → LoadResult.success=false', async () => {
+    it('userErrors on product create → LoadResult.success=false (no variant sync attempted)', async () => {
         await connector.initialize(BASE_CREDENTIALS);
 
+        // Only 2 calls: find → create (throws before variant sync)
         mockFetch
             .mockResolvedValueOnce(mockOkResponse({ productByHandle: null }) as any)
             .mockResolvedValueOnce(
@@ -334,6 +367,93 @@ describe('ShopifyTargetConnector — Products', () => {
 
         expect(result.success).toBe(false);
         expect(result.error).toContain("Title can't be blank");
+    });
+
+    // ── ProductInput contract (Shopify Admin API 2024-01) ────────────────────────
+
+    it('ProductInput does NOT contain "variants" field (API 2024-01 rejects it)', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch
+            .mockResolvedValueOnce(mockOkResponse({ productByHandle: null }) as any)
+            .mockResolvedValueOnce(
+                mockOkResponse({
+                    productCreate: {
+                        product: { id: 'gid://shopify/Product/888', handle: 'iphone-15' },
+                        userErrors: [],
+                    },
+                }) as any,
+            )
+            .mockResolvedValueOnce(MOCK_VARIANTS_RESPONSE as any)
+            .mockResolvedValueOnce(MOCK_VARIANT_UPDATE_RESPONSE as any);
+
+        await connector.load([PRODUCT]);
+
+        // Second fetch call is the productCreate mutation
+        const createBody = bodyOf(1);
+        const input = (createBody.variables as any).input;
+        expect(input).not.toHaveProperty('variants');
+    });
+
+    // ── Master-variant sync (GET_PRODUCT_VARIANTS + PRODUCT_VARIANT_UPDATE) ─────
+
+    it('syncMasterVariant fetches variants after product create (GET_PRODUCT_VARIANTS called)', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch
+            .mockResolvedValueOnce(mockOkResponse({ productByHandle: null }) as any)
+            .mockResolvedValueOnce(
+                mockOkResponse({
+                    productCreate: {
+                        product: { id: 'gid://shopify/Product/901', handle: 'iphone-15' },
+                        userErrors: [],
+                    },
+                }) as any,
+            )
+            .mockResolvedValueOnce(MOCK_VARIANTS_RESPONSE as any)
+            .mockResolvedValueOnce(MOCK_VARIANT_UPDATE_RESPONSE as any);
+
+        await connector.load([PRODUCT]);
+
+        // Third fetch call is GET_PRODUCT_VARIANTS — its query body must reference the product GID
+        const variantsBody = bodyOf(2);
+        expect((variantsBody.variables as any).id).toBe('gid://shopify/Product/901');
+        expect(variantsBody.query).toContain('GetProductVariants');
+    });
+
+    it('syncMasterVariant calls PRODUCT_VARIANTS_BULK_UPDATE with correct productId and price (no sku field)', async () => {
+        // ProductVariantsBulkInput in Shopify Admin API 2024-01 does NOT accept `sku`
+        // as a top-level field — the API rejects it. SKU lives on the InventoryItem.
+        // We sync price only via productVariantsBulkUpdate.
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch
+            .mockResolvedValueOnce(mockOkResponse({ productByHandle: null }) as any)
+            .mockResolvedValueOnce(
+                mockOkResponse({
+                    productCreate: {
+                        product: { id: 'gid://shopify/Product/902', handle: 'iphone-15' },
+                        userErrors: [],
+                    },
+                }) as any,
+            )
+            .mockResolvedValueOnce(MOCK_VARIANTS_RESPONSE as any)
+            .mockResolvedValueOnce(MOCK_VARIANT_UPDATE_RESPONSE as any);
+
+        await connector.load([PRODUCT]);
+
+        // Fourth fetch call is PRODUCT_VARIANTS_BULK_UPDATE
+        const variantUpdateBody = bodyOf(3);
+        // productVariantsBulkUpdate takes productId + variants[] (not a single input object)
+        expect((variantUpdateBody.variables as any).productId).toBe('gid://shopify/Product/902');
+        const variants = (variantUpdateBody.variables as any).variants as any[];
+        expect(variants).toHaveLength(1);
+        // Must include the variant GID returned by GET_PRODUCT_VARIANTS
+        expect(variants[0].id).toBe('gid://shopify/ProductVariant/1');
+        // PRODUCT.masterVariant: centAmount=99900, fractionDigits=2 → '999.00'
+        expect(variants[0].price).toBe('999.00');
+        // sku must NOT be in the input — API 2024-01 rejects it on ProductVariantsBulkInput
+        expect(variants[0]).not.toHaveProperty('sku');
     });
 });
 
@@ -461,6 +581,199 @@ describe('ShopifyTargetConnector — Orders', () => {
         const mutBody = bodyOf(0);
         const input = (mutBody.variables as any).input;
         expect(input.customerId).toBeUndefined();
+    });
+
+    it('DraftOrderInput does NOT contain the invalid "currency" field', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/104', name: '#D104' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const input = (mutBody.variables as any).input;
+        // 'currency' is not a valid DraftOrderInput field — Shopify rejects it
+        expect(input).not.toHaveProperty('currency');
+    });
+
+    it('DraftOrderInput does NOT contain presentmentCurrencyCode (unsupported currencies crash the API)', async () => {
+        // presentmentCurrencyCode is intentionally omitted: if the order's source currency
+        // is not enabled on the target Shopify store, the API rejects the entire mutation.
+        // The original currency is preserved in the note field instead.
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/105', name: '#D105' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const input = (mutBody.variables as any).input;
+        // Must NOT send presentmentCurrencyCode — target store may not support source currency
+        expect(input).not.toHaveProperty('presentmentCurrencyCode');
+        // Original currency must be preserved in the note so no data is lost
+        expect(input.note).toContain('USD');
+    });
+
+    it('DraftOrderInput preserves note and tags (source metadata not dropped)', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/106', name: '#D106' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const input = (mutBody.variables as any).input;
+        expect(input.note).toContain('order-001');
+        expect(input.tags).toContain('source-key:order-001');
+        // Shopify enforces a hard 40-char limit on tag values
+        (input.tags as string[]).forEach(tag => expect(tag.length).toBeLessThanOrEqual(40));
+    });
+
+    it('DraftOrderInput line items carry title, quantity, and originalUnitPrice', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/107', name: '#D107' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const lineItems = (mutBody.variables as any).input.lineItems as any[];
+        expect(lineItems).toHaveLength(1);
+        const li = lineItems[0];
+        // title uses variantSku when present
+        expect(li.title).toBe('IPHONE-15-BLK');
+        expect(li.quantity).toBe(1);
+        // centAmount 99900, fractionDigits 2 → '999.00'
+        expect(li.originalUnitPrice).toBe('999.00');
+    });
+
+    it('customer identity mapping: __identityMaps propagates GID to DraftOrderInput', async () => {
+        // This test duplicates the named identity-map test above, confirming the fix
+        // did not break the customer resolution path.
+        await connector.initialize({
+            ...BASE_CREDENTIALS,
+            __identityMaps: {
+                [EntityType.CUSTOMERS]: { 'cust-jane': 'gid://shopify/Customer/999' },
+            },
+        });
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: { id: 'gid://shopify/DraftOrder/108', name: '#D108' },
+                    userErrors: [],
+                },
+            }) as any,
+        );
+
+        await connector.load([ORDER]);
+
+        const mutBody = bodyOf(0);
+        const input = (mutBody.variables as any).input;
+        expect(input.customerId).toBe('gid://shopify/Customer/999');
+        // presentmentCurrencyCode is intentionally absent — currency goes to note
+        expect(input).not.toHaveProperty('presentmentCurrencyCode');
+        expect(input.note).toContain('USD');
+    });
+
+    // ── assertNoUserErrors null-field guard ───────────────────────────────────────
+    //
+    // Shopify Admin API can return { field: null, message: "..." } for non-field-
+    // specific errors (e.g. permission issues, plan limits). Without a null guard,
+    // the `.join('.')` call crashes with:
+    //   TypeError: Cannot read properties of null (reading 'join')
+    //
+    // The following three tests verify the fix is in place and well-behaved.
+
+    it('field: null in userErrors does not crash — LoadResult.success=false, error captured', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: null,
+                    userErrors: [{ field: null, message: 'This order cannot be created' }],
+                },
+            }) as any,
+        );
+
+        const [result] = await connector.load([ORDER]);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('This order cannot be created');
+        // null field renders as [] join → empty prefix in the error detail string
+        expect(result.error).toContain('[]');
+    });
+
+    it('non-null field array is still formatted correctly after null-guard fix', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: null,
+                    userErrors: [{ field: ['lineItems', '0', 'quantity'], message: 'Must be positive' }],
+                },
+            }) as any,
+        );
+
+        const [result] = await connector.load([ORDER]);
+
+        expect(result.success).toBe(false);
+        // Non-null field arrays must still render as dot-joined paths
+        expect(result.error).toContain('[lineItems.0.quantity]');
+        expect(result.error).toContain('Must be positive');
+    });
+
+    it('mixed null and non-null fields in a single userErrors response are both captured', async () => {
+        await connector.initialize(BASE_CREDENTIALS);
+
+        mockFetch.mockResolvedValueOnce(
+            mockOkResponse({
+                draftOrderCreate: {
+                    draftOrder: null,
+                    userErrors: [
+                        { field: null,          message: 'General failure' },
+                        { field: ['customerId'], message: 'Customer not found' },
+                    ],
+                },
+            }) as any,
+        );
+
+        const [result] = await connector.load([ORDER]);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('General failure');
+        expect(result.error).toContain('[customerId]');
+        expect(result.error).toContain('Customer not found');
     });
 });
 

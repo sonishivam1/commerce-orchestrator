@@ -3,6 +3,7 @@ import type { CanonicalEntity, CanonicalProduct, CanonicalCategory, CanonicalCus
 import { EntityType, ErrorType } from '@cdo/shared';
 import {
     canonicalToShopifyProductInput,
+    canonicalVariantToShopifyVariantInput,
     canonicalToShopifyCategoryInput,
     canonicalToShopifyCustomerInput,
 } from '@cdo/mapping';
@@ -94,6 +95,33 @@ const DRAFT_ORDER_CREATE = /* GraphQL */ `
     }
 `;
 
+// Used after productCreate / productUpdate to retrieve the auto-created default
+// variant's GID so we can sync SKU + price via productVariantsBulkUpdate.
+const GET_PRODUCT_VARIANTS = /* GraphQL */ `
+    query GetProductVariants($id: ID!) {
+        product(id: $id) {
+            variants(first: 10) {
+                edges {
+                    node { id sku }
+                }
+            }
+        }
+    }
+`;
+
+// Shopify Admin API 2024-01 removed the standalone productVariantUpdate mutation.
+// productVariantsBulkUpdate is the supported replacement — it accepts a productId
+// and an array of ProductVariantsBulkInput (can be a single-element array).
+const PRODUCT_VARIANTS_BULK_UPDATE = /* GraphQL */ `
+    mutation ProductVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+            product { id }
+            productVariants { id sku }
+            userErrors { field message }
+        }
+    }
+`;
+
 // ─── Error Classification ─────────────────────────────────────────────────────
 
 function classifyShopifyError(error: unknown): Error {
@@ -176,11 +204,15 @@ export class ShopifyTargetConnector implements TargetConnector<CanonicalEntity> 
     }
 
     private assertNoUserErrors(
-        result: { userErrors: Array<{ field: string[]; message: string }> },
+        result: { userErrors: Array<{ field: string[] | null; message: string }> },
         itemKey: string,
     ): void {
         if (result.userErrors.length > 0) {
-            const detail = result.userErrors.map(e => `[${e.field.join('.')}] ${e.message}`).join('; ');
+            // Shopify may return field: null for non-field-specific errors (e.g. permission
+            // errors, plan limits). Guard with nullish coalescing to avoid a crash.
+            const detail = result.userErrors
+                .map(e => `[${(e.field ?? []).join('.')}] ${e.message}`)
+                .join('; ');
             const err = new Error(`Shopify validation errors for "${itemKey}": ${detail}`);
             (err as any).type = ErrorType.VALIDATION;
             throw err;
@@ -270,11 +302,59 @@ export class ShopifyTargetConnector implements TargetConnector<CanonicalEntity> 
 
         const mutData = (await this.execute(mutation, { input })) as Record<
             string,
-            { product: { id: string } | null; userErrors: Array<{ field: string[]; message: string }> }
+            { product: { id: string } | null; userErrors: Array<{ field: string[] | null; message: string }> }
         >;
 
         this.assertNoUserErrors(mutData[operationKey], canonical.key);
-        return mutData[operationKey].product!.id;
+        const productId = mutData[operationKey].product!.id;
+
+        // Sync the master variant's SKU + price via a separate mutation.
+        // Shopify Admin API 2024-01 does not accept `variants` inline in ProductInput,
+        // so we query the auto-created default variant and update it in place.
+        await this.syncMasterVariant(productId, canonical);
+
+        return productId;
+    }
+
+    /**
+     * Fetches the first variant on the just-upserted product and updates it with the
+     * canonical master variant's SKU and price.
+     *
+     * Shopify auto-creates a default variant on every new product. Instead of creating
+     * additional variants (which would leave a blank default), we update the existing
+     * one in place via `productVariantUpdate`.
+     */
+    private async syncMasterVariant(
+        productId: string,
+        canonical: CanonicalProduct,
+    ): Promise<void> {
+        const variantsData = (await this.execute(GET_PRODUCT_VARIANTS, { id: productId })) as {
+            product?: { variants: { edges: Array<{ node: { id: string; sku: string } }> } } | null;
+        };
+
+        const variantId = variantsData.product?.variants.edges[0]?.node?.id;
+        if (!variantId) return; // No variants found — bail gracefully.
+
+        const variantInput = canonicalVariantToShopifyVariantInput(
+            canonical.masterVariant,
+            variantId,
+            this.locationId,
+        );
+
+        // productVariantsBulkUpdate takes the product GID separately from the
+        // variants array, even when syncing only the single master variant.
+        const mutData = (await this.execute(PRODUCT_VARIANTS_BULK_UPDATE, {
+            productId,
+            variants: [variantInput],
+        })) as {
+            productVariantsBulkUpdate: {
+                product: { id: string } | null;
+                productVariants: Array<{ id: string; sku: string }>;
+                userErrors: Array<{ field: string[] | null; message: string }>;
+            };
+        };
+
+        this.assertNoUserErrors(mutData.productVariantsBulkUpdate, canonical.key);
     }
 
     private async loadProducts(batch: CanonicalProduct[]): Promise<LoadResult[]> {
@@ -342,11 +422,24 @@ export class ShopifyTargetConnector implements TargetConnector<CanonicalEntity> 
             ).toFixed(li.unitPrice.fractionDigits),
         }));
 
+        // Fields from CanonicalOrder with no DraftOrderInput equivalent:
+        //   - status             → DraftOrder is always OPEN at creation (CT status is not mappable)
+        //   - totalPrice         → Shopify derives the total from line items; cannot be set directly
+        //   - currency           → See note below.
+        //
+        // presentmentCurrencyCode is intentionally OMITTED.
+        // When the source order's currency is not enabled on the target Shopify store,
+        // passing presentmentCurrencyCode causes a hard validation error that prevents
+        // the draft order from being created at all. Shopify will use the store's
+        // default currency for the draft; the original source currency is recorded in
+        // the note field so the information is not lost.
         const input: Record<string, unknown> = {
             lineItems,
-            currency: canonical.currency,
-            note: `Migrated from source order: ${canonical.key}`,
-            tags: [`source-key:${canonical.key}`],
+            note: `Migrated from source order: ${canonical.key} (original currency: ${canonical.currency})`,
+            // Shopify enforces a hard 40-character limit on tag values. The full
+            // `source-key:{key}` string may exceed this when the key is a UUID.
+            // Slice to 40 chars — the note field always carries the full key.
+            tags: [`source-key:${canonical.key}`.slice(0, 40)],
         };
 
         if (customerId) input['customerId'] = customerId;

@@ -56,8 +56,14 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalEn
             throw new Error('Missing required Commercetools credentials (projectKey, clientId, clientSecret)');
         }
 
-        const scopes = SCOPE_MAP[this.entityType] ?? ['view_products'];
-        const scopesWithProject = scopes.map(s => `${s}:${projectKey}`);
+        // Allow callers to pass an explicit scopes list (e.g. ['manage_project'] when the
+        // CT API client was created with the manage_project scope rather than granular
+        // view_* scopes). Falls back to the minimal per-entity SCOPE_MAP when absent.
+        const overrideScopes = credentials.scopes as string[] | undefined;
+        const scopeNames = overrideScopes ?? SCOPE_MAP[this.entityType] ?? ['view_products'];
+        const scopesWithProject = scopeNames.map(s =>
+            s.includes(':') ? s : `${s}:${projectKey}`,
+        );
 
         const authMiddlewareOptions: AuthMiddlewareOptions = {
             host: authUrl as string,
@@ -114,8 +120,15 @@ export class CommercetoolsSourceConnector implements SourceConnector<CanonicalEn
         let hasMore = true;
 
         while (hasMore) {
-            const response = await this.client.products().get({
+            // Use productProjections (not products) because mapCommercetoolsProduct expects
+            // the flat ProductProjection shape (name/slug/masterVariant at the top level).
+            // The full Product representation nests these under masterData.current, which
+            // would cause Zod validation to fail for every item.
+            // staged: true — include unpublished/staged products, required for B2B projects
+            // where products may never be published to a storefront channel.
+            const response = await this.client.productProjections().get({
                 queryArgs: {
+                    staged: true,
                     limit: 50,
                     sort: 'id asc',
                     where: lastId ? `id > "${lastId}"` : undefined,

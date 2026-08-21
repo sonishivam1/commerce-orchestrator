@@ -74,6 +74,10 @@ const ctCredentials = {
     clientSecret: requireEnv('CTP_CLIENT_SECRET'),
     apiUrl:       requireEnv('CTP_API_URL'),
     authUrl:      requireEnv('CTP_AUTH_URL'),
+    // The smoke-harness API client was created with manage_project scope.
+    // Pass it explicitly so the connector doesn't request granular view_* scopes
+    // that the client isn't authorized for.
+    scopes:       ['manage_project'],
 };
 
 // Shopify credentials — accessToken is obtained at runtime via client_credentials grant.
@@ -327,6 +331,23 @@ async function main(): Promise<void> {
         accessToken,
         ...(process.env.SHOPIFY_LOCATION_ID ? { locationId: process.env.SHOPIFY_LOCATION_ID } : {}),
     };
+
+    // ── Step 3: Commercetools credential diagnostics ──────────────────────────
+    // Safe fields (not secrets) are printed in full.
+    // clientId and clientSecret are printed as presence + length only — never the value.
+    // A '#' in any value indicates node --env-file included an inline comment in the value.
+    console.log('── CT credential diagnostics:');
+    console.log(`   CTP_PROJECT_KEY : ${ctCredentials.projectKey}${ctCredentials.projectKey.includes('#') ? '  ⚠️  CONTAINS # — inline comment may have been captured' : ''}`);
+    console.log(`   CTP_CLIENT_ID   : present, length=${ctCredentials.clientId.length}${ctCredentials.clientId.includes('#') ? '  ⚠️  CONTAINS #' : ''}`);
+    console.log(`   CTP_CLIENT_SECRET: present, length=${ctCredentials.clientSecret.length}${ctCredentials.clientSecret.includes('#') ? '  ⚠️  CONTAINS #' : ''}`);
+    console.log(`   CTP_API_URL     : ${ctCredentials.apiUrl}${ctCredentials.apiUrl.includes('#') ? '  ⚠️  CONTAINS # — inline comment may have been captured' : ''}`);
+    console.log(`   CTP_AUTH_URL    : ${ctCredentials.authUrl}${ctCredentials.authUrl.includes('#') ? '  ⚠️  CONTAINS # — inline comment may have been captured' : ''}`);
+    // Scope(s) that will be sent to the CT auth server (override takes precedence over SCOPE_MAP)
+    const effectiveScopes = (ctCredentials.scopes ?? ['view_categories'])
+        .map((s: string) => s.includes(':') ? s : `${s}:${ctCredentials.projectKey}`);
+    console.log(`   CT scopes       : ${effectiveScopes.join(', ')}`);
+    console.log();
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Accumulated identity maps — each wave feeds the next
     const identityMaps: Record<string, Record<string, string>> = {};
