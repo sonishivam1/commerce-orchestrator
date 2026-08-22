@@ -4,17 +4,24 @@ import { ApolloWrapper } from '@/lib/graphql/apollo-wrapper';
 
 export const metadata: Metadata = {
     title: 'Commerce Orchestrator',
-    description: 'Multi-tenant commerce data migration and synchronization platform',
+    description: 'Multi-tenant commerce data migration and synchronisation platform',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en" suppressHydrationWarning>
-            {/*
-             * font-sans uses Tailwind's default system-font stack.
-             * Avoids a runtime dependency on next/font/google (CDN fetch at build time)
-             * which can fail in air-gapped CI environments.
-             */}
+            <head>
+                {/*
+                 * Space Grotesk — headings & UI labels
+                 * IBM Plex Mono — data, IDs, code snippets
+                 */}
+                <link rel="preconnect" href="https://fonts.googleapis.com" />
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                <link
+                    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+                    rel="stylesheet"
+                />
+            </head>
             <body className="font-sans antialiased">
                 <ApolloWrapper>{children}</ApolloWrapper>
             </body>

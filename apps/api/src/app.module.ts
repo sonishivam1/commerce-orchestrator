@@ -36,7 +36,11 @@ import { RedisThrottlerStorage } from './common/storage/redis-throttler.storage'
     imports: [
         ConfigModule.forRoot({
             isGlobal: true,
-            envFilePath: ['.env'],
+            // Search order (first match wins):
+            //   1. ".env"      — found when CWD is the workspace root (Turborepo default)
+            //   2. "../../.env" — found when CWD is apps/api (direct nest start)
+            // Both paths point to the same root .env file.
+            envFilePath: ['.env', '../../.env'],
         }),
         ThrottlerModule.forRootAsync({
             // RedisThrottlerModule provides + exports RedisThrottlerStorage

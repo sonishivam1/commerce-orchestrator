@@ -5,18 +5,19 @@ import { useMutation } from '@apollo/client';
 import { LOGIN } from '@/lib/graphql/mutations';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Loader2, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { setToken } from '@/lib/auth/session';
 
 export function LoginForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const redirect = searchParams.get('redirect') ?? '/dashboard';
+    const redirect     = searchParams.get('redirect') ?? '/dashboard';
+    const justRegistered = searchParams.get('registered') === '1';
 
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [errorMsg, setErrorMsg] = useState('');
+    const [email, setEmail]           = useState('');
+    const [password, setPassword]     = useState('');
+    const [showPassword, setShowPwd]  = useState(false);
+    const [errorMsg, setErrorMsg]     = useState('');
 
     const [login, { loading }] = useMutation(LOGIN, {
         onCompleted(data) {
@@ -24,7 +25,7 @@ export function LoginForm() {
             router.push(redirect);
         },
         onError(error) {
-            setErrorMsg(error.message.replace('GraphQL error: ', ''));
+            setErrorMsg(error.message.replace(/^GraphQL error:\s*/i, ''));
         },
     });
 
@@ -35,71 +36,84 @@ export function LoginForm() {
     };
 
     return (
-        <div className="flex flex-col w-full">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-400/80 ml-1">
-                        Email Address
-                    </label>
-                    <div className="relative group/input">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within/input:text-primary transition-colors" />
-                        <input
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@company.com"
-                            className="w-full bg-[#0F172A]/80 border border-white/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm text-white placeholder-slate-600 hover:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-2xl"
-                        />
-                    </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+
+            {/* Registration success banner */}
+            {justRegistered && (
+                <div className="flex items-center gap-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>Account created — sign in to continue.</span>
                 </div>
+            )}
 
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-400/80 ml-1">
-                        Password
-                    </label>
-                    <div className="relative group/input">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within/input:text-primary transition-colors" />
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            className="w-full bg-[#0F172A]/80 border border-white/5 rounded-2xl pl-11 pr-12 py-3.5 text-sm text-white placeholder-slate-600 hover:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-2xl"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-1"
-                        >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                    </div>
+            {/* Email */}
+            <div className="space-y-1.5">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-white/40">
+                    Email
+                </label>
+                <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    className="w-full bg-white/[0.04] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 hover:border-white/[0.12] focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+                />
+            </div>
+
+            {/* Password */}
+            <div className="space-y-1.5">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-white/40">
+                    Password
+                </label>
+                <div className="relative">
+                    <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-white/[0.04] border border-white/8 rounded-xl px-4 pr-11 py-3 text-sm text-white placeholder-white/20 hover:border-white/[0.12] focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPwd(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors p-1"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                 </div>
+            </div>
 
-                {errorMsg && (
-                    <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3.5 text-[13px] text-red-400 font-medium animate-in fade-in slide-in-from-top-1">
-                        {errorMsg}
-                    </div>
-                )}
-
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full mt-4 bg-primary hover:bg-primary/90 text-white rounded-2xl px-4 py-4 text-[15px] font-extrabold tracking-tight transition-all shadow-lg shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center hover:scale-[1.02] active:scale-95"
-                >
-                    {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-                    {loading ? 'Verifying...' : 'Sign In'}
-                </button>
-
-                <div className="text-center mt-4 text-sm font-medium text-slate-400">
-                    New to CDO?{' '}
-                    <Link href="/register" className="text-primary hover:underline font-bold">
-                        Create account
-                    </Link>
+            {/* Error */}
+            {errorMsg && (
+                <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>{errorMsg}</span>
                 </div>
-            </form>
-        </div>
+            )}
+
+            {/* Submit */}
+            <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-1 bg-primary hover:bg-primary/90 disabled:bg-primary/40 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-sm font-semibold tracking-wide transition-all flex justify-center items-center gap-2 shadow-lg shadow-primary/20"
+            >
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {loading ? 'Signing in…' : 'Sign in'}
+            </button>
+
+            {/* Register link */}
+            <p className="text-center text-sm text-white/30">
+                No account?{' '}
+                <Link href="/register" className="text-primary hover:text-primary/80 font-semibold transition-colors">
+                    Create one
+                </Link>
+            </p>
+
+        </form>
     );
 }
