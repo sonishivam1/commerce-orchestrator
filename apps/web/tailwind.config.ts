@@ -9,6 +9,10 @@ const config: Config = {
     ],
     theme: {
         extend: {
+            fontFamily: {
+                sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                mono: ['IBM Plex Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+            },
             colors: {
                 border: 'hsl(var(--border))',
                 input: 'hsl(var(--input))',

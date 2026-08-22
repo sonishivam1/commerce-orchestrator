@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
-import { CredentialRepository, JobRepository, IdentityMapRepository } from '@cdo/db';
+import { CredentialRepository, JobRepository } from '@cdo/db';
 import { ConnectorFactory } from '@cdo/connectors';
 import { ScrapeSourceConnector } from '@cdo/ingestion';
 import { EtlContext } from '@cdo/core';
@@ -20,7 +20,6 @@ export class ScrapeProcessor extends WorkerHost {
         private readonly orchestrator: ScrapeOrchestrator,
         private readonly decryptor: CredentialDecryptor,
         private readonly lockService: LockService,
-        private readonly identityMapRepository: IdentityMapRepository,
     ) {
         super();
     }
@@ -70,23 +69,7 @@ export class ScrapeProcessor extends WorkerHost {
                 correlationId: job.id || jobId,
                 sourceCredentials,
                 targetCredentials,
-                entityType: EntityType.PRODUCT,
-                resolveIdentity: async (type: EntityType, sourceKey: string) => {
-                    return this.identityMapRepository.resolve(tenantId, jobId, type, sourceKey);
-                },
-                recordIdentities: async (results) => {
-                    for (const r of results) {
-                        if (r.success && r.targetId) {
-                            await this.identityMapRepository.saveMapping(
-                                tenantId,
-                                jobId,
-                                EntityType.PRODUCT,
-                                r.key,
-                                r.targetId
-                            ).catch(e => this.logger.error(`Identity save failed: ${e.message}`));
-                        }
-                    }
-                }
+                entityTypes: [EntityType.PRODUCTS]
             };
 
             await this.orchestrator.execute({ jobKind: kind, source, target, context });

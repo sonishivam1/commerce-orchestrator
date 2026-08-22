@@ -15,10 +15,9 @@
  *      a pre-resolved accessToken from requestShopifyToken (integration sanity)
  */
 
-// ─── Mock node-fetch before any imports ──────────────────────────────────────
+// ─── Mock globalThis.fetch (connector now uses native Node 18+ fetch global) ──
 
 const mockFetchFn = jest.fn();
-jest.mock('node-fetch', () => mockFetchFn);
 
 import {
     requestShopifyToken,
@@ -29,6 +28,13 @@ import { ShopifyTargetConnector } from '../shopify-target.connector';
 import { EntityType } from '@cdo/shared';
 
 const mockFetch = mockFetchFn as jest.MockedFunction<typeof mockFetchFn>;
+
+beforeAll(() => {
+    globalThis.fetch = mockFetchFn as unknown as typeof globalThis.fetch;
+});
+afterAll(() => {
+    (globalThis as any).fetch = undefined;
+});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

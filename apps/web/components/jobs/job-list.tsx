@@ -112,17 +112,17 @@ function MetricCard({
 
     return (
         <div className={cn(
-            'bg-[#1E293B]/40 backdrop-blur-sm border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] border-t-2 shadow-2xl overflow-hidden relative',
+            'bg-[#131B2C]/70 border border-white/8 rounded-xl p-5 transition-all duration-200 border-t-2',
             themes[color],
         )}>
             <div className="flex items-center gap-3 mb-4">
                 <div className={cn('h-10 w-10 flex items-center justify-center rounded-xl border shrink-0', iconColors[color])}>
                     <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{title}</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest leading-none">{title}</span>
             </div>
             <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black tracking-tighter text-white">{value}</span>
+                <span className="text-4xl font-bold font-mono text-white">{value}</span>
             </div>
         </div>
     );
@@ -199,8 +199,8 @@ export function JobList() {
                 </nav>
                 <div className="flex items-end justify-between gap-4">
                     <div>
-                        <h1 className="text-4xl font-black tracking-tighter text-white mb-2">Jobs</h1>
-                        <p className="text-sm font-medium text-slate-400">Manage and monitor your orchestration jobs</p>
+                        <h1 className="text-2xl font-bold text-white mb-2">Jobs</h1>
+                        <p className="text-sm text-slate-400">Manage and monitor your orchestration jobs</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="relative group">
@@ -233,7 +233,7 @@ export function JobList() {
             </div>
 
             {/* Table */}
-            <div className="bg-[#1E293B]/40 backdrop-blur-md border border-white/5 rounded-[32px] overflow-hidden shadow-2xl">
+            <div className="bg-[#131B2C]/70 border border-white/8 rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="text-[11px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5 bg-white/[0.02]">

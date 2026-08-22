@@ -14,7 +14,7 @@
  *  - Error bodies from Shopify are sanitized before being surfaced to callers.
  */
 
-import fetch from 'node-fetch';
+// Native fetch is available in Node 18+ (global)
 
 /** Scopes required by ShopifyTargetConnector for the CT → Shopify migration. */
 export const REQUIRED_SHOPIFY_SCOPES = [

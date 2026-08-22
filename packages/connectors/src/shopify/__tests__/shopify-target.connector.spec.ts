@@ -3,8 +3,9 @@
  *
  * Unit tests for the Shopify target connector (Phase 3B).
  *
- * Mock strategy: jest.mock('node-fetch') — every HTTP call goes through the
- * mocked `fetch`, which returns JSON-serialised Shopify GraphQL responses.
+ * Mock strategy: globalThis.fetch is replaced with a jest.fn() in beforeAll —
+ * every HTTP call goes through the mocked fetch, which returns JSON-serialised
+ * Shopify GraphQL responses. Connector uses native Node 18+ globalThis.fetch.
  *
  * Covered:
  *   - Category upsert → targetId (create + update paths)
@@ -19,16 +20,24 @@
  *   - Per-item isolation: one item's failure does not abort the rest of the batch
  */
 
-// ─── Mock node-fetch (factory — ensures connector + test share the same instance) ──
+// ─── Mock globalThis.fetch (connector now uses native Node 18+ fetch global) ──
 
 const mockFetchFn = jest.fn();
-jest.mock('node-fetch', () => mockFetchFn);
 
 import { ShopifyTargetConnector } from '../shopify-target.connector';
 import { EntityType, ErrorType } from '@cdo/shared';
 import type { CanonicalCategory, CanonicalProduct, CanonicalCustomer } from '@cdo/shared';
 
 const mockFetch = mockFetchFn as jest.MockedFunction<typeof mockFetchFn>;
+
+// Assign to global before each test so all calls go through mockFetchFn
+beforeAll(() => {
+    globalThis.fetch = mockFetchFn as unknown as typeof globalThis.fetch;
+});
+afterAll(() => {
+    // Restore to avoid leaking into other suites
+    (globalThis as any).fetch = undefined;
+});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

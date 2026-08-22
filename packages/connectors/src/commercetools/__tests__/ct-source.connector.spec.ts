@@ -46,8 +46,7 @@ jest.mock('@commercetools/sdk-client-v2', () => ({
     })),
 }));
 
-// node-fetch is imported but unused once the SDK client is mocked
-jest.mock('node-fetch', () => jest.fn());
+// node-fetch is no longer imported; connector uses globalThis.fetch (Node 18+)
 
 // ─── System under test ────────────────────────────────────────────────────────
 

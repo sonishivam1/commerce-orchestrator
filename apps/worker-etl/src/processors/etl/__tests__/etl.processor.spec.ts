@@ -8,9 +8,9 @@ describe('EtlProcessor', () => {
     let mockCredRepo: any;
     let mockJobRepo: any;
     let mockOrchestrator: any;
+    let mockMigrationRunOrchestrator: any;
     let mockDecryptor: any;
     let mockLockService: any;
-    let mockIdentityRepo: any;
 
     beforeEach(() => {
         mockCredRepo = {
@@ -22,6 +22,9 @@ describe('EtlProcessor', () => {
         mockOrchestrator = {
             execute: jest.fn().mockResolvedValue(undefined)
         };
+        mockMigrationRunOrchestrator = {
+            execute: jest.fn().mockResolvedValue(undefined)
+        };
         mockDecryptor = {
             decrypt: jest.fn().mockReturnValue({})
         };
@@ -29,19 +32,18 @@ describe('EtlProcessor', () => {
             acquire: jest.fn().mockResolvedValue('lock'),
             release: jest.fn().mockResolvedValue(undefined)
         };
-        mockIdentityRepo = {};
 
         processor = new EtlProcessor(
             mockCredRepo,
             mockJobRepo,
             mockOrchestrator,
+            mockMigrationRunOrchestrator,
             mockDecryptor,
             mockLockService,
-            mockIdentityRepo
         );
     });
 
-    it('existing Product migration remains compatible (defaults to PRODUCT if entityType is missing)', async () => {
+    it('existing Product migration remains compatible (defaults to PRODUCTS if entityTypes is missing)', async () => {
         const job: any = {
             id: 'job-1',
             data: {
@@ -50,7 +52,7 @@ describe('EtlProcessor', () => {
                 kind: 'CROSS_PLATFORM_MIGRATION',
                 sourceCredentialId: 'sc1',
                 targetCredentialId: 'tc1'
-                // Notice: no entityType provided!
+                // Notice: no entityTypes provided!
             }
         };
 
@@ -58,10 +60,10 @@ describe('EtlProcessor', () => {
 
         expect(mockOrchestrator.execute).toHaveBeenCalled();
         const executeCall = mockOrchestrator.execute.mock.calls[0][0];
-        expect(executeCall.context.entityType).toBe(EntityType.PRODUCT);
+        expect(executeCall.context.entityTypes).toContain(EntityType.PRODUCTS);
     });
 
-    it('respects explicitly provided entityType', async () => {
+    it('respects explicitly provided entityTypes', async () => {
         const job: any = {
             id: 'job-1',
             data: {
@@ -70,7 +72,7 @@ describe('EtlProcessor', () => {
                 kind: 'CROSS_PLATFORM_MIGRATION',
                 sourceCredentialId: 'sc1',
                 targetCredentialId: 'tc1',
-                entityType: EntityType.CATEGORY
+                entityTypes: [EntityType.CATEGORIES]
             }
         };
 
@@ -78,6 +80,6 @@ describe('EtlProcessor', () => {
 
         expect(mockOrchestrator.execute).toHaveBeenCalled();
         const executeCall = mockOrchestrator.execute.mock.calls[0][0];
-        expect(executeCall.context.entityType).toBe(EntityType.CATEGORY);
+        expect(executeCall.context.entityTypes).toContain(EntityType.CATEGORIES);
     });
 });

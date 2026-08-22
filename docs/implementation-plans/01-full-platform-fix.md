@@ -1,8 +1,9 @@
 # Sub-Plan 01 — Full Platform Architectural Fix
 
-**Status: APPROVED** (User directive: "act as senior architect and do things accordingly")  
+**Status: COMPLETE** (User directive: "act as senior architect and do things accordingly")  
 **Agent: implementation-executor**  
-**Date: 2026-08-17**
+**Date: 2026-08-17**  
+**Completed: 2026-08-21** — EntityType enum, multi-entity orchestrator loop, ConnectorFactory platform strings, CT source productProjections fix all verified via smoke test
 
 ---
 

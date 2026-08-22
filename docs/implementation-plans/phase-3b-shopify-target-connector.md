@@ -1,8 +1,9 @@
 # Phase 3B — Shopify Target Connector: Golden Path Completion
 
-**Status**: AWAITING APPROVAL  
+**Status**: COMPLETE  
 **Agent**: pipeline-architect  
-**Skill**: connector-development
+**Skill**: connector-development  
+**Completed**: 2026-08-21 — all 10 smoke-test checkpoints pass against real CT + Shopify APIs
 
 ---
 
@@ -32,20 +33,20 @@ The Shopify target connector exists but cannot complete the CT → Shopify golde
 
 ## Acceptance Criteria
 
-- [ ] `loadCategories()` returns `targetId: "gid://shopify/Collection/..."` on success
-- [ ] `loadProducts()` returns `targetId: "gid://shopify/Product/..."` on success
-- [ ] `loadProducts()` includes `collectionsToJoin` with resolved collection GIDs when
+- [x] `loadCategories()` returns `targetId: "gid://shopify/Collection/..."` on success
+- [x] `loadProducts()` returns `targetId: "gid://shopify/Product/..."` on success
+- [x] `loadProducts()` includes `collectionsToJoin` with resolved collection GIDs when
       `__identityMaps[CATEGORIES]` is present in credentials
-- [ ] `loadCustomers()` returns `targetId: "gid://shopify/Customer/..."` on success
-- [ ] `loadOrders()` creates Shopify draft orders and returns
+- [x] `loadCustomers()` returns `targetId: "gid://shopify/Customer/..."` on success
+- [x] `loadOrders()` creates Shopify draft orders and returns
       `targetId: "gid://shopify/DraftOrder/..."` on success
-- [ ] `loadOrders()` populates `customerId` from `__identityMaps[CUSTOMERS]` when available
-- [ ] `collectionCreate` and `collectionUpdate` mutations use `input:` (not `collection:`)
-- [ ] All `userErrors` are classified as `ErrorType.VALIDATION`; HTTP 429 as `TRANSIENT`;
+- [x] `loadOrders()` populates `customerId` from `__identityMaps[CUSTOMERS]` when available
+- [x] `collectionCreate` and `collectionUpdate` mutations use `input:` (not `collection:`)
+- [x] All `userErrors` are classified as `ErrorType.VALIDATION`; HTTP 429 as `TRANSIENT`;
       all other HTTP errors as `TRANSIENT`
-- [ ] Per-item isolation: one item's failure does not abort the rest of the batch
-- [ ] `tsc --noEmit` passes with zero errors
-- [ ] Unit tests cover: category upsert + targetId, product upsert + collectionsToJoin +
+- [x] Per-item isolation: one item's failure does not abort the rest of the batch
+- [x] `tsc --noEmit` passes with zero errors
+- [x] Unit tests cover: category upsert + targetId, product upsert + collectionsToJoin +
       targetId, customer upsert + targetId, order create + customer resolution + targetId,
       error classification
 
@@ -230,6 +231,20 @@ private async loadCustomers(batch: CanonicalCustomer[]): Promise<LoadResult[]> {
 
 ### 6. Order loading via draftOrderCreate
 
+> **Note — deviations from original plan discovered during smoke testing:**
+> - `presentmentCurrencyCode` / `currency` is intentionally OMITTED from `DraftOrderInput`.
+>   When the source store's currency (e.g. EUR) is not enabled on the target Shopify store,
+>   passing this field causes a hard validation error. The original currency is preserved in
+>   the `note` field instead.
+> - Tag values are capped at **40 characters** by the Shopify API. The `source-key:{key}`
+>   string exceeds this for UUID keys; it is sliced to 40 chars.
+> - `assertNoUserErrors` must guard against `field: null` (Shopify returns null for
+>   non-field-specific errors). Uses `(e.field ?? []).join('.')` instead of `e.field.join('.')`.
+> - After `productCreate` / `productUpdate`, a separate `syncMasterVariant()` call is made
+>   via `GET_PRODUCT_VARIANTS` + `productVariantsBulkUpdate`. Shopify Admin API 2024-01
+>   does not accept `variants` inline on `ProductInput`, and the standalone
+>   `productVariantUpdate` mutation was removed in this version.
+
 ```graphql
 mutation DraftOrderCreate($input: DraftOrderInput!) {
     draftOrderCreate(input: $input) {
@@ -240,21 +255,7 @@ mutation DraftOrderCreate($input: DraftOrderInput!) {
 ```
 
 ```typescript
-// CanonicalOrder shape (inline from CT connector — no dedicated type yet)
-interface CanonicalOrderLike extends CanonicalEntity {
-    customerKey?: string;
-    lineItems: Array<{
-        productKey?: string;
-        variantSku?: string;
-        quantity: number;
-        unitPrice: { centAmount: number; currencyCode: string; fractionDigits: number };
-    }>;
-    totalPrice: { centAmount: number; currencyCode: string; fractionDigits: number };
-    currency: string;
-    status: string;
-}
-
-private async upsertOrder(canonical: CanonicalOrderLike): Promise<string> {
+private async upsertOrder(canonical: CanonicalOrder): Promise<string> {
     const customerMap = this.identityMaps[EntityType.CUSTOMERS] ?? {};
     const customerId = canonical.customerKey
         ? customerMap[canonical.customerKey]
@@ -269,11 +270,13 @@ private async upsertOrder(canonical: CanonicalOrderLike): Promise<string> {
         ).toFixed(li.unitPrice.fractionDigits),
     }));
 
+    // `presentmentCurrencyCode` intentionally omitted — currencies not enabled on the
+    // target store cause a hard validation error. Original currency is recorded in note.
+    // Tags are capped at 40 chars by the Shopify API.
     const input: Record<string, unknown> = {
         lineItems,
-        currency: canonical.currency,
-        note: `Migrated from source order: ${canonical.key}`,
-        tags: [`source-key:${canonical.key}`],
+        note: `Migrated from source order: ${canonical.key} (original currency: ${canonical.currency})`,
+        tags: [`source-key:${canonical.key}`.slice(0, 40)],
     };
 
     if (customerId) input.customerId = customerId;
@@ -296,7 +299,53 @@ private async loadOrders(batch: CanonicalOrderLike[]): Promise<LoadResult[]> {
 }
 ```
 
-### 7. Updated load() switch
+### 7. Master variant sync (discovered during smoke testing — not in original plan)
+
+Shopify Admin API 2024-01 does not accept `variants` inline on `ProductInput`. After every
+`productCreate` / `productUpdate`, the connector queries the auto-created default variant's
+GID and updates it with the canonical master variant's price via `productVariantsBulkUpdate`.
+The standalone `productVariantUpdate` mutation was removed in API version 2024-01.
+
+```typescript
+const GET_PRODUCT_VARIANTS = /* GraphQL */ `
+    query GetProductVariants($id: ID!) {
+        product(id: $id) {
+            variants(first: 10) {
+                edges { node { id sku } }
+            }
+        }
+    }
+`;
+
+const PRODUCT_VARIANTS_BULK_UPDATE = /* GraphQL */ `
+    mutation ProductVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+            product { id }
+            productVariants { id sku }
+            userErrors { field message }
+        }
+    }
+`;
+
+// NOTE: ProductVariantsBulkInput does NOT accept `sku` as a top-level field in 2024-01.
+// SKU is owned by InventoryItem and requires a separate inventoryItemUpdate call.
+// Only `id` and `price` are set here.
+private async syncMasterVariant(productId: string, canonical: CanonicalProduct): Promise<void> {
+    const variantsData = await this.execute(GET_PRODUCT_VARIANTS, { id: productId });
+    const variantId = variantsData.product?.variants.edges[0]?.node?.id;
+    if (!variantId) return;
+
+    const variantInput = canonicalVariantToShopifyVariantInput(
+        canonical.masterVariant, variantId, this.locationId,
+    );
+    const mutData = await this.execute(PRODUCT_VARIANTS_BULK_UPDATE, {
+        productId, variants: [variantInput],
+    });
+    this.assertNoUserErrors(mutData.productVariantsBulkUpdate, canonical.key);
+}
+```
+
+### 8. Updated load() switch
 
 ```typescript
 async load(batch: CanonicalEntity[]): Promise<LoadResult[]> {

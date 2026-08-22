@@ -1,7 +1,7 @@
 import type { TargetConnector, LoadResult } from '@cdo/core';
 import type { CanonicalProduct, CanonicalEntity } from '@cdo/shared';
 import { EntityType, ErrorType } from '@cdo/shared';
-import fetch from 'node-fetch';
+// Native fetch is available in Node 18+ (global)
 
 export class BigCommerceTargetConnector implements TargetConnector<CanonicalEntity> {
     private baseUrl!: string;
