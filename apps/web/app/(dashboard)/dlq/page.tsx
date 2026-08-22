@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useApolloClient } from '@apollo/client';
 import { GET_DLQ_ITEMS } from '@/lib/graphql/queries/dlq.queries';
 import { GET_JOBS } from '@/lib/graphql/queries/job.queries';
 import { REPLAY_JOB, DELETE_DLQ_ITEM } from '@/lib/graphql/mutations';
@@ -183,6 +183,8 @@ function DlqTableSection({
 /* ─── Main DLQ Page ────────────────────────────────────────── */
 export default function DlqPage() {
     const [search, setSearch] = useState('');
+    const [replayingAll, setReplayingAll] = useState(false);
+    const apolloClient = useApolloClient();
 
     const { data: jobsData, loading: jobsLoading } = useQuery<{ jobs: Job[] }>(GET_JOBS, {
         pollInterval: 15_000,
@@ -201,6 +203,28 @@ export default function DlqPage() {
 
     const handleReplay = (jobId: string, dlqItemId: string) => {
         replayItem({ variables: { jobId, dlqItemId } });
+    };
+
+    const handleReplayAllTransient = async () => {
+        if (!confirm(`Replay all TRANSIENT errors across ${failedJobs.length} job(s)? Each replayable item will be re-queued individually.`)) return;
+        setReplayingAll(true);
+        try {
+            for (const job of failedJobs) {
+                const result = await apolloClient.query<{ dlqItems: DlqItem[] }>({
+                    query: GET_DLQ_ITEMS,
+                    variables: { jobId: job.id },
+                    fetchPolicy: 'network-only',
+                });
+                const transientItems = result.data?.dlqItems?.filter(
+                    i => i.errorType === 'TRANSIENT' && i.canReplay && !i.replayed,
+                ) ?? [];
+                for (const item of transientItems) {
+                    await replayItem({ variables: { jobId: job.id, dlqItemId: item.id } });
+                }
+            }
+        } finally {
+            setReplayingAll(false);
+        }
     };
 
     return (
@@ -251,16 +275,10 @@ export default function DlqPage() {
                 {transientItems > 0 && (
                     <button
                         className="btn btn-primary"
-                        onClick={() => {
-                            if (confirm(`Replay all ${transientItems} TRANSIENT error(s)? Each item will be re-queued individually.`)) {
-                                const transientJobIds = failedJobs.filter(j => j.status !== 'FAILED');
-                                transientJobIds.forEach(j => {
-                                    window.location.reload();
-                                });
-                            }
-                        }}
+                        disabled={replayingAll || replaying}
+                        onClick={handleReplayAllTransient}
                     >
-                        Replay All TRANSIENT Errors
+                        {replayingAll ? 'Replaying…' : `Replay All TRANSIENT Errors (${transientItems})`}
                     </button>
                 )}
                 <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>

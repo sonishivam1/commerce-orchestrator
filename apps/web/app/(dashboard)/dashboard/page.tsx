@@ -4,7 +4,8 @@ import { useQuery } from '@apollo/client';
 import { GET_RECENT_MIGRATION_RUNS, GET_MIGRATION_PROJECTS } from '@/lib/graphql/queries/migration-project.queries';
 import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
 import Link from 'next/link';
-import { Play, CheckCircle2, XCircle, Clock, KeyRound, Activity, TrendingUp, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { KeyRound, Activity, TrendingUp, Zap } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,44 @@ interface Credential {
     id: string;
     platform: string;
     alias: string;
+}
+
+// ── System Health Component ───────────────────────────────────────────────────
+
+function SystemHealth({ dlqHasErrors }: { dlqHasErrors: boolean }) {
+    const [apiStatus, setApiStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+
+    useEffect(() => {
+        const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql').replace('/graphql', '');
+        fetch(`${apiBase}/health`)
+            .then(r => r.json())
+            .then((body: { status?: string }) => {
+                setApiStatus(body?.status === 'ok' ? 'ok' : 'error');
+            })
+            .catch(() => setApiStatus('error'));
+    }, []);
+
+    const apiLabel = apiStatus === 'loading' ? 'Checking…' : apiStatus === 'ok' ? 'Reachable' : 'Unreachable';
+    const apiClass = apiStatus === 'ok' ? 'pill-success' : apiStatus === 'error' ? 'pill-error' : 'pill-muted';
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>API Server</span>
+                <span className={`pill ${apiClass}`}>{apiLabel}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Dead Letter Queue</span>
+                <Link href="/dlq" className={`pill ${dlqHasErrors ? 'pill-error' : 'pill-success'}`} style={{ textDecoration: 'none' }}>
+                    {dlqHasErrors ? 'Action Required' : 'Clear'}
+                </Link>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Worker ETL</span>
+                <span className="pill pill-muted">No Heartbeat</span>
+            </div>
+        </div>
+    );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -111,144 +150,92 @@ export default function DashboardPage() {
 
     return (
         <div className="view active" id="view-dashboard">
+            <div className="section-header">
+                <div>
+                    <div className="section-title">Command Center</div>
+                    <div className="section-sub">Commerce Data Orchestrator · VPG Organisation</div>
+                </div>
+            </div>
+
             {/* Stats Row */}
-            <div className="metrics-grid">
-                <div className="metric-card">
-                    <div className="metric-header">
-                        <span className="metric-title">Active Connections</span>
-                        <div className="icon-box icon-primary">
-                            <KeyRound size={16} />
-                        </div>
-                    </div>
-                    <div className="metric-value">{loading ? '—' : credentials.length}</div>
-                    <div className="metric-trend trend-neutral">Platforms Connected</div>
+            <div className="stats-row">
+                <div className="stat-card">
+                    <div className="stat-label">Active Connections</div>
+                    <div className="stat-value">{loading ? '—' : credentials.length}</div>
+                    <div className="stat-delta">Platforms Connected</div>
                 </div>
 
-                <div className="metric-card">
-                    <div className="metric-header">
-                        <span className="metric-title">Running Migrations</span>
-                        <div className="icon-box icon-warning">
-                            <Activity size={16} />
-                        </div>
+                <div className="stat-card">
+                    <div className="stat-label">Running Migrations</div>
+                    <div className="stat-value" style={{ color: runningRuns.length > 0 ? 'var(--accent)' : 'inherit' }}>{loading ? '—' : runningRuns.length}</div>
+                    <div className="stat-delta" style={{ color: runningRuns.length > 0 ? 'var(--accent)' : 'inherit' }}>
+                        {runningRuns.length > 0 && <span className="dot dot-pulse" style={{ background: 'var(--accent)', marginRight: '4px' }}></span>}
+                        Active Sync Jobs
                     </div>
-                    <div className="metric-value">{loading ? '—' : runningRuns.length}</div>
-                    <div className="metric-trend trend-neutral">Active Sync Jobs</div>
                 </div>
 
-                <div className="metric-card">
-                    <div className="metric-header">
-                        <span className="metric-title">Records Today</span>
-                        <div className="icon-box icon-success">
-                            <TrendingUp size={16} />
-                        </div>
-                    </div>
-                    <div className="metric-value">{loading ? '—' : formatCount(recordsToday)}</div>
-                    <div className="metric-trend trend-up">Processed this session</div>
+                <div className="stat-card">
+                    <div className="stat-label">Records Today</div>
+                    <div className="stat-value">{loading ? '—' : formatCount(recordsToday)}</div>
+                    <div className="stat-delta">Processed this session</div>
                 </div>
 
-                <div className="metric-card">
-                    <div className="metric-header">
-                        <span className="metric-title">Success Rate</span>
-                        <div className="icon-box icon-purple">
-                            <Zap size={16} />
-                        </div>
-                    </div>
-                    <div className="metric-value">{loading ? '—' : successRate}</div>
-                    <div className="metric-trend trend-neutral">Last {doneRuns.length} completed runs</div>
+                <div className="stat-card">
+                    <div className="stat-label">Success Rate</div>
+                    <div className="stat-value">{loading ? '—' : successRate}</div>
+                    <div className="stat-delta">Last {doneRuns.length} completed runs</div>
                 </div>
             </div>
 
             {/* Main Content Area */}
-            <div className="charts-row">
-                <div className="table-container" style={{ flex: 2 }}>
-                    <div className="table-header">
-                        <h3>Recent Executions</h3>
-                        <Link href="/runs" className="btn btn-ghost btn-sm">View All</Link>
+            <div className="dash-grid">
+                <div className="card">
+                    <div className="card-title">Recent Executions</div>
+                    <div className="exec-list">
+                        {runsLoading ? (
+                            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
+                        ) : runs.length === 0 ? (
+                            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>No recent executions</div>
+                        ) : (
+                            runs.map(run => {
+                                const project = projectById[run.migrationProjectId];
+                                const isRunning = run.status === 'RUNNING';
+                                const isCompleted = run.status === 'COMPLETED';
+                                const isFailed = run.status === 'FAILED';
+                                
+                                const pillClass = isRunning ? 'pill-accent' : isCompleted ? 'pill-success' : isFailed ? 'pill-error' : 'pill-muted';
+                                const statusLabel = isRunning ? 'RUNNING' : isCompleted ? 'COMPLETE' : isFailed ? 'FAILED' : 'PENDING';
+                                const iconBg = isRunning ? 'rgba(129,140,248,0.1)' : isCompleted ? 'var(--success-dim)' : isFailed ? 'var(--error-dim)' : 'rgba(255,255,255,0.05)';
+                                const iconChar = isRunning ? '▶' : isCompleted ? '✓' : isFailed ? '✗' : '·';
+                                
+                                return (
+                                    <Link key={run.id} href={`/runs/${run.id}`} style={{ textDecoration: 'none' }}>
+                                        <div className="exec-item">
+                                            <div className="exec-icon" style={{ background: iconBg }}>{iconChar}</div>
+                                            <div className="exec-info">
+                                                <div className="exec-name">{project?.name ?? 'Migration Run'}</div>
+                                                <div className="exec-meta">{run.processedCount.toLocaleString()} records processed</div>
+                                            </div>
+                                            <div className="exec-right">
+                                                <div style={{ marginBottom: '4px' }}>
+                                                    <span className={`pill ${pillClass}`}>
+                                                        {isRunning && <span className="dot dot-pulse" style={{ marginRight: '4px' }}></span>} {statusLabel}
+                                                    </span>
+                                                </div>
+                                                <div className="exec-time">{isRunning ? duration(run.startedAt) : timeAgo(run.createdAt)}</div>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                );
+                            })
+                        )}
                     </div>
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Project Name</th>
-                                <th>Status</th>
-                                <th>Progress</th>
-                                <th>Duration / Age</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {runsLoading ? (
-                                <tr><td colSpan={5} style={{ textAlign: 'center' }}>Loading...</td></tr>
-                            ) : runs.length === 0 ? (
-                                <tr><td colSpan={5} style={{ textAlign: 'center' }}>No recent executions</td></tr>
-                            ) : (
-                                runs.map(run => {
-                                    const project = projectById[run.migrationProjectId];
-                                    const isRunning = run.status === 'RUNNING';
-                                    const isCompleted = run.status === 'COMPLETED';
-                                    const isFailed = run.status === 'FAILED';
-                                    
-                                    const statusClass = isRunning ? 'status-running' : isCompleted ? 'status-completed' : isFailed ? 'status-failed' : 'status-pending';
-                                    const statusLabel = isRunning ? 'Running' : isCompleted ? 'Complete' : isFailed ? 'Failed' : 'Pending';
-                                    
-                                    // A simple progress calc for the UI (using a max target or just showing relative size)
-                                    // Normally we need total target count, but since we don't have it, we just show a full bar if done, pulse if running.
-                                    const progressPct = isCompleted ? 100 : isRunning ? 50 : 0;
-
-                                    return (
-                                        <tr key={run.id}>
-                                            <td>
-                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontWeight: 500, color: 'var(--text)' }}>
-                                                        {project?.name ?? 'Migration Run'}
-                                                    </span>
-                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                        {run.processedCount.toLocaleString()} records
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span className={`status-badge ${statusClass}`}>{statusLabel}</span>
-                                            </td>
-                                            <td>
-                                                <div className="progress-bar">
-                                                    <div className="progress-fill" style={{ width: `${progressPct}%` }}></div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span style={{ color: 'var(--text-muted)' }}>
-                                                    {isRunning ? duration(run.startedAt) : timeAgo(run.createdAt)}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <Link href={`/runs/${run.id}`} className="btn btn-ghost btn-sm">Details</Link>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
                 </div>
 
-                <div className="table-container" style={{ flex: 1 }}>
-                    <div className="table-header">
-                        <h3>System Health</h3>
-                    </div>
-                    <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Worker Nodes</span>
-                            <span className="status-badge status-completed">Online (3/3)</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Dead Letter Queue</span>
-                            <Link href="/dlq" className={`status-badge ${runs.some(r => r.failedCount > 0) ? 'status-failed' : 'status-completed'}`}>
-                                {runs.some(r => r.failedCount > 0) ? 'Action Required' : 'Clear'}
-                            </Link>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>API Limits</span>
-                            <span className="status-badge status-completed">Healthy</span>
-                        </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="card">
+                        <div className="card-title">System Health</div>
+                        <SystemHealth dlqHasErrors={runs.some(r => r.failedCount > 0)} />
                     </div>
                 </div>
             </div>
