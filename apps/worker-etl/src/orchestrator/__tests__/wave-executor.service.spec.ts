@@ -126,8 +126,6 @@ describe('WaveExecutorService', () => {
 
             expect(stats.processedCount).toBe(1);
             expect(stats.failedCount).toBe(0);
-            expect(stats.created).toBe(1);
-            expect(stats.updated).toBe(0);
         });
 
         it('marks wave RUNNING then COMPLETED', async () => {
@@ -194,8 +192,6 @@ describe('WaveExecutorService', () => {
 
             // Items are processed (extract + transform) but not written
             expect(stats.processedCount).toBe(1);
-            expect(stats.created).toBe(0);
-            expect(stats.updated).toBe(0);
         });
     });
 

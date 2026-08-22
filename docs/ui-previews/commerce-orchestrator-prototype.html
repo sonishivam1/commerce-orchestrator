@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Commerce Orchestrator — Prototype</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; padding: 0; background: #06091a; }
+  </style>
+</head>
+<body>
+
+<title>Commerce Orchestrator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ── Design Tokens ────────────────────────────────────────────────────────── */
+:root {
+  --bg:           #06091a;
+  --bg-raised:    rgba(255,255,255,0.035);
+  --bg-hover:     rgba(255,255,255,0.055);
+  --bg-active:    rgba(129,140,248,0.1);
+  --border:       rgba(255,255,255,0.07);
+  --border-focus: rgba(129,140,248,0.3);
+  --text:         #eef0ff;
+  --text-muted:   #8b92a8;
+  --text-dim:     #4b5268;
+  --accent:       #818cf8;
+  --accent-light: rgba(129,140,248,0.15);
+  --success:      #34d399;
+  --success-dim:  rgba(52,211,153,0.12);
+  --warning:      #fbbf24;
+  --warning-dim:  rgba(251,191,36,0.12);
+  --error:        #f87171;
+  --error-dim:    rgba(248,113,113,0.12);
+  --orb-1:        rgba(79,70,229,0.18);
+  --orb-2:        rgba(13,148,136,0.12);
+  --orb-3:        rgba(139,92,246,0.1);
+  --sidebar-w:    224px;
+  --radius:       14px;
+  --radius-sm:    8px;
+  --blur:         blur(24px) saturate(160%);
+  --font-ui:      'Space Grotesk', system-ui, sans-serif;
+  --font-data:    'IBM Plex Mono', monospace;
+  --font-body:    'IBM Plex Sans', system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:           #eef1fb;
+    --bg-raised:    rgba(255,255,255,0.65);
+    --bg-hover:     rgba(255,255,255,0.85);
+    --bg-active:    rgba(99,102,241,0.08);
+    --border:       rgba(0,0,0,0.08);
+    --border-focus: rgba(99,102,241,0.25);
+    --text:         #0e1120;
+    --text-muted:   #5b6280;
+    --text-dim:     #9ba3c0;
+    --accent:       #6366f1;
+    --accent-light: rgba(99,102,241,0.1);
+    --success-dim:  rgba(16,185,129,0.1);
+    --warning-dim:  rgba(245,158,11,0.1);
+    --error-dim:    rgba(239,68,68,0.1);
+    --orb-1:        rgba(79,70,229,0.08);
+    --orb-2:        rgba(13,148,136,0.05);
+    --orb-3:        rgba(139,92,246,0.05);
+  }
+}
+:root[data-theme="light"] {
+  --bg:           #eef1fb;
+  --bg-raised:    rgba(255,255,255,0.65);
+  --bg-hover:     rgba(255,255,255,0.85);
+  --bg-active:    rgba(99,102,241,0.08);
+  --border:       rgba(0,0,0,0.08);
+  --border-focus: rgba(99,102,241,0.25);
+  --text:         #0e1120;
+  --text-muted:   #5b6280;
+  --text-dim:     #9ba3c0;
+  --accent:       #6366f1;
+  --accent-light: rgba(99,102,241,0.1);
+  --success-dim:  rgba(16,185,129,0.1);
+  --warning-dim:  rgba(245,158,11,0.1);
+  --error-dim:    rgba(239,68,68,0.1);
+  --orb-1:        rgba(79,70,229,0.08);
+  --orb-2:        rgba(13,148,136,0.05);
+  --orb-3:        rgba(139,92,246,0.05);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Background Orbs ──────────────────────────────────────────────────────── */
+.orbs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+}
+.orb-1 {
+  width: 600px; height: 600px;
+  top: -200px; left: -100px;
+  background: var(--orb-1);
+}
+.orb-2 {
+  width: 400px; height: 400px;
+  bottom: 100px; right: -100px;
+  background: var(--orb-2);
+}
+.orb-3 {
+  width: 300px; height: 300px;
+  top: 40%; left: 40%;
+  background: var(--orb-3);
+}
+
+/* ── App Shell ────────────────────────────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  background: rgba(6,9,26,0.7);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-right: 1px solid var(--border);
+  padding: 20px 12px;
+  gap: 4px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .sidebar {
+    background: rgba(238,241,251,0.75);
+  }
+}
+:root[data-theme="light"] .sidebar {
+  background: rgba(238,241,251,0.75);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 20px;
+}
+.logo-mark {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: white;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+.logo-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+.logo-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 400;
+  display: block;
+  line-height: 1.2;
+}
+
+.nav-section {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+.nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 8px 8px 4px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  border: 1px solid transparent;
+  user-select: none;
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text); }
+.nav-item.active {
+  background: var(--bg-active);
+  color: var(--accent);
+  border-color: var(--border-focus);
+}
+.nav-icon {
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.nav-item.active .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 99px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.user-row:hover { background: var(--bg-hover); }
+.avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #818cf8 0%, #34d399 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 12.5px; font-weight: 500; color: var(--text); line-height: 1.2; }
+.user-email { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Main Area ────────────────────────────────────────────────────────────── */
+.main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  flex: 1;
+}
+.breadcrumb-sep { opacity: 0.4; }
+.breadcrumb-current { color: var(--text); font-weight: 500; }
+
+.topbar-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.btn-primary:hover { opacity: 0.88; }
+.btn-ghost {
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  border-color: var(--border);
+  backdrop-filter: var(--blur);
+}
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px;
+}
+.content::-webkit-scrollbar { width: 4px; }
+.content::-webkit-scrollbar-track { background: transparent; }
+.content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Views ────────────────────────────────────────────────────────────────── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── Section Title ────────────────────────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.section-title { font-size: 20px; font-weight: 600; letter-spacing: -0.4px; }
+.section-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Glass Card ───────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-raised);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.card-sm { padding: 14px 16px; }
+
+/* ── Stats Row ────────────────────────────────────────────────────────────── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+.stat-label { font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+.stat-value { font-family: var(--font-data); font-size: 26px; font-weight: 500; color: var(--text); letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat-delta { font-size: 11.5px; color: var(--success); margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+
+/* ── Dashboard Grid ───────────────────────────────────────────────────────── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+}
+
+.exec-list { display: flex; flex-direction: column; gap: 0; }
+.exec-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.exec-item:last-child { border-bottom: none; }
+.exec-item:hover .exec-name { color: var(--accent); }
+.exec-icon {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+.exec-info { flex: 1; min-width: 0; }
+.exec-name { font-size: 13px; font-weight: 500; color: var(--text); transition: color 0.12s; }
+.exec-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.exec-right { text-align: right; flex-shrink: 0; }
+.exec-time { font-family: var(--font-data); font-size: 11px; color: var(--text-muted); }
+
+/* ── Status Pill ──────────────────────────────────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  border-radius: 99px;
+}
+.pill-success { background: var(--success-dim); color: var(--success); }
+.pill-warning { background: var(--warning-dim); color: var(--warning); }
+.pill-error   { background: var(--error-dim);   color: var(--error); }
+.pill-accent  { background: var(--accent-light); color: var(--accent); }
+.pill-muted   { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); }
+
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.dot-pulse {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ── Connections View ─────────────────────────────────────────────────────── */
+.conn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.conn-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.conn-card:hover { border-color: var(--border-focus); background: var(--bg-hover); }
+.conn-card.add-new {
+  border-style: dashed;
+  border-color: var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 180px;
+}
+.conn-card.add-new:hover { border-color: var(--accent); color: var(--accent); }
+.conn-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+.conn-logo {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--bg-raised);
+}
+.conn-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.conn-alias { font-size: 12px; color: var(--text-muted); }
+.conn-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.conn-caps { display: flex; gap: 6px; flex-wrap: wrap; }
+.cap-tag {
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.cap-tag.enabled { background: var(--success-dim); color: var(--success); border-color: rgba(52,211,153,0.2); }
+.conn-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.conn-count { font-family: var(--font-data); font-size: 12px; color: var(--text-muted); }
+.conn-disconnected { opacity: 0.55; }
+
+/* ── Projects View ────────────────────────────────────────────────────────── */
+.proj-table { width: 100%; border-collapse: collapse; }
+.proj-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.proj-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.proj-table tr:last-child td { border-bottom: none; }
+.proj-table tbody tr { cursor: pointer; transition: background 0.12s; }
+.proj-table tbody tr:hover { background: var(--bg-hover); }
+.proj-flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.proj-arrow { color: var(--text-dim); font-size: 12px; }
+.entity-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.entity-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.tag-cat  { background: rgba(139,92,246,0.12); color: #a78bfa; }
+.tag-prod { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.tag-cust { background: rgba(34,197,94,0.12); color: #4ade80; }
+.tag-ord  { background: rgba(251,191,36,0.12); color: #fbbf24; }
+.tag-inv  { background: rgba(236,72,153,0.12); color: #f472b6; }
+
+/* ── Migration Detail View ────────────────────────────────────────────────── */
+.migration-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 20px 24px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+.mig-platform {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mig-logo {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  background: var(--bg-raised);
+}
+.mig-info { }
+.mig-platform-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.mig-platform-alias { font-size: 11.5px; color: var(--text-muted); }
+.mig-arrow-big {
+  font-size: 20px;
+  color: var(--accent);
+  margin: 0 4px;
+}
+.mig-meta { margin-left: auto; text-align: right; }
+.mig-duration { font-family: var(--font-data); font-size: 13px; color: var(--text-muted); }
+.mig-id { font-family: var(--font-data); font-size: 11px; color: var(--text-dim); }
+
+/* ── Wave Execution ───────────────────────────────────────────────────────── */
+.migration-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+}
+.waves-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.waves-list { display: flex; flex-direction: column; gap: 0; }
+.wave-item {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  margin-bottom: 0;
+  position: relative;
+}
+.wave-connector {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 0;
+}
+.wave-connector-line {
+  width: 1px;
+  height: 22px;
+  background: linear-gradient(to bottom, var(--border), transparent);
+  position: relative;
+}
+.wave-connector-arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.wave-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.wave-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  font-family: var(--font-data);
+}
+.wave-num.done { background: var(--success-dim); border-color: rgba(52,211,153,0.3); color: var(--success); }
+.wave-num.running { background: var(--accent-light); border-color: var(--border-focus); color: var(--accent); }
+.wave-entity { font-size: 13.5px; font-weight: 600; color: var(--text); flex: 1; }
+.wave-counts { font-family: var(--font-data); font-size: 12px; color: var(--text-muted); margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wave-bar-track {
+  margin-top: 10px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+.wave-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+.wave-bar-fill.done { background: var(--success); }
+.wave-bar-fill.running {
+  background: linear-gradient(90deg, var(--accent), #a5b4fc);
+  position: relative;
+}
+.wave-bar-fill.running::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; right: -100%;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 1.8s infinite;
+}
+@keyframes shimmer {
+  0% { right: -100%; }
+  100% { right: 200%; }
+}
+.wave-bar-fill.waiting { background: var(--text-dim); width: 0 !important; }
+.wave-status-tag { margin-top: 8px; }
+
+/* ── Right Panel ──────────────────────────────────────────────────────────── */
+.side-panel { display: flex; flex-direction: column; gap: 12px; }
+.panel-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+.panel-card-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.id-map-count {
+  font-family: var(--font-data);
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -1.5px;
+  font-variant-numeric: tabular-nums;
+}
+.id-map-label { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
+.stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.stat-row:last-child { border-bottom: none; }
+.stat-row-label { font-size: 12px; color: var(--text-muted); }
+.stat-row-val { font-family: var(--font-data); font-size: 12px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.error-item {
+  font-size: 12px;
+  padding: 8px 10px;
+  background: var(--error-dim);
+  border: 1px solid rgba(248,113,113,0.15);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.error-item:last-child { margin-bottom: 0; }
+.error-item-key { font-family: var(--font-data); font-size: 10.5px; color: var(--error); margin-bottom: 3px; font-weight: 500; }
+.error-item-msg { color: var(--text-muted); line-height: 1.4; }
+
+/* ── Reconciliation View ──────────────────────────────────────────────────── */
+.recon-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.recon-score-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.score-ring {
+  width: 80px; height: 80px;
+  flex-shrink: 0;
+}
+.score-value {
+  font-family: var(--font-data);
+  font-size: 38px;
+  font-weight: 500;
+  color: var(--success);
+  letter-spacing: -2px;
+}
+.score-label { font-size: 13px; color: var(--text-muted); }
+.score-note { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+.recon-table-wrap {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  overflow: hidden;
+  overflow-x: auto;
+}
+.recon-table { width: 100%; border-collapse: collapse; }
+.recon-table th {
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.recon-table th:first-child { text-align: left; }
+.recon-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-data);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text);
+  white-space: nowrap;
+}
+.recon-table td:first-child {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--text);
+}
+.recon-table tr:last-child td { border-bottom: none; }
+.recon-table .entity-icon { margin-right: 8px; }
+.fail-count { color: var(--error); }
+.warn-count { color: var(--warning); }
+.ok-count   { color: var(--success); }
+.recon-mini-bar {
+  display: inline-block;
+  width: 60px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.06);
+  position: relative;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.recon-mini-bar-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  border-radius: 2px;
+  background: var(--success);
+}
+
+/* ── Add new connection card icon ─────────────────────────────────────────── */
+.add-icon {
+  width: 44px; height: 44px;
+  border: 1.5px dashed var(--border);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  color: var(--text-dim);
+  transition: color 0.15s, border-color 0.15s;
+}
+.conn-card.add-new:hover .add-icon { color: var(--accent); border-color: var(--accent); }
+.add-text { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+.conn-card.add-new:hover .add-text { color: var(--accent); }
+
+/* ── Theme toggle ─────────────────────────────────────────────────────────── */
+.theme-toggle {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+.theme-toggle:hover { background: var(--bg-hover); }
+
+/* ── Quick Action cards ───────────────────────────────────────────────────── */
+.quick-list { display: flex; flex-direction: column; gap: 8px; }
+.quick-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.quick-item:hover { background: var(--bg-hover); border-color: var(--border-focus); }
+.quick-icon { font-size: 18px; flex-shrink: 0; }
+.quick-text { font-size: 13px; font-weight: 500; color: var(--text); }
+.quick-sub { font-size: 11.5px; color: var(--text-muted); }
+.quick-arrow { margin-left: auto; color: var(--text-dim); }
+
+/* ── Wave status mapping helper ───────────────────────────────────────────── */
+.wave-item.wave-done { border-color: rgba(52,211,153,0.15); }
+.wave-item.wave-running { border-color: var(--border-focus); }
+.wave-item.wave-blocked { opacity: 0.55; }
+
+/* ── Scrollable wave panel for small screens ─────────────────────────────── */
+@media (max-width: 900px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .dash-grid { grid-template-columns: 1fr; }
+  .migration-layout { grid-template-columns: 1fr; }
+  .recon-header { grid-template-columns: 1fr; }
+  .conn-grid { grid-template-columns: 1fr; }
+  .app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+}
+
+/* ── Focused empty state ──────────────────────────────────────────────────── */
+.card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+.activity-line { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.activity-line:last-child { border-bottom: none; }
+.activity-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+.activity-text { color: var(--text-muted); line-height: 1.4; }
+.activity-text strong { color: var(--text); font-weight: 500; }
+.activity-time { margin-left: auto; font-family: var(--font-data); font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+</style>
+
+<!-- Background orbs -->
+<div class="orbs" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<div class="app">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <nav class="sidebar" role="navigation" aria-label="Primary">
+    <div class="logo">
+      <div class="logo-mark">CO</div>
+      <div>
+        <div class="logo-name">Orchestrator</div>
+        <span class="logo-sub">Commerce Data Platform</span>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Workspace</div>
+      <div class="nav-item active" data-view="dashboard" role="button" tabindex="0">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/>
+        </svg>
+        Dashboard
+      </div>
+      <div class="nav-item" data-view="connections" role="button" tabindex="0">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="3.5" cy="8" r="2"/><circle cx="12.5" cy="3.5" r="2"/><circle cx="12.5" cy="12.5" r="2"/>
+          <line x1="5.5" y1="7" x2="10.5" y2="4.5"/><line x1="5.5" y1="9" x2="10.5" y2="11.5"/>
+        </svg>
+        Connections
+        <span class="nav-badge" aria-label="3 connections">3</span>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Migrations</div>
+      <div class="nav-item" data-view="projects" role="button" tabindex="0">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M2 3h12M2 8h8M2 13h5"/><path d="M13 10l2 2-2 2"/>
+        </svg>
+        Projects
+      </div>
+      <div class="nav-item" data-view="migration" role="button" tabindex="0">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="8" r="6"/><polyline points="8,4 8,8 11,10"/>
+        </svg>
+        Live Execution
+        <span class="nav-badge" style="background: var(--success);">1</span>
+      </div>
+      <div class="nav-item" data-view="reconciliation" role="button" tabindex="0">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M1 4h14M3 4V2M13 4V2M1 12h14M3 12v2M13 12v2M5 8h6"/>
+        </svg>
+        Reconciliation
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user-row" tabindex="0">
+        <div class="avatar">VS</div>
+        <div class="user-info">
+          <div class="user-name">Vivek Sharma</div>
+          <div class="user-email">vivek@orgname.io</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Main ───────────────────────────────────────────────────────────── -->
+  <main class="main">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="breadcrumb" id="breadcrumb">
+        <span>Dashboard</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle light/dark">&#9788;</button>
+        <button class="btn btn-ghost btn-sm">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+          Audit Log
+        </button>
+        <button class="btn btn-primary btn-sm" id="primaryAction">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+          New Migration
+        </button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div class="view active" id="view-dashboard">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Command Center</div>
+            <div class="section-sub">Commerce Data Orchestrator · VPG Organisation</div>
+          </div>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-label">Active Connections</div>
+            <div class="stat-value">3</div>
+            <div class="stat-delta">&#x2191; CT, Shopify, BigCommerce</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Running Migrations</div>
+            <div class="stat-value" style="color: var(--accent);">1</div>
+            <div class="stat-delta" style="color: var(--accent);">
+              <span class="dot dot-pulse" style="background: var(--accent);"></span>
+              CT Prod → Shopify A
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Records Today</div>
+            <div class="stat-value">48.9k</div>
+            <div class="stat-delta">&#x2191; 12% from yesterday</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Success Rate</div>
+            <div class="stat-value">98.7%</div>
+            <div class="stat-delta">&#x2191; Last 30 days</div>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="card">
+            <div class="card-title">Recent Executions</div>
+            <div class="exec-list">
+              <div class="exec-item" data-view="migration" role="button" tabindex="0">
+                <div class="exec-icon" style="background: rgba(129,140,248,0.1);">&#9654;</div>
+                <div class="exec-info">
+                  <div class="exec-name">CT Production &#8594; Shopify Store A</div>
+                  <div class="exec-meta">Products · Categories · Customers · Orders</div>
+                </div>
+                <div class="exec-right">
+                  <div style="margin-bottom:4px;"><span class="pill pill-accent"><span class="dot dot-pulse"></span> RUNNING</span></div>
+                  <div class="exec-time">1h 23m</div>
+                </div>
+              </div>
+              <div class="exec-item">
+                <div class="exec-icon" style="background: var(--success-dim);">&#10003;</div>
+                <div class="exec-info">
+                  <div class="exec-name">CT UAT &#8594; Shopify Dev</div>
+                  <div class="exec-meta">Products only · 5,248 records</div>
+                </div>
+                <div class="exec-right">
+                  <div style="margin-bottom:4px;"><span class="pill pill-success">COMPLETE</span></div>
+                  <div class="exec-time">2d ago</div>
+                </div>
+              </div>
+              <div class="exec-item" data-view="reconciliation" role="button" tabindex="0">
+                <div class="exec-icon" style="background: var(--success-dim);">&#10003;</div>
+                <div class="exec-info">
+                  <div class="exec-name">CT Production &#8594; Shopify Store A</div>
+                  <div class="exec-meta">Full migration · 145,303 records · Exec #13</div>
+                </div>
+                <div class="exec-right">
+                  <div style="margin-bottom:4px;"><span class="pill pill-success">COMPLETE</span></div>
+                  <div class="exec-time">5d ago</div>
+                </div>
+              </div>
+              <div class="exec-item">
+                <div class="exec-icon" style="background: var(--error-dim);">&#10007;</div>
+                <div class="exec-info">
+                  <div class="exec-name">Shopify &#8594; BigCommerce UAT</div>
+                  <div class="exec-meta">Products · Failed: rate limit on batch 72</div>
+                </div>
+                <div class="exec-right">
+                  <div style="margin-bottom:4px;"><span class="pill pill-error">FAILED</span></div>
+                  <div class="exec-time">8d ago</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div class="card">
+              <div class="card-title">Live Migration</div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <span style="font-size:12px; color:var(--text-muted);">CT Prod</span>
+                <span style="color:var(--accent); font-size:12px;">&#8594;</span>
+                <span style="font-size:12px; color:var(--text-muted);">Shopify A</span>
+                <span class="pill pill-accent" style="margin-left:auto;"><span class="dot dot-pulse"></span> RUNNING</span>
+              </div>
+              <div style="font-size:11px; color:var(--text-dim); margin-bottom:6px; letter-spacing:0.05em; text-transform:uppercase; font-weight:600;">Wave 2 of 4 — Products</div>
+              <div class="wave-bar-track">
+                <div class="wave-bar-fill running" id="dash-progress" style="width:67%;"></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-top:6px;">
+                <span style="font-family:var(--font-data); font-size:11px; color:var(--text-muted);" id="dash-count">10,216 / 15,248</span>
+                <span style="font-family:var(--font-data); font-size:11px; color:var(--accent);">67%</span>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:12px; justify-content:center;" data-view="migration">View Details &#8594;</button>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Quick Actions</div>
+              <div class="quick-list">
+                <div class="quick-item" data-view="connections" role="button" tabindex="0">
+                  <span class="quick-icon">&#128279;</span>
+                  <div>
+                    <div class="quick-text">Add Connection</div>
+                    <div class="quick-sub">Connect a new platform</div>
+                  </div>
+                  <span class="quick-arrow">&#8250;</span>
+                </div>
+                <div class="quick-item" data-view="projects" role="button" tabindex="0">
+                  <span class="quick-icon">&#9654;&#65039;</span>
+                  <div>
+                    <div class="quick-text">New Migration</div>
+                    <div class="quick-sub">Select source &amp; target</div>
+                  </div>
+                  <span class="quick-arrow">&#8250;</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ CONNECTIONS ═══ -->
+      <div class="view" id="view-connections">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Connections</div>
+            <div class="section-sub">Platform credentials with discovered capabilities</div>
+          </div>
+          <button class="btn btn-primary btn-sm">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+            Add Connection
+          </button>
+        </div>
+        <div class="conn-grid">
+
+          <!-- CT -->
+          <div class="conn-card">
+            <div class="conn-header">
+              <div class="conn-logo">&#128203;</div>
+              <span class="pill pill-success"><span class="dot dot-pulse"></span> Active</span>
+            </div>
+            <div class="conn-name">Commercetools</div>
+            <div class="conn-alias">VPG Production · eu-west-1</div>
+            <hr class="conn-divider">
+            <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase;">Capabilities</div>
+            <div class="conn-caps">
+              <span class="cap-tag enabled">Products</span>
+              <span class="cap-tag enabled">Categories</span>
+              <span class="cap-tag enabled">Customers</span>
+              <span class="cap-tag enabled">Orders</span>
+              <span class="cap-tag enabled">Inventory</span>
+              <span class="cap-tag enabled">Price Lists</span>
+            </div>
+            <div class="conn-footer">
+              <span class="conn-count">15,248 products &middot; 412 categories</span>
+              <button class="btn btn-ghost btn-sm">Configure</button>
+            </div>
+          </div>
+
+          <!-- Shopify -->
+          <div class="conn-card">
+            <div class="conn-header">
+              <div class="conn-logo">&#128722;</div>
+              <span class="pill pill-success"><span class="dot dot-pulse"></span> Active</span>
+            </div>
+            <div class="conn-name">Shopify</div>
+            <div class="conn-alias">VPG Store A · vpg-uk.myshopify.com</div>
+            <hr class="conn-divider">
+            <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase;">Capabilities</div>
+            <div class="conn-caps">
+              <span class="cap-tag enabled">Products</span>
+              <span class="cap-tag enabled">Collections</span>
+              <span class="cap-tag enabled">Customers</span>
+              <span class="cap-tag enabled">Orders</span>
+              <span class="cap-tag enabled">Inventory</span>
+              <span class="cap-tag" style="opacity:0.5;">Price Lists</span>
+            </div>
+            <div class="conn-footer">
+              <span class="conn-count">Updated 2h ago</span>
+              <button class="btn btn-ghost btn-sm">Configure</button>
+            </div>
+          </div>
+
+          <!-- BigCommerce — disconnected -->
+          <div class="conn-card conn-disconnected">
+            <div class="conn-header">
+              <div class="conn-logo">&#128736;</div>
+              <span class="pill pill-muted">Disconnected</span>
+            </div>
+            <div class="conn-name">BigCommerce</div>
+            <div class="conn-alias">VPG UAT Store</div>
+            <hr class="conn-divider">
+            <div style="font-size:12px; color:var(--text-muted); padding:8px 0;">Connection lost · Last seen 5 days ago. Re-authenticate to restore capabilities.</div>
+            <div class="conn-footer">
+              <span class="conn-count" style="color: var(--error);">Auth expired</span>
+              <button class="btn btn-primary btn-sm">Reconnect</button>
+            </div>
+          </div>
+
+          <!-- Add new -->
+          <div class="conn-card add-new" role="button" tabindex="0">
+            <div class="add-icon">+</div>
+            <div class="add-text">Add Connection</div>
+            <div style="font-size:11.5px; color: var(--text-dim); text-align:center;">Shopify · Commercetools · BigCommerce · CSV · CRM</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══ PROJECTS ═══ -->
+      <div class="view" id="view-projects">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Migration Projects</div>
+            <div class="section-sub">Persistent migration configurations between connections</div>
+          </div>
+          <button class="btn btn-primary btn-sm">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+            New Project
+          </button>
+        </div>
+        <div class="card" style="padding:0; overflow:hidden;">
+          <table class="proj-table">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Entities</th>
+                <th>Status</th>
+                <th>Last Execution</th>
+                <th>Records</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-view="migration" role="button" tabindex="0">
+                <td>
+                  <div class="proj-flow">
+                    <span>&#128203; CT Prod</span>
+                    <span class="proj-arrow">&#8594;</span>
+                    <span>&#128722; Shopify A</span>
+                  </div>
+                  <div style="font-size:11.5px; color:var(--text-muted); margin-top:3px;">Exec #14 &middot; VPG Full Migration</div>
+                </td>
+                <td>
+                  <div class="entity-tags">
+                    <span class="entity-tag tag-cat">Categories</span>
+                    <span class="entity-tag tag-prod">Products</span>
+                    <span class="entity-tag tag-cust">Customers</span>
+                    <span class="entity-tag tag-ord">Orders</span>
+                  </div>
+                </td>
+                <td><span class="pill pill-accent"><span class="dot dot-pulse"></span> Running</span></td>
+                <td><span style="font-family:var(--font-data); font-size:12px; color:var(--text-muted);">1h 23m ago</span></td>
+                <td><span style="font-family:var(--font-data); font-size:12px;">145,303</span></td>
+                <td><button class="btn btn-ghost btn-sm">View &#8250;</button></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="proj-flow">
+                    <span>&#128203; CT UAT</span>
+                    <span class="proj-arrow">&#8594;</span>
+                    <span>&#128722; Shopify Dev</span>
+                  </div>
+                  <div style="font-size:11.5px; color:var(--text-muted); margin-top:3px;">Exec #7 &middot; UAT Product Sync</div>
+                </td>
+                <td>
+                  <div class="entity-tags">
+                    <span class="entity-tag tag-prod">Products</span>
+                  </div>
+                </td>
+                <td><span class="pill pill-success">Complete</span></td>
+                <td><span style="font-family:var(--font-data); font-size:12px; color:var(--text-muted);">2 days ago</span></td>
+                <td><span style="font-family:var(--font-data); font-size:12px;">5,248</span></td>
+                <td><button class="btn btn-ghost btn-sm">Run &#9654;</button></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="proj-flow">
+                    <span>&#128722; Shopify A</span>
+                    <span class="proj-arrow">&#8594;</span>
+                    <span>&#128736; BigCommerce</span>
+                  </div>
+                  <div style="font-size:11.5px; color:var(--text-muted); margin-top:3px;">Exec #3 &middot; BC Migration</div>
+                </td>
+                <td>
+                  <div class="entity-tags">
+                    <span class="entity-tag tag-prod">Products</span>
+                    <span class="entity-tag tag-cat">Categories</span>
+                  </div>
+                </td>
+                <td><span class="pill pill-error">Failed</span></td>
+                <td><span style="font-family:var(--font-data); font-size:12px; color:var(--text-muted);">8 days ago</span></td>
+                <td><span style="font-family:var(--font-data); font-size:12px; color:var(--error);">&#8212;</span></td>
+                <td><button class="btn btn-ghost btn-sm">Retry &#8635;</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ MIGRATION DETAIL ═══ -->
+      <div class="view" id="view-migration">
+
+        <div class="migration-header">
+          <div class="mig-platform">
+            <div class="mig-logo">&#128203;</div>
+            <div class="mig-info">
+              <div class="mig-platform-name">CT Production</div>
+              <div class="mig-platform-alias">eu-west-1 · commercetools.com</div>
+            </div>
+          </div>
+          <div class="mig-arrow-big">&#8594;</div>
+          <div class="mig-platform">
+            <div class="mig-logo">&#128722;</div>
+            <div class="mig-info">
+              <div class="mig-platform-name">Shopify Store A</div>
+              <div class="mig-platform-alias">vpg-uk.myshopify.com</div>
+            </div>
+          </div>
+          <div style="margin-left:20px;">
+            <span class="pill pill-accent" style="font-size:12px; padding:5px 12px;">
+              <span class="dot dot-pulse"></span> RUNNING — Exec #14
+            </span>
+          </div>
+          <div class="mig-meta">
+            <div class="mig-duration">Duration: <span style="color:var(--text);" id="duration-display">1h 23m 47s</span></div>
+            <div class="mig-id">traceId: 3f2a-bc91-4401</div>
+          </div>
+        </div>
+
+        <div class="migration-layout">
+          <!-- Waves -->
+          <div>
+            <div class="waves-title">Wave Execution Plan</div>
+            <div class="waves-list">
+
+              <!-- Wave 1: Categories DONE -->
+              <div class="wave-item wave-done">
+                <div class="wave-row">
+                  <div class="wave-num done">&#10003;</div>
+                  <div>
+                    <div style="font-size:10px; color:var(--text-dim); letter-spacing:0.05em; text-transform:uppercase; font-weight:600; margin-bottom:2px;">Wave 1</div>
+                    <div class="wave-entity">Categories</div>
+                  </div>
+                  <div class="wave-counts">412 / 412</div>
+                  <span class="pill pill-success" style="margin-left:8px;">Complete</span>
+                </div>
+                <div class="wave-bar-track">
+                  <div class="wave-bar-fill done" style="width:100%;"></div>
+                </div>
+              </div>
+
+              <!-- Connector -->
+              <div class="wave-connector">
+                <div style="width:1px; height:18px; background: linear-gradient(to bottom, rgba(52,211,153,0.4), var(--border)); margin:0 auto; position:relative;">
+                  <div style="position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); color:var(--text-dim); font-size:9px;">&#9660;</div>
+                </div>
+              </div>
+
+              <!-- Wave 2: Products RUNNING -->
+              <div class="wave-item wave-running">
+                <div class="wave-row">
+                  <div class="wave-num running">2</div>
+                  <div>
+                    <div style="font-size:10px; color:var(--text-dim); letter-spacing:0.05em; text-transform:uppercase; font-weight:600; margin-bottom:2px;">Wave 2</div>
+                    <div class="wave-entity">Products</div>
+                  </div>
+                  <div class="wave-counts" id="wave2-counts">10,216 / 15,248</div>
+                  <span class="pill pill-accent" style="margin-left:8px;"><span class="dot dot-pulse"></span> Running</span>
+                </div>
+                <div class="wave-bar-track" style="margin-top:12px;">
+                  <div class="wave-bar-fill running" id="wave2-bar" style="width:67%;"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                  <span style="font-family:var(--font-data); font-size:11px; color:var(--text-muted);">Batch <span id="wave2-batch">#205</span> &middot; 50 items/batch</span>
+                  <span style="font-family:var(--font-data); font-size:11px; color:var(--accent);" id="wave2-pct">67.0%</span>
+                </div>
+              </div>
+
+              <!-- Connector -->
+              <div class="wave-connector">
+                <div style="width:1px; height:18px; background: var(--border); margin:0 auto; position:relative;">
+                  <div style="position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); color:var(--text-dim); font-size:9px;">&#9660;</div>
+                </div>
+              </div>
+
+              <!-- Wave 3: Customers WAITING -->
+              <div class="wave-item" style="opacity:0.6;">
+                <div class="wave-row">
+                  <div class="wave-num">3</div>
+                  <div>
+                    <div style="font-size:10px; color:var(--text-dim); letter-spacing:0.05em; text-transform:uppercase; font-weight:600; margin-bottom:2px;">Wave 3</div>
+                    <div class="wave-entity">Customers</div>
+                  </div>
+                  <div class="wave-counts">0 / 38,420</div>
+                  <span class="pill pill-muted" style="margin-left:8px;">Waiting</span>
+                </div>
+                <div class="wave-bar-track" style="margin-top:12px;">
+                  <div class="wave-bar-fill" style="width:0%; background:var(--text-dim);"></div>
+                </div>
+              </div>
+
+              <!-- Connector -->
+              <div class="wave-connector">
+                <div style="width:1px; height:18px; background: var(--border); margin:0 auto; position:relative;">
+                  <div style="position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); color:var(--text-dim); font-size:9px;">&#9660;</div>
+                </div>
+              </div>
+
+              <!-- Wave 4: Orders BLOCKED -->
+              <div class="wave-item wave-blocked">
+                <div class="wave-row">
+                  <div class="wave-num">4</div>
+                  <div>
+                    <div style="font-size:10px; color:var(--text-dim); letter-spacing:0.05em; text-transform:uppercase; font-weight:600; margin-bottom:2px;">Wave 4</div>
+                    <div class="wave-entity">Orders</div>
+                  </div>
+                  <div class="wave-counts">0 / 91,223</div>
+                  <span class="pill pill-warning" style="margin-left:8px;">Blocked</span>
+                </div>
+                <div class="wave-bar-track" style="margin-top:12px;">
+                  <div class="wave-bar-fill" style="width:0%; background:var(--warning);"></div>
+                </div>
+                <div style="font-size:11.5px; color:var(--text-muted); margin-top:8px; display:flex; align-items:center; gap:6px;">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v7m0 2v2M2 8l3-3m6 0l3-3M2 8l3 3m6 0l3 3"/></svg>
+                  Requires Wave 2 (Products) and Wave 3 (Customers) via IdentityMap
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Right panel -->
+          <div class="side-panel">
+
+            <div class="panel-card">
+              <div class="panel-card-title">Identity Map</div>
+              <div class="id-map-count" id="id-map-count">10,628</div>
+              <div class="id-map-label">source &#8594; target entries recorded</div>
+              <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+                <div class="stat-row">
+                  <span class="stat-row-label">Categories</span>
+                  <span class="stat-row-val ok-count">412</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-row-label">Products</span>
+                  <span class="stat-row-val" id="id-products">10,216</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-row-label">Customers</span>
+                  <span class="stat-row-val">0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-row-label">Orders</span>
+                  <span class="stat-row-val">0</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-card-title">Execution Stats</div>
+              <div class="stat-row">
+                <span class="stat-row-label">Current wave</span>
+                <span class="stat-row-val" style="color:var(--accent);">Wave 2 / 4</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-row-label">Current batch</span>
+                <span class="stat-row-val" id="stats-batch">#205</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-row-label">Errors</span>
+                <span class="stat-row-val" style="color:var(--error);">3 (0.03%)</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-row-label">DLQ items</span>
+                <span class="stat-row-val" style="color:var(--warning);">3</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-row-label">Circuit breaker</span>
+                <span class="stat-row-val ok-count">Closed</span>
+              </div>
+            </div>
+
+            <div class="panel-card">
+              <div class="panel-card-title">DLQ Errors</div>
+              <div class="error-item">
+                <div class="error-item-key">ct:prod-abc-12891</div>
+                <div class="error-item-msg">ProductType reference missing in target. canReplay: true</div>
+              </div>
+              <div class="error-item">
+                <div class="error-item-key">ct:prod-abc-09204</div>
+                <div class="error-item-msg">Variant SKU exceeds Shopify limit (255 chars). canReplay: false</div>
+              </div>
+              <div class="error-item">
+                <div class="error-item-key">ct:prod-abc-34571</div>
+                <div class="error-item-msg">Price centAmount overflow on currency conversion. canReplay: true</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ RECONCILIATION ═══ -->
+      <div class="view" id="view-reconciliation">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Reconciliation Report</div>
+            <div class="section-sub">Exec #13 &middot; CT Production &#8594; Shopify Store A &middot; Completed 5 days ago</div>
+          </div>
+          <button class="btn btn-ghost btn-sm">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10M8 3v10"/></svg>
+            Export CSV
+          </button>
+        </div>
+
+        <div class="recon-header">
+          <div class="recon-score-card">
+            <svg class="score-ring" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(52,211,153,0.1)" stroke-width="8"/>
+              <circle cx="40" cy="40" r="34" fill="none" stroke="var(--success)" stroke-width="8"
+                stroke-dasharray="213.6" stroke-dashoffset="2.8"
+                stroke-linecap="round"
+                transform="rotate(-90 40 40)"/>
+              <text x="40" y="46" text-anchor="middle" fill="var(--success)" font-family="IBM Plex Mono,monospace" font-size="15" font-weight="500">98.7%</text>
+            </svg>
+            <div>
+              <div class="score-value">98.7%</div>
+              <div class="score-label">Overall migration success rate</div>
+              <div class="score-note">289 failed &middot; 18 missing references &middot; 145,014 successful</div>
+            </div>
+            <div style="margin-left:auto; display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+              <span class="pill pill-success">&#10003; Reconciled</span>
+              <span style="font-family:var(--font-data); font-size:11px; color:var(--text-muted);">Duration: 4h 12m</span>
+              <span style="font-family:var(--font-data); font-size:11px; color:var(--text-muted);">145,303 source records</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="recon-table-wrap">
+          <table class="recon-table">
+            <thead>
+              <tr>
+                <th>Entity</th>
+                <th>Source</th>
+                <th>Migrated</th>
+                <th>Created</th>
+                <th>Updated</th>
+                <th>Failed</th>
+                <th>Missing Refs</th>
+                <th>Coverage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="entity-icon">&#128193;</span> Categories</td>
+                <td>412</td>
+                <td>412</td>
+                <td class="ok-count">389</td>
+                <td>23</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                  <span class="recon-mini-bar"><span class="recon-mini-bar-fill" style="width:100%;"></span></span>
+                  100%
+                </td>
+              </tr>
+              <tr>
+                <td><span class="entity-icon">&#128230;</span> Products</td>
+                <td>15,248</td>
+                <td>15,201</td>
+                <td class="ok-count">14,863</td>
+                <td>338</td>
+                <td class="fail-count">47</td>
+                <td class="warn-count">12</td>
+                <td>
+                  <span class="recon-mini-bar"><span class="recon-mini-bar-fill" style="width:99.7%;"></span></span>
+                  99.7%
+                </td>
+              </tr>
+              <tr>
+                <td><span class="entity-icon">&#128101;</span> Customers</td>
+                <td>38,420</td>
+                <td>38,404</td>
+                <td class="ok-count">38,404</td>
+                <td>0</td>
+                <td class="fail-count">16</td>
+                <td>0</td>
+                <td>
+                  <span class="recon-mini-bar"><span class="recon-mini-bar-fill" style="width:99.96%;"></span></span>
+                  99.96%
+                </td>
+              </tr>
+              <tr>
+                <td><span class="entity-icon">&#128203;</span> Orders</td>
+                <td>91,223</td>
+                <td>90,997</td>
+                <td class="ok-count">90,997</td>
+                <td>0</td>
+                <td class="fail-count">226</td>
+                <td class="warn-count">6</td>
+                <td>
+                  <span class="recon-mini-bar"><span class="recon-mini-bar-fill" style="width:99.75%;"></span></span>
+                  99.75%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <div class="card card-sm">
+            <div class="card-title" style="font-size:13px;">Identity Map Integrity</div>
+            <div class="activity-line">
+              <span class="activity-dot" style="background:var(--success);"></span>
+              <span class="activity-text">All <strong>412 category mappings</strong> resolved correctly during product wave.</span>
+              <span class="activity-time">Wave 2</span>
+            </div>
+            <div class="activity-line">
+              <span class="activity-dot" style="background:var(--warning);"></span>
+              <span class="activity-text"><strong>12 products</strong> had category references not in source IdentityMap — loaded without collection.</span>
+              <span class="activity-time">Wave 2</span>
+            </div>
+            <div class="activity-line">
+              <span class="activity-dot" style="background:var(--warning);"></span>
+              <span class="activity-text"><strong>6 orders</strong> referenced product keys that failed in Wave 2 — line items omitted.</span>
+              <span class="activity-time">Wave 4</span>
+            </div>
+          </div>
+          <div class="card card-sm">
+            <div class="card-title" style="font-size:13px;">Top Failure Reasons</div>
+            <div class="activity-line">
+              <span class="activity-dot" style="background:var(--error);"></span>
+              <span class="activity-text"><strong>ProductType reference missing</strong> — 31 products (Shopify has no ProductType concept)</span>
+              <span class="activity-time">31</span>
+            </div>
+            <div class="activity-line">
+              <span class="activity-dot" style="background:var(--error);"></span>
+              <span class="activity-text"><strong>SKU exceeds 255 chars</strong> — 9 products failed Shopify validation</span>
+              <span class="activity-time">9</span>
+            </div>
+            <div class="activity-line">
+              <span class="activity-dot" style="background:var(--error);"></span>
+              <span class="activity-text"><strong>Customer email invalid</strong> — 16 customers missing or malformed email field</span>
+              <span class="activity-time">16</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<script>
+(function() {
+  // ── View Routing ──────────────────────────────────────────────────────────
+  const breadcrumbs = {
+    dashboard: ['Dashboard'],
+    connections: ['Connections'],
+    projects: ['Projects'],
+    migration: ['Projects', 'CT Prod → Shopify A'],
+    reconciliation: ['Projects', 'CT Prod → Shopify A', 'Reconciliation #13'],
+  };
+
+  function navigate(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const view = document.getElementById('view-' + viewId);
+    if (view) view.classList.add('active');
+    document.querySelectorAll('[data-view="' + viewId + '"]').forEach(el => {
+      if (el.classList.contains('nav-item')) el.classList.add('active');
+    });
+    const bc = breadcrumbs[viewId] || [viewId];
+    document.getElementById('breadcrumb').innerHTML =
+      bc.map((s, i) => i === bc.length - 1
+        ? `<span class="breadcrumb-current">${s}</span>`
+        : `<span>${s}</span><span class="breadcrumb-sep">/</span>`
+      ).join('');
+    window._currentView = viewId;
+  }
+
+  document.querySelectorAll('[data-view]').forEach(el => {
+    el.addEventListener('click', () => navigate(el.dataset.view));
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') navigate(el.dataset.view); });
+  });
+
+  navigate('dashboard');
+
+  // ── Theme Toggle ──────────────────────────────────────────────────────────
+  const root = document.documentElement;
+  let dark = true;
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    dark = !dark;
+    root.setAttribute('data-theme', dark ? 'dark' : 'light');
+  });
+  root.setAttribute('data-theme', 'dark');
+
+  // ── Live Progress Simulation ───────────────────────────────────────────────
+  let processed = 10216;
+  const total = 15248;
+  let idMap = 10628;
+  let batch = 205;
+  let seconds = 83 * 60 + 47;
+
+  function fmt(n) { return n.toLocaleString('en-GB'); }
+
+  function tick() {
+    if (processed >= total) return;
+    const step = Math.floor(Math.random() * 8) + 3;
+    processed = Math.min(processed + step, total);
+    idMap = 412 + processed;
+    batch = Math.floor(processed / 50) + 1;
+    seconds++;
+
+    const pct = (processed / total) * 100;
+
+    // Wave 2 bar
+    const bar = document.getElementById('wave2-bar');
+    if (bar) bar.style.width = pct.toFixed(1) + '%';
+    const cnt = document.getElementById('wave2-counts');
+    if (cnt) cnt.textContent = fmt(processed) + ' / ' + fmt(total);
+    const pctEl = document.getElementById('wave2-pct');
+    if (pctEl) pctEl.textContent = pct.toFixed(1) + '%';
+    const batchEl = document.getElementById('wave2-batch');
+    if (batchEl) batchEl.textContent = '#' + batch;
+    const statsBatch = document.getElementById('stats-batch');
+    if (statsBatch) statsBatch.textContent = '#' + batch;
+
+    // Identity map
+    const imEl = document.getElementById('id-map-count');
+    if (imEl) imEl.textContent = fmt(idMap);
+    const imProd = document.getElementById('id-products');
+    if (imProd) imProd.textContent = fmt(processed);
+
+    // Dashboard mini bar
+    const dbBar = document.getElementById('dash-progress');
+    if (dbBar) dbBar.style.width = pct.toFixed(1) + '%';
+    const dbCount = document.getElementById('dash-count');
+    if (dbCount) dbCount.textContent = fmt(processed) + ' / ' + fmt(total);
+
+    // Duration
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    const dur = `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+    const dEl = document.getElementById('duration-display');
+    if (dEl) dEl.textContent = dur;
+  }
+
+  setInterval(tick, 900);
+})();
+</script>
+
+</body></html>

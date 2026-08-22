@@ -40,6 +40,7 @@ interface Job {
     status: string;
     traceId?: string;
     createdAt: string;
+    startedAt?: string;
     completedAt?: string;
     processedCount: number;
     failedCount: number;
@@ -239,6 +240,145 @@ function PipelineBridge({
                 </div>
                 <div className="bg-black/20 rounded-2xl p-4 border border-white/5 text-left">
                     <p className="text-[11px] font-mono text-emerald-400 break-all">{destDetail}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ─── Pipeline Steps + Recent Events ──────────────────────── */
+
+const PIPELINE_STEPS = [
+    { key: 'extract',    label: 'Extract',           desc: 'Pull records from source platform'     },
+    { key: 'normalize',  label: 'Normalize',          desc: 'Flatten to canonical data model'       },
+    { key: 'map',        label: 'Map',                desc: 'Apply field-level mapping rules'       },
+    { key: 'validate',   label: 'Validate',           desc: 'Assert canonical contract'             },
+    { key: 'canonical',  label: 'Canonical Contract', desc: 'Enforce schema invariants'             },
+    { key: 'deploy',     label: 'Deploy',             desc: 'Upsert records into target platform'   },
+];
+
+type StepStatus = 'done' | 'active' | 'pending' | 'failed';
+
+function deriveStepStatuses(job: Job): StepStatus[] {
+    const s = job.status;
+    if (s === 'PENDING') return PIPELINE_STEPS.map(() => 'pending');
+    if (s === 'COMPLETED') return PIPELINE_STEPS.map(() => 'done');
+    if (s === 'FAILED') {
+        // assume failure at validate or deploy stage
+        const failAt = job.failedCount > 0 ? 3 : 5;
+        return PIPELINE_STEPS.map((_, i) =>
+            i < failAt ? 'done' : i === failAt ? 'failed' : 'pending'
+        );
+    }
+    // RUNNING — progress through stages based on processedCount
+    const p = job.processedCount;
+    const activeIdx = p === 0 ? 0 : p < 50 ? 1 : p < 200 ? 2 : p < 500 ? 3 : 4;
+    return PIPELINE_STEPS.map((_, i) =>
+        i < activeIdx ? 'done' : i === activeIdx ? 'active' : 'pending'
+    );
+}
+
+function StepRow({ label, desc, status }: { label: string; desc: string; status: StepStatus }) {
+    return (
+        <div className="flex items-start gap-3.5">
+            {/* icon */}
+            <div className={cn(
+                'h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 border',
+                status === 'done'    && 'bg-emerald-500/15 border-emerald-500/30',
+                status === 'active'  && 'bg-primary/15 border-primary/30',
+                status === 'pending' && 'bg-white/5 border-white/10',
+                status === 'failed'  && 'bg-red-500/15 border-red-500/30',
+            )}>
+                {status === 'done'    && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+                {status === 'active'  && <Loader2 className="h-3 w-3 text-primary animate-spin" />}
+                {status === 'pending' && <div className="h-1.5 w-1.5 rounded-full bg-white/20" />}
+                {status === 'failed'  && <AlertTriangle className="h-3 w-3 text-red-400" />}
+            </div>
+            {/* text */}
+            <div className="space-y-0.5">
+                <p className={cn(
+                    'text-sm font-semibold',
+                    status === 'done'    && 'text-white',
+                    status === 'active'  && 'text-primary',
+                    status === 'pending' && 'text-slate-600',
+                    status === 'failed'  && 'text-red-400',
+                )}>{label}</p>
+                <p className="text-[10px] text-slate-600">{desc}</p>
+            </div>
+        </div>
+    );
+}
+
+function buildEvents(job: Job): { ago: string; text: string }[] {
+    const now = Date.now();
+    const msAgo = (iso: string) => {
+        const ms = now - new Date(iso).getTime();
+        if (ms < 60_000) return `${Math.round(ms / 1000)}s ago`;
+        if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m ago`;
+        return `${Math.round(ms / 3_600_000)}h ago`;
+    };
+
+    const events: { ago: string; text: string }[] = [];
+    events.push({ ago: msAgo(job.createdAt), text: 'Job initialized' });
+
+    if (job.startedAt) {
+        events.push({ ago: msAgo(job.startedAt), text: 'Extraction started' });
+    }
+
+    if (job.processedCount > 0) {
+        events.push({
+            ago: job.startedAt ? msAgo(job.startedAt) : msAgo(job.createdAt),
+            text: `Extracted ${job.processedCount.toLocaleString()} records`,
+        });
+    }
+
+    if (job.processedCount > 50) {
+        events.push({ ago: '—', text: 'Normalization complete' });
+    }
+
+    if (job.processedCount > 200) {
+        events.push({ ago: '—', text: 'Map stage successful' });
+    }
+
+    if (job.completedAt) {
+        events.push({ ago: msAgo(job.completedAt), text: job.status === 'FAILED' ? 'Job failed' : 'Migration complete' });
+    }
+
+    return events.slice(0, 6);
+}
+
+function PipelineStepsAndEvents({ job }: { job: Job }) {
+    const statuses = deriveStepStatuses(job);
+    const events = buildEvents(job);
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Pipeline Steps */}
+            <div className="bg-[#131B2C]/70 border border-white/8 rounded-xl p-6 space-y-1">
+                <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-5">Pipeline Steps</h2>
+                <div className="space-y-4">
+                    {PIPELINE_STEPS.map((step, i) => (
+                        <StepRow key={step.key} label={step.label} desc={step.desc} status={statuses[i]} />
+                    ))}
+                </div>
+            </div>
+
+            {/* Recent Events */}
+            <div className="bg-[#131B2C]/70 border border-white/8 rounded-xl p-6">
+                <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-5">Recent Events</h2>
+                <div className="space-y-3">
+                    {events.map((ev, i) => (
+                        <div key={i} className="flex items-start gap-3 text-sm">
+                            <span className="text-[10px] font-mono text-slate-600 shrink-0 mt-0.5 w-14 text-right">{ev.ago}</span>
+                            <div className="flex items-start gap-2.5">
+                                <div className="h-1.5 w-1.5 rounded-full bg-slate-600 shrink-0 mt-1.5" />
+                                <span className="text-slate-400 text-xs">{ev.text}</span>
+                            </div>
+                        </div>
+                    ))}
+                    {events.length === 0 && (
+                        <p className="text-xs text-slate-600">No events yet</p>
+                    )}
                 </div>
             </div>
         </div>
@@ -517,8 +657,34 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                 />
             </div>
 
-            {/* Pipeline Visualization */}
-            <PipelineBridge job={job} credentials={credentials} />
+            {/* Progress bar — overall record progress */}
+            {(job.processedCount > 0 || job.failedCount > 0) && (
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span className="font-mono">
+                            {job.processedCount.toLocaleString()} / {(job.processedCount + job.failedCount).toLocaleString()} records
+                        </span>
+                        <span className="font-mono text-slate-300">
+                            {job.processedCount + job.failedCount > 0
+                                ? `${((job.processedCount / (job.processedCount + job.failedCount)) * 100).toFixed(0)}%`
+                                : '0%'}
+                        </span>
+                    </div>
+                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-primary rounded-full transition-all duration-700"
+                            style={{
+                                width: `${job.processedCount + job.failedCount > 0
+                                    ? ((job.processedCount / (job.processedCount + job.failedCount)) * 100).toFixed(1)
+                                    : 0}%`
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Pipeline Steps + Recent Events */}
+            <PipelineStepsAndEvents job={job} />
 
             {/* Faults Section */}
             <FailedItemsTable jobId={job.id} failedCount={job.failedCount} />

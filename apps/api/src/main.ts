@@ -22,9 +22,9 @@ async function bootstrap() {
         allowedHeaders: ['Content-Type', 'Authorization', 'Apollo-Require-Preflight'],
     });
 
-    const port = process.env.PORT ?? process.env.API_PORT ?? 4000;
+    const port = process.env.API_PORT ?? process.env.PORT ?? 4000;
     const host = process.env.HOST ?? '0.0.0.0';   // listen on all interfaces so forwarded traffic works
-    await app.listen(port, host);
+    await app.listen(port);
     logger.log(`🚀 API server listening on http://${host}:${port}/graphql`);
 }
 

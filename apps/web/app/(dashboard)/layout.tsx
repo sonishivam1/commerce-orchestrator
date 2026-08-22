@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
+import { Topbar } from '@/components/layout/topbar';
 
 export const metadata: Metadata = {
     title: 'Dashboard | Commerce Orchestrator',
@@ -7,13 +8,23 @@ export const metadata: Metadata = {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="flex h-screen bg-[#0A101C] text-slate-100 overflow-hidden antialiased selection:bg-primary/30">
-            <SidebarNav />
-            <main className="flex-1 overflow-x-hidden overflow-y-auto">
-                <div className="p-6 max-w-7xl mx-auto">
-                    {children}
-                </div>
-            </main>
-        </div>
+        <>
+            {/* Background orbs */}
+            <div className="orbs" aria-hidden="true">
+                <div className="orb orb-1"></div>
+                <div className="orb orb-2"></div>
+                <div className="orb orb-3"></div>
+            </div>
+
+            <div className="app">
+                <SidebarNav />
+                <main className="main">
+                    <Topbar />
+                    <div className="content">
+                        {children}
+                    </div>
+                </main>
+            </div>
+        </>
     );
 }

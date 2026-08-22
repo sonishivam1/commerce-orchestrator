@@ -23,12 +23,3 @@ export const GET_DLQ_PENDING_COUNT = gql`
   }
 `;
 
-export const GET_ME = gql`
-  query GetMe {
-    me {
-      id
-      name
-      email
-    }
-  }
-`;

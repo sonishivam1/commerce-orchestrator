@@ -7,6 +7,7 @@ import {
     MigrationRunRepository,
     DlqRepository,
 } from '@cdo/db';
+import { IdentityTargetDecorator } from './identity-target.decorator';
 
 export interface WaveStats {
     processedCount: number;
@@ -142,10 +143,19 @@ export class WaveExecutorService {
             const source = ConnectorFactory.createSource(sourcePlatform, entityType);
             const realTarget = ConnectorFactory.createTarget(targetPlatform, entityType);
 
+            const identityTarget = new IdentityTargetDecorator(
+                realTarget,
+                this.identityMapRepository,
+                tenantId,
+                migrationProjectId,
+                entityType,
+                runId
+            );
+
             // Step 6: Wrap target in DryRunTargetConnector if dryRun is enabled
             const target = run.dryRun
-                ? new DryRunTargetConnector(realTarget)
-                : realTarget;
+                ? new DryRunTargetConnector(identityTarget)
+                : identityTarget;
 
             // Step 7: Build and wire the EtlEngine
             const engine = new EtlEngine(source, target, {
@@ -178,27 +188,6 @@ export class WaveExecutorService {
                 this.logger.log(
                     `[${runId}][${entityType}] +${succeeded.length} ok / +${failed.length} failed`,
                 );
-
-                // Write IdentityMap entries for items that got real targetIds
-                // dryRun results have no targetId so this block is naturally skipped
-                const identityEntries = succeeded
-                    .filter((r) => r.targetId)
-                    .map((r) => ({
-                        tenantId,
-                        migrationProjectId,
-                        entityType,
-                        sourceKey: r.key,
-                        targetId: r.targetId!,
-                    }));
-
-                if (identityEntries.length > 0) {
-                    const counts = await this.identityMapRepository.bulkUpsert(identityEntries);
-                    stats.created += counts.created;
-                    stats.updated += counts.updated;
-                    this.logger.log(
-                        `[${runId}][${entityType}] IdentityMap +${counts.created} created / +${counts.updated} updated`,
-                    );
-                }
 
                 // Persist the pre-captured cursor and update progress counts.
                 if (batchCursor) {
