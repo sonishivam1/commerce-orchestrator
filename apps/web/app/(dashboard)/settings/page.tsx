@@ -1,176 +1,190 @@
 'use client';
 
-import { 
-    Settings, 
-    Shield, 
-    Zap, 
-    Database, 
-    Globe, 
-    Cpu, 
-    Lock, 
-    Cloud, 
-    Activity, 
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@apollo/client';
+import {
+    Shield,
+    User,
     ChevronDown,
-    ArrowUpRight,
-    Server,
-    Network
+    CheckCircle2,
+    AlertCircle,
+    Loader2,
+    Database,
+    Cpu,
+    Lock,
 } from 'lucide-react';
+import { GET_ME } from '@/lib/graphql/queries/tenant.queries';
 
 function cn(...classes: (string | false | undefined | null)[]) {
     return classes.filter(Boolean).join(' ');
 }
 
-/* ─── Config Card ────────────────────────────────────────── */
-function ConfigCard({
+/* ─── Section Card ─────────────────────────────────────────── */
+function SectionCard({
     title,
     subtitle,
-    status,
     icon: Icon,
-    color = 'blue',
-    latency,
-    health
+    children,
 }: {
     title: string;
     subtitle: string;
-    status: string;
-    icon: any;
-    color?: 'blue' | 'amber' | 'emerald' | 'indigo';
-    latency: string;
-    health: string;
+    icon: React.ElementType;
+    children: React.ReactNode;
 }) {
-    const themes = {
-        blue: 'border-t-blue-500 shadow-blue-500/5 hover:border-blue-500/30',
-        amber: 'border-t-amber-500 shadow-amber-500/5 hover:border-amber-500/30',
-        emerald: 'border-t-emerald-500 shadow-emerald-500/5 hover:border-emerald-500/30',
-        indigo: 'border-t-indigo-500 shadow-indigo-500/5 hover:border-indigo-500/30',
-    };
-
-    const iconColors = {
-        blue: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-        amber: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-        emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-        indigo: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
-    };
-
     return (
-        <div className={cn(
-            "bg-[#1E293B]/40 backdrop-blur-md border border-white/5 rounded-[32px] p-8 transition-all duration-500 hover:scale-[1.02] border-t-2 shadow-2xl group",
-            themes[color]
-        )}>
-            <div className="flex items-start justify-between mb-8">
-                <div className={cn("h-14 w-14 flex items-center justify-center rounded-2xl border shrink-0 transition-transform group-hover:scale-110", iconColors[color])}>
-                    <Icon className="h-7 w-7" />
+        <div className="card" style={{ marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                    <Icon style={{ width: '20px', height: '20px', color: 'var(--primary)' }} />
                 </div>
-                <div className="flex flex-col items-end">
-                    <div className="flex items-center gap-2 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
-                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{status}</span>
-                    </div>
+                <div>
+                    <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-light)' }}>{title}</h2>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{subtitle}</p>
                 </div>
             </div>
-
-            <div className="space-y-1 mb-8">
-                <h3 className="text-2xl font-black text-white tracking-tighter">{title}</h3>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{subtitle}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pb-8 border-b border-white/5">
-                <div className="space-y-1">
-                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Network Latency</p>
-                    <p className="text-sm font-bold text-slate-300">{latency}</p>
-                </div>
-                <div className="space-y-1">
-                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Shard Health</p>
-                    <p className="text-sm font-bold text-slate-300">{health}</p>
-                </div>
-            </div>
-
-            <button className="w-full mt-6 py-4 rounded-2xl bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2">
-                Configure Node <ArrowUpRight className="h-4 w-4" />
-            </button>
+            {children}
         </div>
     );
 }
 
-/* ─── Main Settings Page ───────────────────────────────────── */
-export default function SettingsPage() {
+/* ─── Info Row ──────────────────────────────────────────────── */
+function InfoRow({ label, value }: { label: string; value: string | undefined }) {
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
-            {/* Breadcrumb */}
-            <div>
-                <nav className="flex items-center gap-2 mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                    <span className="hover:text-primary cursor-pointer transition-colors">Orchestrator</span>
-                    <ChevronDown className="h-2 w-2 -rotate-90" />
-                    <span className="text-slate-300">System Infrastructure</span>
-                </nav>
-                <div className="flex items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-4xl font-black tracking-tighter text-white mb-2">Configuration Mesh</h1>
-                        <p className="text-sm font-medium text-slate-400">Manage global infrastructure, secrets, and pipeline sharding</p>
-                    </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }} className="last:border-0">
+            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</span>
+            <span style={{ fontSize: '14px', color: 'var(--text-light)', fontWeight: '500', fontFamily: 'var(--font-data)' }}>
+                {value ?? <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</span>}
+            </span>
+        </div>
+    );
+}
+
+/* ─── Health Row ────────────────────────────────────────────── */
+function HealthRow({
+    label,
+    status,
+    detail,
+}: {
+    label: string;
+    status: 'ok' | 'error' | 'loading';
+    detail?: string;
+}) {
+    const statusColor = status === 'ok' ? 'var(--success)' : status === 'error' ? 'var(--error)' : 'var(--text-muted)';
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }} className="last:border-0">
+            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {status === 'loading' && <Loader2 style={{ width: '12px', height: '12px', color: 'var(--text-muted)' }} className="animate-spin" />}
+                {status === 'ok' && <CheckCircle2 style={{ width: '16px', height: '16px', color: 'var(--success)' }} />}
+                {status === 'error' && <AlertCircle style={{ width: '16px', height: '16px', color: 'var(--error)' }} />}
+                <span style={{ fontSize: '14px', fontWeight: '500', color: statusColor }}>
+                    {status === 'loading' ? 'Checking…' : detail ?? (status === 'ok' ? 'Connected' : 'Unavailable')}
+                </span>
+            </div>
+        </div>
+    );
+}
+
+/* ─── Live Health — fetches real /health endpoint ───────────── */
+function LiveHealth() {
+    const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+    const [detail, setDetail] = useState<string | undefined>();
+
+    useEffect(() => {
+        const apiBase =
+            (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql').replace('/graphql', '');
+        fetch(`${apiBase}/health`)
+            .then((r) => r.json())
+            .then((body: { status?: string; message?: string }) => {
+                if (body?.status === 'ok') {
+                    setStatus('ok');
+                    setDetail('All checks passed');
+                } else {
+                    setStatus('error');
+                    setDetail(body?.message ?? 'Health check failed');
+                }
+            })
+            .catch(() => {
+                setStatus('error');
+                setDetail('API unreachable');
+            });
+    }, []);
+
+    return (
+        <div>
+            <HealthRow label="MongoDB" status={status} detail={status === 'ok' ? 'Connected' : detail} />
+            <HealthRow label="API Server" status={status} detail={status === 'ok' ? 'Reachable' : detail} />
+        </div>
+    );
+}
+
+/* ─── Main Settings Page ────────────────────────────────────── */
+export default function SettingsPage() {
+    const { data: meData, loading: meLoading } = useQuery<{
+        me: { id: string; name: string; email: string };
+    }>(GET_ME);
+
+    const me = meData?.me;
+
+    return (
+        <div className="view" id="view-settings">
+            <div className="section-header">
+                <div>
+                    <div className="section-title">Settings</div>
+                    <div className="section-sub">Account information and system configuration</div>
                 </div>
             </div>
 
-            {/* Infrastructure Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <ConfigCard 
-                    title="Gateway Edge" 
-                    subtitle="Entry-point Ingress" 
-                    status="Active" 
-                    icon={Globe} 
-                    color="blue"
-                    latency="14ms"
-                    health="Optimal"
-                />
-                <ConfigCard 
-                    title="Pipeline Shard" 
-                    subtitle="Compute Worker" 
-                    status="Scaling" 
-                    icon={Cpu} 
-                    color="amber"
-                    latency="2.4ms"
-                    health="3 Nodes Active"
-                />
-                <ConfigCard 
-                    title="Persistence" 
-                    subtitle="Secure Storage" 
-                    status="Connected" 
-                    icon={Database} 
-                    color="emerald"
-                    latency="0.8ms"
-                    health="Encrypted"
-                />
-                <ConfigCard 
-                    title="Auth Vault" 
-                    subtitle="Credential Engine" 
-                    status="Isolated" 
-                    icon={Lock} 
-                    color="indigo"
-                    latency="~1ms"
-                    health="AES-256-GCM"
-                />
-            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
+                {/* Account */}
+                <SectionCard title="Account" subtitle="Your tenant profile" icon={User}>
+                    {meLoading ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 0', color: 'var(--text-muted)' }}>
+                            <Loader2 className="animate-spin" style={{ width: '16px', height: '16px' }} />
+                            <span style={{ fontSize: '14px' }}>Loading account…</span>
+                        </div>
+                    ) : (
+                        <div>
+                            <InfoRow label="Tenant ID" value={me?.id} />
+                            <InfoRow label="Name" value={me?.name} />
+                            <InfoRow label="Email" value={me?.email} />
+                        </div>
+                    )}
+                </SectionCard>
 
-            {/* Advanced Section */}
-            <div className="bg-[#1E293B]/20 border border-white/5 rounded-[40px] p-10 flex items-center justify-between shadow-inner">
-                <div className="flex items-center gap-6">
-                    <div className="h-16 w-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                        <Server className="h-8 w-8 text-primary" />
-                    </div>
+                {/* Security */}
+                <SectionCard title="Security" subtitle="Encryption and isolation configuration" icon={Lock}>
                     <div>
-                        <h3 className="text-xl font-black text-white tracking-tight">System Registry</h3>
-                        <p className="text-sm font-medium text-slate-500 mt-1">View internal microservice discovery and health logs</p>
+                        <InfoRow label="Credential Encryption" value="AES-256-GCM" />
+                        <InfoRow label="Token Type" value="JWT" />
+                        <InfoRow label="Tenant Isolation" value="Enforced per query" />
+                        <InfoRow label="Distributed Lock Key" value="lock:{tenantId}:{credentialId}" />
                     </div>
-                </div>
-                <button className="px-8 py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20">
-                    Open Registry
-                </button>
+                </SectionCard>
+
+                {/* Infrastructure — live from /health */}
+                <SectionCard title="Infrastructure" subtitle="Live status from the API health endpoint" icon={Database}>
+                    <LiveHealth />
+                </SectionCard>
+
+                {/* Pipeline constants */}
+                <SectionCard title="Pipeline Defaults" subtitle="ETL engine configuration" icon={Cpu}>
+                    <div>
+                        <InfoRow label="Batch Size" value="50 items" />
+                        <InfoRow label="Circuit Breaker Threshold" value="10 consecutive failures" />
+                        <InfoRow label="DryRun" value="Enabled — skips target writes only" />
+                        <InfoRow label="ETL Queue" value="QUEUE_ETL" />
+                        <InfoRow label="Scrape Queue" value="QUEUE_SCRAPE" />
+                    </div>
+                </SectionCard>
             </div>
 
-            {/* Security Notice */}
-            <div className="flex items-center gap-4 text-slate-600 justify-center pt-8 border-t border-white/5">
-                <Shield className="h-4 w-4" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em]">End-to-End Encryption Protocol v2.4 Active</span>
+            {/* Footer */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', justifyContent: 'center', paddingTop: '32px', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', marginTop: '32px' }}>
+                <Shield style={{ width: '16px', height: '16px' }} />
+                <span style={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.3em' }}>
+                    AES-256-GCM · JWT tenant isolation · Redlock distributed locking
+                </span>
             </div>
         </div>
     );

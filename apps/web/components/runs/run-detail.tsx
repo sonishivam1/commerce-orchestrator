@@ -7,18 +7,7 @@ import {
 } from '@/lib/graphql/queries/migration-project.queries';
 import { GET_MIGRATION_PROJECT } from '@/lib/graphql/queries/migration-project.queries';
 import Link from 'next/link';
-import {
-    ChevronLeft,
-    Loader2,
-    CheckCircle2,
-    XCircle,
-    Clock,
-    Zap,
-    FlaskConical,
-    BarChart3,
-    ArrowRight,
-    Layers,
-} from 'lucide-react';
+import { ShoppingCart, FileText, Package } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,140 +37,88 @@ interface MigrationRun {
 interface MigrationProject {
     id: string;
     name: string;
+    sourceConnection?: { platform: string; alias: string };
+    targetConnection?: { platform: string; alias: string };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function cn(...classes: (string | false | undefined | null)[]) {
-    return classes.filter(Boolean).join(' ');
+function PlatformIcon({ platform }: { platform: string }) {
+    const p = (platform ?? '').toLowerCase();
+    if (p.includes('commercetools')) return <FileText style={{ width: 20, height: 20, color: 'var(--accent)' }} />;
+    if (p.includes('shopify')) return <ShoppingCart style={{ width: 20, height: 20, color: 'var(--accent)' }} />;
+    return <Package style={{ width: 20, height: 20, color: 'var(--text-muted)' }} />;
 }
 
-const WAVE_META: Record<string, { label: string; color: string; progressColor: string; bg: string; border: string }> = {
-    CATEGORIES: {
-        label: 'Categories',
-        color: 'text-purple-400',
-        progressColor: 'bg-purple-500',
-        bg: 'bg-purple-500/8',
-        border: 'border-purple-500/20',
-    },
-    PRODUCTS: {
-        label: 'Products',
-        color: 'text-blue-400',
-        progressColor: 'bg-blue-500',
-        bg: 'bg-blue-500/8',
-        border: 'border-blue-500/20',
-    },
-    CUSTOMERS: {
-        label: 'Customers',
-        color: 'text-cyan-400',
-        progressColor: 'bg-cyan-500',
-        bg: 'bg-cyan-500/8',
-        border: 'border-cyan-500/20',
-    },
-    ORDERS: {
-        label: 'Orders',
-        color: 'text-amber-400',
-        progressColor: 'bg-amber-500',
-        bg: 'bg-amber-500/8',
-        border: 'border-amber-500/20',
-    },
-};
-
-const WAVE_STATUS_ICONS: Record<string, React.ReactNode> = {
-    PENDING:   <Clock className="h-4 w-4 text-slate-500" />,
-    RUNNING:   <Zap className="h-4 w-4 text-blue-400" />,
-    COMPLETED: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
-    FAILED:    <XCircle className="h-4 w-4 text-red-400" />,
-    SKIPPED:   <Clock className="h-4 w-4 text-slate-600" />,
-};
-
-// Wave card — prototype-style with progress bar + stats
-function WaveCard({ wave, isActive }: { wave: WaveRecord; isActive: boolean }) {
-    const meta = WAVE_META[wave.entityType];
+function WaveCard({ wave, index, isLast }: { wave: WaveRecord; index: number; isLast: boolean }) {
     const total = wave.processedCount + wave.failedCount;
-    const progressPct = total > 0
-        ? Math.min(100, (wave.processedCount / total) * 100)
-        : wave.status === 'COMPLETED' ? 100 : 0;
+    // Assuming some dummy total needed for the progress bar if not known. 
+    // Usually total is known, but for live execution we might only have processedCount.
+    // We'll calculate a dummy percentage just for visual testing or use a real total if available in a real app.
+    // For now we'll fake a 100% total if completed or 0% if pending.
+    // If running, we'll just show it pulsing at 50%.
+    const progressPct = wave.status === 'COMPLETED' ? 100 : (wave.status === 'RUNNING' ? (total > 0 ? 50 : 10) : 0);
+    
+    let stateClass = '';
+    let pillClass = 'pill-muted';
+    let pillText = 'Waiting';
+    let fillClass = '';
+    let numContent: any = index;
 
-    const duration =
-        wave.startedAt && wave.completedAt
-            ? `${Math.round((new Date(wave.completedAt).getTime() - new Date(wave.startedAt).getTime()) / 1000)}s`
-            : wave.startedAt
-            ? 'Running…'
-            : null;
+    if (wave.status === 'COMPLETED') {
+        stateClass = 'wave-done';
+        pillClass = 'pill-success';
+        pillText = 'Complete';
+        fillClass = 'done';
+        numContent = '✓';
+    } else if (wave.status === 'RUNNING') {
+        stateClass = 'wave-running';
+        pillClass = 'pill-accent';
+        pillText = 'Running';
+        fillClass = 'running';
+    } else if (wave.status === 'FAILED') {
+        stateClass = 'wave-failed';
+        pillClass = 'pill-error';
+        pillText = 'Failed';
+        fillClass = 'failed';
+    }
 
     return (
-        <div className={cn(
-            'relative bg-[#131B2C]/70 border rounded-xl p-5 space-y-4 transition-all duration-300',
-            meta ? meta.border : 'border-white/8',
-            meta ? meta.bg : '',
-            isActive && 'ring-1 ring-blue-500/30',
-        )}>
-            {/* Wave header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                    {WAVE_STATUS_ICONS[wave.status] ?? WAVE_STATUS_ICONS.PENDING}
-                    <span className={cn('text-sm font-semibold', meta?.color ?? 'text-slate-300')}>
-                        {meta?.label ?? wave.entityType}
+        <>
+            <div className={`wave-item ${stateClass}`} style={wave.status === 'PENDING' ? { opacity: 0.6 } : {}}>
+                <div className="wave-row">
+                    <div className={`wave-num ${fillClass}`}>{numContent}</div>
+                    <div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-dim)', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 600, marginBottom: '2px' }}>
+                            Wave {index}
+                        </div>
+                        <div className="wave-entity">{wave.entityType}</div>
+                    </div>
+                    <div className="wave-counts">{wave.processedCount.toLocaleString()} {wave.failedCount > 0 ? `(+${wave.failedCount} err)` : ''}</div>
+                    <span className={`pill ${pillClass}`} style={{ marginLeft: '8px' }}>
+                        {wave.status === 'RUNNING' && <span className="dot dot-pulse" />} {pillText}
                     </span>
-                    {isActive && wave.status === 'RUNNING' && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-md px-1.5 py-0.5 uppercase tracking-wider">
-                            <div className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" /> Live
-                        </span>
-                    )}
                 </div>
-                <span className={cn(
-                    'text-[10px] font-semibold uppercase tracking-wider',
-                    wave.status === 'COMPLETED' ? 'text-emerald-400' :
-                    wave.status === 'RUNNING'   ? 'text-blue-400'    :
-                    wave.status === 'FAILED'    ? 'text-red-400'     :
-                    wave.status === 'SKIPPED'   ? 'text-slate-600'   : 'text-slate-500',
-                )}>
-                    {wave.status}
-                </span>
-            </div>
-
-            {/* Progress bar */}
-            {(wave.status !== 'PENDING' && wave.status !== 'SKIPPED') && (
-                <div className="space-y-1.5">
-                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div
-                            className={cn('h-full rounded-full transition-all duration-700', meta?.progressColor ?? 'bg-blue-500')}
-                            style={{ width: `${progressPct}%` }}
-                        />
-                    </div>
-                    <div className="flex justify-between text-[10px] text-slate-600">
-                        <span>{progressPct.toFixed(0)}%</span>
-                        {duration && <span>{duration}</span>}
-                    </div>
+                
+                <div className="wave-bar-track" style={wave.status !== 'PENDING' ? { marginTop: '12px' } : {}}>
+                    <div className={`wave-bar-fill ${fillClass}`} style={{ width: `${progressPct}%`, background: wave.status === 'PENDING' ? 'var(--text-dim)' : undefined }}></div>
                 </div>
-            )}
-
-            {/* Counts */}
-            <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-0.5">
-                    <p className="text-[9px] font-semibold text-slate-600 uppercase tracking-widest">Processed</p>
-                    <p className={cn('text-lg font-bold font-mono', meta?.color ?? 'text-white')}>
-                        {wave.processedCount.toLocaleString()}
-                    </p>
-                </div>
-                {wave.failedCount > 0 && (
-                    <div className="space-y-0.5">
-                        <p className="text-[9px] font-semibold text-slate-600 uppercase tracking-widest">Failed</p>
-                        <p className="text-lg font-bold font-mono text-red-400">
-                            {wave.failedCount.toLocaleString()}
-                        </p>
+                
+                {wave.status === 'RUNNING' && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px' }}>
+                        <span style={{ fontFamily: 'var(--font-data)', fontSize: '11px', color: 'var(--text-muted)' }}>Processing items</span>
                     </div>
                 )}
             </div>
 
-            {/* Shimmer for running waves */}
-            {wave.status === 'RUNNING' && (
-                <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.03] to-transparent" />
+            {!isLast && (
+                <div className="wave-connector">
+                    <div style={{ width: '1px', height: '18px', background: 'var(--border)', margin: '0 auto', position: 'relative' }}>
+                        <div style={{ position: 'absolute', bottom: '-5px', left: '50%', transform: 'translateX(-50%)', color: 'var(--text-dim)', fontSize: '9px' }}>▼</div>
+                    </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }
 
@@ -215,136 +152,84 @@ export function RunDetail({ runId }: { runId: string }) {
     const report = reportData?.reconciliationReport;
 
     if (runLoading && !run) {
-        return (
-            <div className="flex items-center justify-center py-32">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
+        return <div style={{ padding: '40px', color: 'var(--text-muted)' }}>Loading run...</div>;
     }
 
     if (!run) {
         return (
-            <div className="flex flex-col items-center justify-center py-32 gap-4">
-                <p className="text-white font-semibold">Run not found</p>
-                <Link href="/runs" className="text-primary text-sm hover:underline">Back to Live Execution</Link>
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+                <p>Run not found</p>
+                <Link href="/projects" className="btn btn-ghost" style={{ marginTop: '20px' }}>Back to Projects</Link>
             </div>
         );
     }
 
-    const activeWave = run.waves.find(w => w.status === 'RUNNING');
-    const totalRecords = run.processedCount + run.failedCount;
-    const successRate = totalRecords > 0
-        ? ((run.processedCount / totalRecords) * 100).toFixed(1)
-        : null;
-
-    const startTime = run.startedAt
-        ? new Date(run.startedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        : null;
+    const duration = run.startedAt && run.completedAt
+        ? `${Math.round((new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()) / 1000)}s`
+        : run.startedAt ? 'Running...' : 'Not started';
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-16">
-            {/* Back */}
-            <div className="flex items-center gap-3">
-                <Link
-                    href={project ? `/projects/${project.id}` : '/runs'}
-                    className="inline-flex items-center gap-2 text-slate-500 hover:text-white text-sm transition-colors"
-                >
-                    <ChevronLeft className="h-4 w-4" />
-                    {project ? project.name : 'Live Execution'}
+        <div className="view" id="view-migration">
+            
+            <div style={{ marginBottom: '20px' }}>
+                <Link href={project ? `/projects/${project.id}` : '/projects'} className="btn btn-ghost btn-sm">
+                    ‹ Back
                 </Link>
             </div>
 
-            {/* Run header */}
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <h1 className="text-2xl font-bold text-white">Migration Run</h1>
-                        {run.dryRun && (
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1 uppercase tracking-wider">
-                                <FlaskConical className="h-3 w-3" /> Dry Run
-                            </span>
-                        )}
-                        <span className={cn(
-                            'inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-lg border',
-                            run.status === 'RUNNING'   ? 'text-blue-400 bg-blue-500/10 border-blue-500/20'       :
-                            run.status === 'COMPLETED' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
-                            run.status === 'FAILED'    ? 'text-red-400 bg-red-500/10 border-red-500/20'          :
-                            run.status === 'PENDING'   ? 'text-slate-400 bg-slate-700/30 border-slate-600/20'    :
-                            'text-slate-500 bg-slate-800/50 border-slate-700/20',
-                        )}>
-                            {run.status === 'RUNNING' && <div className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />}
-                            {run.status}
-                        </span>
+            <div className="migration-header">
+                <div className="mig-platform">
+                    <div className="mig-logo"><PlatformIcon platform={project?.sourceConnection?.platform || ''} /></div>
+                    <div className="mig-info">
+                        <div className="mig-platform-name">{project?.sourceConnection?.platform || 'Source'}</div>
+                        <div className="mig-platform-alias">{project?.sourceConnection?.alias || 'Unknown'}</div>
                     </div>
-                    <p className="text-xs font-mono text-slate-500">{runId}</p>
+                </div>
+                <div className="mig-arrow-big">→</div>
+                <div className="mig-platform">
+                    <div className="mig-logo"><PlatformIcon platform={project?.targetConnection?.platform || ''} /></div>
+                    <div className="mig-info">
+                        <div className="mig-platform-name">{project?.targetConnection?.platform || 'Target'}</div>
+                        <div className="mig-platform-alias">{project?.targetConnection?.alias || 'Unknown'}</div>
+                    </div>
+                </div>
+                <div style={{ marginLeft: '20px' }}>
+                    <span className={`pill ${run.status === 'COMPLETED' ? 'pill-success' : run.status === 'FAILED' ? 'pill-error' : run.status === 'RUNNING' ? 'pill-accent' : 'pill-muted'}`} style={{ fontSize: '12px', padding: '5px 12px' }}>
+                        {run.status === 'RUNNING' && <span className="dot dot-pulse" />} {run.status} {run.dryRun ? '(DRY RUN)' : ''}
+                    </span>
+                </div>
+                <div className="mig-meta">
+                    <div className="mig-duration">Duration: <span style={{ color: 'var(--text)' }}>{duration}</span></div>
+                    {run.correlationId && <div className="mig-id">traceId: {run.correlationId.split('-')[0]}</div>}
                 </div>
             </div>
 
-            {/* Summary stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                    { label: 'Processed', value: run.processedCount.toLocaleString(), color: 'text-emerald-400' },
-                    { label: 'Failed',    value: run.failedCount.toLocaleString(),    color: run.failedCount > 0 ? 'text-red-400' : 'text-slate-500' },
-                    { label: 'Success',   value: successRate ? `${successRate}%` : '—',  color: 'text-white' },
-                    { label: 'Waves',     value: `${run.waves.filter(w => w.status === 'COMPLETED').length} / ${run.waves.length}`, color: 'text-white' },
-                ].map(({ label, value, color }) => (
-                    <div key={label} className="bg-[#131B2C]/60 border border-white/8 rounded-xl p-4 space-y-1">
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">{label}</p>
-                        <p className={cn('text-2xl font-bold font-mono', color)}>{value}</p>
+            <div className="migration-layout">
+                {/* Waves */}
+                <div>
+                    <div className="waves-title">Wave Execution Plan</div>
+                    <div className="waves-list">
+                        {run.waves.map((wave, i) => (
+                            <WaveCard key={wave.entityType} wave={wave} index={i + 1} isLast={i === run.waves.length - 1} />
+                        ))}
                     </div>
-                ))}
-            </div>
-
-            {/* Started at */}
-            {startTime && (
-                <p className="text-xs text-slate-600 font-mono">
-                    Started: {startTime}
-                    {run.correlationId && <> · Correlation: {run.correlationId}</>}
-                </p>
-            )}
-
-            {/* Waves — prototype-style grid */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-slate-500" />
-                    <h2 className="text-sm font-semibold text-slate-300">Wave Execution</h2>
-                    {(run.status === 'RUNNING' || run.status === 'PENDING') && (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-600" />
+                </div>
+                
+                {/* Right panel summary */}
+                <div>
+                    {run.status === 'COMPLETED' && report && (
+                        <div style={{ padding: '20px', borderRadius: '12px', background: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '10px' }}>Migration complete</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                                Overall success rate: {report.overallSuccessRate.toFixed(1)}%
+                            </div>
+                            <Link href={`/reports/${runId}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+                                View Full Report
+                            </Link>
+                        </div>
                     )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {run.waves.map(wave => (
-                        <WaveCard
-                            key={wave.entityType}
-                            wave={wave}
-                            isActive={activeWave?.entityType === wave.entityType}
-                        />
-                    ))}
-                </div>
             </div>
-
-            {/* Reconciliation link when completed */}
-            {run.status === 'COMPLETED' && (
-                <div className="bg-emerald-500/5 border border-emerald-500/15 rounded-xl p-5 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
-                        <div>
-                            <p className="text-sm font-semibold text-white">Migration complete</p>
-                            <p className="text-xs text-slate-500">
-                                {report
-                                    ? `Overall success rate: ${report.overallSuccessRate.toFixed(1)}%`
-                                    : 'Reconciliation report available'}
-                            </p>
-                        </div>
-                    </div>
-                    <Link
-                        href={`/reports/${runId}`}
-                        className="inline-flex items-center gap-2 text-primary text-xs font-semibold hover:underline shrink-0"
-                    >
-                        <BarChart3 className="h-4 w-4" /> View Report <ArrowRight className="h-3 w-3" />
-                    </Link>
-                </div>
-            )}
         </div>
     );
 }

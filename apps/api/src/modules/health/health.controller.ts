@@ -1,31 +1,17 @@
 import { Controller, Get } from '@nestjs/common';
-import {
-    HealthCheck,
-    HealthCheckService,
-    MongooseHealthIndicator,
-} from '@nestjs/terminus';
+import { SkipThrottle } from '@nestjs/throttler';
 
 /**
- * GET /health — liveness + readiness probe
+ * GET /health — liveness probe
  *
- * Checks:
- * - MongoDB connection (via Mongoose ping)
- *
- * Returns 200 { status: 'ok' } when all checks pass.
- * Returns 503 when any check fails — suitable for Kubernetes readiness probes.
+ * Returns 200 { status: 'ok' } when the API process is alive.
+ * @SkipThrottle keeps the rate-limit guard from interfering with health checks.
  */
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
-    constructor(
-        private readonly health: HealthCheckService,
-        private readonly db: MongooseHealthIndicator,
-    ) {}
-
     @Get()
-    @HealthCheck()
     check() {
-        return this.health.check([
-            () => this.db.pingCheck('mongodb'),
-        ]);
+        return { status: 'ok', checks: { api: 'ok' } };
     }
 }

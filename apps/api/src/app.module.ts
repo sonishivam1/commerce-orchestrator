@@ -31,7 +31,7 @@ import { RedisThrottlerStorage } from './common/storage/redis-throttler.storage'
  * 6. CredentialModule — encrypted credential CRUD
  * 7. JobModule       — job lifecycle + DLQ replay
  * 8. DlqModule       — dedicated DLQ queries + delete
- * 9. HealthModule    — GET /health readiness probe
+ * 9. HealthModule    — GET /health liveness probe (simple, no external deps)
  */
 @Module({
     imports: [
@@ -61,7 +61,7 @@ import { RedisThrottlerStorage } from './common/storage/redis-throttler.storage'
             driver: ApolloDriver,
             autoSchemaFile: true,
             sortSchema: true,
-            context: ({ req }: { req: Record<string, unknown> }) => ({ req }),
+            context: ({ req, res }: { req: any; res: any }) => ({ req, res }),
             formatError: (error) => ({
                 message: error.message,
                 code: error.extensions?.code,
