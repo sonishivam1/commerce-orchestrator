@@ -10,3 +10,15 @@ export const GET_CREDENTIALS = gql`
     }
   }
 `;
+
+export const GET_CREDENTIAL = gql`
+  query GetCredential($id: String!) {
+    credential(id: $id) {
+      id
+      platform
+      alias
+      createdAt
+      rawPayload
+    }
+  }
+`;

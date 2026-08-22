@@ -17,6 +17,9 @@ export class CredentialType {
     @Field()
     createdAt: Date;
 
+    @Field({ nullable: true })
+    rawPayload?: string;
+
     // ── Connection enrichment fields (Phase 1) ────────────────────────────────
     // Existing credential documents will return default values for these fields.
 

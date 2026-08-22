@@ -15,6 +15,32 @@ export class CredentialService {
         return this.credentialRepository.findAllForTenant(tenantId);
     }
 
+    async findOneDecryptedPayload(tenantId: string, id: string) {
+        const doc = await this.credentialRepository.findOneDecrypted(tenantId, id);
+        if (!doc) throw new NotFoundException(`Credential ${id} not found`);
+        
+        let rawPayload = '';
+        if (doc.encryptedPayload && doc.iv && doc.authTag) {
+            try {
+                rawPayload = this.aes.decrypt(doc.encryptedPayload, doc.iv, doc.authTag);
+            } catch (e) {
+                // If decryption fails, we can't return the payload
+            }
+        }
+        
+        return {
+            id: doc.id,
+            tenantId: doc.tenantId,
+            platform: doc.platform,
+            alias: doc.alias,
+            createdAt: doc.createdAt,
+            health: doc.health,
+            capabilities: doc.capabilities,
+            lastTestedAt: doc.lastTestedAt,
+            rawPayload
+        };
+    }
+
     async store(tenantId: string, input: StoreCredentialInput) {
         // Validate rawPayload is parseable JSON before encrypting
         try {

@@ -15,6 +15,15 @@ export class CredentialResolver {
         return this.credentialService.findAll(tenant.tenantId);
     }
 
+    @Query(() => CredentialType, { description: 'Get a single credential by ID.' })
+    @UseGuards(GqlAuthGuard)
+    credential(
+        @Args('id') id: string,
+        @CurrentTenant() tenant: TenantContext
+    ) {
+        return this.credentialService.findOneDecryptedPayload(tenant.tenantId, id);
+    }
+
     @Mutation(() => CredentialType, { description: 'Store a new encrypted platform credential.' })
     @UseGuards(GqlAuthGuard)
     storeCredential(

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
+import { GET_CREDENTIALS, GET_CREDENTIAL } from '@/lib/graphql/queries/credential.queries';
 import { STORE_CREDENTIAL, DELETE_CREDENTIAL } from '@/lib/graphql/mutations';
 import { X, Trash2 } from 'lucide-react';
 
@@ -13,6 +13,7 @@ interface Credential {
     platform: string;
     alias: string;
     createdAt: string;
+    rawPayload?: string;
 }
 
 const PLATFORM_OPTIONS = [
@@ -99,7 +100,25 @@ function AddConnectionForm({ onClose, initialData }: { onClose: () => void, init
     );
     const [error, setError] = useState<string | null>(null);
 
-    const [storeCredential, { loading }] = useMutation(STORE_CREDENTIAL, {
+    const { loading: fetchLoading } = useQuery(GET_CREDENTIAL, {
+        variables: { id: initialData?.id },
+        skip: !initialData?.id,
+        fetchPolicy: 'network-only',
+        onCompleted: (data) => {
+            if (data?.credential?.rawPayload) {
+                try {
+                    const parsed = JSON.parse(data.credential.rawPayload);
+                    // Merge with defaults to ensure all fields are present
+                    setFormData(prev => ({ ...prev, ...parsed }));
+                } catch (e) {
+                    console.error('Failed to parse rawPayload', e);
+                }
+            }
+        },
+        onError: (err) => setError('Failed to fetch credentials: ' + err.message)
+    });
+
+    const [storeCredential, { loading: saveLoading }] = useMutation(STORE_CREDENTIAL, {
         refetchQueries: [GET_CREDENTIALS],
         onCompleted: onClose,
         onError(err) { setError(err.message); },
@@ -185,8 +204,8 @@ function AddConnectionForm({ onClose, initialData }: { onClose: () => void, init
             
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
                 <button className="btn btn-ghost" onClick={onClose} type="button">Cancel</button>
-                <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Connection'}
+                <button className="btn btn-primary" onClick={handleSubmit} disabled={saveLoading || fetchLoading}>
+                    {saveLoading ? 'Saving...' : fetchLoading ? 'Loading...' : 'Save Connection'}
                 </button>
             </div>
         </div>
