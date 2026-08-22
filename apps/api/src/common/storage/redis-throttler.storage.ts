@@ -1,4 +1,4 @@
-import { Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { ThrottlerStorage } from '@nestjs/throttler';
 import { createRedisConnection } from '@cdo/redis';
 
@@ -19,6 +19,7 @@ import { createRedisConnection } from '@cdo/redis';
 export class RedisThrottlerStorage
     implements ThrottlerStorage, OnApplicationShutdown
 {
+    private readonly logger = new Logger(RedisThrottlerStorage.name);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private readonly redis: any;
 
@@ -97,24 +98,39 @@ return {count, timeToExpire, isBlocked, timeToBlockExpire}
         const hitKey   = `throttle:${key}`;
         const blockKey = `throttle:${key}:blocked`;
 
-        const result = await (this.redis as any).eval(
-            RedisThrottlerStorage.LUA_INCREMENT,
-            2,              // number of KEYS
-            hitKey,
-            blockKey,
-            String(ttl),
-            String(limit),
-            String(blockDuration ?? 0),
-        ) as [number, number, number, number];
+        try {
+            const result = await (this.redis as any).eval(
+                RedisThrottlerStorage.LUA_INCREMENT,
+                2,              // number of KEYS
+                hitKey,
+                blockKey,
+                String(ttl),
+                String(limit),
+                String(blockDuration ?? 0),
+            ) as [number, number, number, number];
 
-        const [totalHits, timeToExpire, isBlockedNum, timeToBlockExpire] = result;
+            const [totalHits, timeToExpire, isBlockedNum, timeToBlockExpire] = result;
 
-        return {
-            totalHits,
-            timeToExpire,
-            isBlocked: isBlockedNum === 1,
-            timeToBlockExpire,
-        };
+            return {
+                totalHits,
+                timeToExpire,
+                isBlocked: isBlockedNum === 1,
+                timeToBlockExpire,
+            };
+        } catch (err: unknown) {
+            // Redis unavailable — degrade gracefully: allow the request through
+            // rather than crashing the API. Rate limiting resumes automatically
+            // once the Redis connection recovers.
+            this.logger.warn(
+                `[RateLimit] Redis unavailable, allowing request (key=${key}): ${(err as Error).message}`,
+            );
+            return {
+                totalHits:        1,
+                timeToExpire:     ttl / 1000,
+                isBlocked:        false,
+                timeToBlockExpire: 0,
+            };
+        }
     }
 
     onApplicationShutdown(): void {
