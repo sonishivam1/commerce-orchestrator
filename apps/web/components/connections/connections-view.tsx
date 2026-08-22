@@ -125,50 +125,52 @@ function AddConnectionModal({ onClose }: { onClose: () => void }) {
     const fields = PLATFORM_FIELDS[platform] ?? [];
 
     return (
-        <div className="modal-overlay" style={{ display: 'flex' }}>
-            <div className="modal">
-                <div className="modal-header">
-                    <h3>Add New Connection</h3>
-                    <button className="btn btn-ghost" onClick={onClose} type="button" style={{ padding: '4px', height: 'auto' }}>
-                        <X size={20} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
+            <div className="w-full max-w-md bg-[#0D1526] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-white/8 shrink-0">
+                    <div>
+                        <h2 className="text-base font-semibold text-white">Add New Connection</h2>
+                    </div>
+                    <button onClick={onClose} type="button" className="h-7 w-7 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer">
+                        <X size={16} />
                     </button>
                 </div>
-                <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                <div className="p-6 space-y-4 overflow-y-auto min-h-0">
                     {error && (
-                        <div style={{ color: 'var(--error)', marginBottom: '16px', fontSize: '13px' }}>
+                        <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
                             {error}
                         </div>
                     )}
-                    <div className="form-group" style={{ marginBottom: '16px' }}>
-                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Platform</label>
+                    <div className="space-y-1.5">
+                        <label className="text-[12px] font-medium text-slate-400">Platform</label>
                         <select 
-                            style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
                             value={platform}
                             onChange={e => handlePlatformChange(e.target.value)}
                         >
                             {PLATFORM_OPTIONS.map(p => (
-                                <option key={p.value} value={p.value}>
+                                <option key={p.value} value={p.value} className="bg-slate-800 text-white">
                                     {p.label}
                                 </option>
                             ))}
                         </select>
                     </div>
-                    <div className="form-group" style={{ marginBottom: '16px' }}>
-                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Connection Name</label>
+                    <div className="space-y-1.5">
+                        <label className="text-[12px] font-medium text-slate-400">Connection Name</label>
                         <input 
                             type="text" 
-                            style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
                             placeholder="e.g. Shopify Production" 
                             value={alias}
                             onChange={e => setAlias(e.target.value)}
                         />
                     </div>
                     {fields.map(key => (
-                        <div className="form-group" key={key} style={{ marginBottom: '16px' }}>
-                            <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>{key.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}</label>
+                        <div className="space-y-1.5" key={key}>
+                            <label className="text-[12px] font-medium text-slate-400">{key.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}</label>
                             <input
                                 type={key.toLowerCase().includes('secret') || key.toLowerCase().includes('token') ? 'password' : 'text'}
-                                style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
                                 value={formData[key] ?? ''}
                                 onChange={e => setFormData(prev => ({ ...prev, [key]: e.target.value }))}
                                 placeholder={`Enter ${key}...`}
@@ -176,9 +178,9 @@ function AddConnectionModal({ onClose }: { onClose: () => void }) {
                         </div>
                     ))}
                 </div>
-                <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
-                    <button className="btn btn-ghost" onClick={onClose} type="button">Cancel</button>
-                    <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
+                <div className="flex gap-3 px-6 py-5 border-t border-white/8 shrink-0 bg-[#0D1526]">
+                    <button className="flex-1 bg-white/5 border border-white/8 text-slate-300 font-medium py-2.5 rounded-xl text-sm hover:bg-white/8 transition-all cursor-pointer" onClick={onClose} type="button">Cancel</button>
+                    <button className="flex-[2] bg-primary hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-60" onClick={handleSubmit} disabled={loading}>
                         {loading ? 'Saving...' : 'Save Connection'}
                     </button>
                 </div>

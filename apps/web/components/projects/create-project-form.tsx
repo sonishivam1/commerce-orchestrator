@@ -79,7 +79,7 @@ export function CreateProjectForm() {
     };
 
     return (
-        <div className="view">
+        <div className="view active">
             <div className="table-header">
                 <h2>New Migration Project</h2>
                 <Link href="/projects" className="btn btn-ghost" style={{ fontSize: '0.875rem' }}>
