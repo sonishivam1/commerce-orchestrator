@@ -9,7 +9,8 @@
     },
     "scripts": {
         "build": "tsc --build",
-        "lint": "tsc --noEmit"
+        "lint": "tsc --noEmit",
+        "test": "jest"
     },
     "dependencies": {
         "@cdo/core": "workspace:*",
@@ -21,6 +22,10 @@
         "node-fetch": "^3.3.2"
     },
     "devDependencies": {
+        "@types/jest": "^30.0.0",
+        "@types/node": "^20.11.0",
+        "jest": "^30.3.0",
+        "ts-jest": "^29.4.6",
         "typescript": "^5.3.3"
     }
 }

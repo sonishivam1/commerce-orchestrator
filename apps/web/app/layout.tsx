@@ -14,11 +14,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {/*
                  * Space Grotesk — headings & UI labels
                  * IBM Plex Mono — data, IDs, code snippets
+                 * Loaded directly from Google Fonts with a preconnect hint for performance.
                  */}
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link
-                    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+                    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
                     rel="stylesheet"
                 />
             </head>

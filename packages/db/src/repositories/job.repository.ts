@@ -34,8 +34,10 @@ export class JobRepository {
         await this.jobModel.updateOne({ _id: id, tenantId }, { $set: { status } }).exec();
     }
 
-    async markCompleted(id: string): Promise<void> {
-        await this.jobModel.updateOne({ _id: id }, { $set: { status: 'COMPLETED', completedAt: new Date() } }).exec();
+    async markCompleted(id: string, exportFilePath?: string): Promise<void> {
+        const update: Record<string, unknown> = { status: 'COMPLETED', completedAt: new Date() };
+        if (exportFilePath) update.exportFilePath = exportFilePath;
+        await this.jobModel.updateOne({ _id: id }, { $set: update }).exec();
     }
 
     async markFailed(id: string, errorSummary: Record<string, unknown>): Promise<void> {

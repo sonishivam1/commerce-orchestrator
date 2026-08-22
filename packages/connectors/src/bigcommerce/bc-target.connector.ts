@@ -1,11 +1,13 @@
 import type { TargetConnector, LoadResult } from '@cdo/core';
-import type { CanonicalProduct } from '@cdo/shared';
-import { ErrorType } from '@cdo/shared';
-import fetch from 'node-fetch';
+import type { CanonicalProduct, CanonicalEntity } from '@cdo/shared';
+import { EntityType, ErrorType } from '@cdo/shared';
+// Native fetch is available in Node 18+ (global)
 
-export class BigCommerceTargetConnector implements TargetConnector<CanonicalProduct> {
+export class BigCommerceTargetConnector implements TargetConnector<CanonicalEntity> {
     private baseUrl!: string;
     private accessToken!: string;
+
+    constructor(private readonly entityType: EntityType = EntityType.PRODUCTS) {}
 
     getCapabilities(): string[] {
         return ['insert', 'update'];
@@ -80,12 +82,18 @@ export class BigCommerceTargetConnector implements TargetConnector<CanonicalProd
         }
     }
 
-    async load(batch: CanonicalProduct[]): Promise<LoadResult[]> {
+    async load(batch: CanonicalEntity[]): Promise<LoadResult[]> {
+        if (this.entityType !== EntityType.PRODUCTS) {
+            const err = new Error(`BigCommerce target connector currently only supports PRODUCTS entity type (requested: ${this.entityType})`);
+            (err as any).type = ErrorType.VALIDATION;
+            throw err;
+        }
+
         const results: LoadResult[] = [];
 
         for (const canonical of batch) {
             try {
-                await this.upsertProduct(canonical);
+                await this.upsertProduct(canonical as CanonicalProduct);
                 results.push({ key: canonical.key, success: true });
             } catch (error: any) {
                 const status: number = error.statusCode ?? 0;

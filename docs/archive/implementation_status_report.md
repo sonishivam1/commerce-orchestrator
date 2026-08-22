@@ -1,11 +1,51 @@
 # 📊 Commerce Data Orchestrator — Implementation Status Report
 
-> **Date:** March 17, 2026  
+---
+
+## ⚡ Latest Update — August 21, 2026
+
+> **CT → Shopify smoke migration: ALL 10 CHECKPOINTS PASS**  
+> `pnpm smoke` verified against real CT project `rc_b2b_shop_july_2023` and real Shopify store `cdo-migration-smoke-test.myshopify.com`.  
+> Waves: CATEGORIES ✅ · PRODUCTS ✅ · CUSTOMERS ✅ · ORDERS ✅ · Upsert idempotency ✅
+
+### Plans marked COMPLETE since March 2026 assessment
+| Plan | Status |
+|------|--------|
+| `01-full-platform-fix.md` | ✅ **COMPLETE** — EntityType enum, multi-entity orchestrator, CT productProjections fix |
+| `phase-2-wave-executor.md` | ✅ **COMPLETE** — Wave executor, IdentityMap write-back, dependency ordering |
+| `phase-3b-shopify-target-connector.md` | ✅ **COMPLETE** — All 4 entity types, smoke tested |
+
+### Key fixes not in any original sub-plan (discovered via smoke testing)
+- Shopify Admin API 2024-01: `variants` rejected on `ProductInput` → new `syncMasterVariant()` via `productVariantsBulkUpdate`
+- `productVariantUpdate` removed in 2024-01 → replaced by `productVariantsBulkUpdate`
+- `ProductVariantsBulkInput.sku` not valid → only `id` + `price` passed
+- `presentmentCurrencyCode` rejected when currency not enabled on target store → removed; currency preserved in `note`
+- Tag values capped at 40 chars → `.slice(0, 40)` on order tags
+- `assertNoUserErrors` crashes on `field: null` → `(e.field ?? []).join('.')` null guard
+- CT source connector used `products()` API (nested `masterData.current`) instead of `productProjections()` (flat shape) → switched to `productProjections()` with `staged: true`
+
+### Updated overall completion (August 2026)
+| Phase | Description | Status | Completion |
+|-------|-------------|--------|------------|
+| **Phase 0** | Foundation Layer (DB, Queue, Auth, Zod) | ✅ **Complete** | ~95% |
+| **Phase 1** | Core Pipeline (Engine, Connectors, Mapping) | ✅ **Complete** | ~100% |
+| **Phase 2** | API Control Plane (GraphQL Resolvers) | ⚠️ **Mostly Complete** | ~80% |
+| **Phase 3** | Worker Planes (ETL + Scrape) | ⚠️ **Partially Complete** | ~75% |
+| **Phase 4** | Web Frontend (Next.js) | ⚠️ **Partially Complete** | ~60% |
+| **Phase 5** | Observability + Prod Hardening | ❌ **Not Started** | ~5% |
+
+### **Overall Project Completion: ~75%**
+
+---
+
+## Original Assessment — March 17, 2026  
+> *(preserved for history; completion percentages below reflect state at that date)*
+
 > **Assessment:** Deep code review of all packages, apps, docs, and implementation plan
 
 ---
 
-## 🔢 Overall Progress Summary
+## 🔢 Overall Progress Summary (March 2026)
 
 | Phase | Description | Status | Completion |
 |-------|-------------|--------|------------|

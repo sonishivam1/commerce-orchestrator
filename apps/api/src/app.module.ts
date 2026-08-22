@@ -12,6 +12,7 @@ import { JobModule } from './modules/job/job.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { DlqModule } from './modules/dlq/dlq.module';
 import { HealthModule } from './modules/health/health.module';
+import { MigrationProjectModule } from './modules/migration-project/migration-project.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TraceInterceptor } from './common/interceptors/trace.interceptor';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
@@ -75,6 +76,7 @@ import { RedisThrottlerStorage } from './common/storage/redis-throttler.storage'
         JobModule,
         DlqModule,
         HealthModule,
+        MigrationProjectModule,
     ],
     providers: [
         { provide: APP_GUARD, useClass: RateLimitGuard },

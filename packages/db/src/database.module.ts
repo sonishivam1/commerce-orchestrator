@@ -21,11 +21,19 @@ import { Job, JobSchema } from './schemas/job.schema';
 import { Credential, CredentialSchema } from './schemas/credential.schema';
 import { Tenant, TenantSchema } from './schemas/tenant.schema';
 import { DlqItem, DlqItemSchema } from './schemas/dlq.schema';
+import { MigrationProject, MigrationProjectSchema } from './schemas/migration-project.schema';
+import { MigrationRun, MigrationRunSchema } from './schemas/migration-run.schema';
+import { IdentityMap, IdentityMapSchema } from './schemas/identity-map.schema';
+import { ReconciliationReport, ReconciliationReportSchema } from './schemas/reconciliation-report.schema';
 
 import { JobRepository } from './repositories/job.repository';
 import { CredentialRepository } from './repositories/credential.repository';
 import { TenantRepository } from './repositories/tenant.repository';
 import { DlqRepository } from './repositories/dlq.repository';
+import { MigrationProjectRepository } from './repositories/migration-project.repository';
+import { MigrationRunRepository } from './repositories/migration-run.repository';
+import { IdentityMapRepository } from './repositories/identity-map.repository';
+import { ReconciliationReportRepository } from './repositories/reconciliation-report.repository';
 
 /** All Mongoose feature modules registered in the database layer */
 const FEATURE_MODULES = MongooseModule.forFeature([
@@ -33,6 +41,10 @@ const FEATURE_MODULES = MongooseModule.forFeature([
     { name: Credential.name, schema: CredentialSchema },
     { name: Tenant.name, schema: TenantSchema },
     { name: DlqItem.name, schema: DlqItemSchema },
+    { name: MigrationProject.name, schema: MigrationProjectSchema },
+    { name: MigrationRun.name, schema: MigrationRunSchema },
+    { name: IdentityMap.name, schema: IdentityMapSchema },
+    { name: ReconciliationReport.name, schema: ReconciliationReportSchema },
 ]);
 
 /** All repository providers exposed from this module */
@@ -41,6 +53,10 @@ const REPOSITORIES = [
     CredentialRepository,
     TenantRepository,
     DlqRepository,
+    MigrationProjectRepository,
+    MigrationRunRepository,
+    IdentityMapRepository,
+    ReconciliationReportRepository,
 ];
 
 /**

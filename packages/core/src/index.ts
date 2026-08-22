@@ -4,3 +4,6 @@ export type { TargetConnector } from './interfaces/target.interface';
 
 // Re-export engine (EtlEngine, EtlContext, EtlEngineOptions, LoadResult)
 export * from './engine/etl.engine';
+
+// Wave planning utilities — pure functions, no NestJS/DB deps
+export * from './wave/index';

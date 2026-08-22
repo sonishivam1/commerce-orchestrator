@@ -22,43 +22,69 @@ export const canonicalToShopifyProductInput = (
     const firstValue = (ls: Record<string, string>): string =>
         Object.values(ls)[0] ?? '';
 
-    const allVariants = [canonical.masterVariant, ...canonical.variants];
-
-    const variants = allVariants.map(v => {
-        const price =
-            v.prices.length > 0
-                ? (v.prices[0].centAmount / Math.pow(10, v.prices[0].fractionDigits)).toFixed(
-                      v.prices[0].fractionDigits,
-                  )
-                : '0.00';
-
-        const variantInput: Record<string, unknown> = {
-            sku: v.sku,
-            price,
-        };
-
-        if (locationId && v.stockQuantity !== undefined) {
-            variantInput.inventoryQuantities = [
-                { availableQuantity: v.stockQuantity, locationId },
-            ];
-        }
-
-        return variantInput;
-    });
-
+    // NOTE: `variants` is intentionally NOT included in ProductInput.
+    // The Shopify Admin API 2024-01 does not accept `variants` on ProductInput for
+    // productCreate / productUpdate — passing it triggers a validation error:
+    //   "Variable $input of type ProductInput! was provided invalid value for variants
+    //    (Field is not defined on ProductInput)"
+    // Variant sync (SKU, price, inventory) is done via a separate productVariantUpdate
+    // mutation after the product is created/updated. See `syncMasterVariant` in the
+    // ShopifyTargetConnector.
     const input: Record<string, unknown> = {
         title: firstValue(canonical.name) || canonical.key,
         descriptionHtml: firstValue(canonical.description),
         handle: firstValue(canonical.slug) || canonical.key,
         tags: canonical.categoryKeys,
         status: canonical.isPublished ? 'ACTIVE' : 'DRAFT',
-        variants,
     };
 
     if (existingId) input.id = existingId;
 
     if (canonical.customAttributes?.vendor) {
         input.vendor = canonical.customAttributes.vendor as string;
+    }
+
+    return input;
+};
+
+/**
+ * Converts a CanonicalVariant into a Shopify `ProductVariantInput` shape.
+ *
+ * The `variantId` must be the Shopify GID of an existing variant
+ * (e.g. "gid://shopify/ProductVariant/123") — obtained by querying the product's
+ * variants immediately after create/update, since Shopify auto-creates a default
+ * variant on every new product and we update it in place rather than creating extras.
+ *
+ * @param variant    - The canonical variant to sync.
+ * @param variantId  - Shopify GID of the variant to update.
+ * @param locationId - Shopify Location GID for inventory quantities. Optional.
+ */
+export const canonicalVariantToShopifyVariantInput = (
+    variant: CanonicalVariant,
+    variantId: string,
+    locationId?: string,
+): Record<string, unknown> => {
+    const price =
+        variant.prices.length > 0
+            ? (variant.prices[0].centAmount / Math.pow(10, variant.prices[0].fractionDigits)).toFixed(
+                  variant.prices[0].fractionDigits,
+              )
+            : '0.00';
+
+    // NOTE: `sku` is NOT a top-level field on ProductVariantsBulkInput in
+    // Shopify Admin API 2024-01. Passing it produces:
+    //   "Field is not defined on ProductVariantsBulkInput"
+    // SKU in Shopify is owned by the variant's InventoryItem and requires a
+    // separate inventoryItemUpdate call. For this sync pass we set price only.
+    const input: Record<string, unknown> = {
+        id: variantId,
+        price,
+    };
+
+    if (locationId && variant.stockQuantity !== undefined) {
+        input.inventoryQuantities = [
+            { availableQuantity: variant.stockQuantity, locationId },
+        ];
     }
 
     return input;

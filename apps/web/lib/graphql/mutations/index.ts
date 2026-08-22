@@ -1,11 +1,65 @@
 import { gql } from '@apollo/client';
 
+// ── Migration Project Mutations ─────────────────────────────────────────────
+
+export const CREATE_MIGRATION_PROJECT = gql`
+  mutation CreateMigrationProject($input: CreateMigrationProjectInput!) {
+    createMigrationProject(input: $input) {
+      id
+      name
+      sourceConnectionId
+      targetConnectionId
+      entityTypes
+      status
+      createdAt
+    }
+  }
+`;
+
+export const UPDATE_MIGRATION_PROJECT = gql`
+  mutation UpdateMigrationProject($id: ID!, $input: UpdateMigrationProjectInput!) {
+    updateMigrationProject(id: $id, input: $input) {
+      id
+      name
+      status
+      updatedAt
+    }
+  }
+`;
+
+export const ARCHIVE_MIGRATION_PROJECT = gql`
+  mutation ArchiveMigrationProject($id: ID!) {
+    archiveMigrationProject(id: $id)
+  }
+`;
+
+export const CREATE_MIGRATION_RUN = gql`
+  mutation CreateMigrationRun($input: CreateMigrationRunInput!) {
+    createMigrationRun(input: $input) {
+      id
+      migrationProjectId
+      status
+      dryRun
+      processedCount
+      failedCount
+      waves {
+        entityType
+        status
+        processedCount
+        failedCount
+      }
+      createdAt
+    }
+  }
+`;
+
 export const CREATE_JOB = gql`
   mutation CreateJob($input: CreateJobInput!) {
     createJob(input: $input) {
       id
       kind
       status
+      entityTypes
       createdAt
     }
   }

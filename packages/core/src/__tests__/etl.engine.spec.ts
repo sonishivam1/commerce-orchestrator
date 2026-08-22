@@ -1,5 +1,5 @@
-import { EtlEngine } from '../engine/etl.engine';
-import { CanonicalEntity, ErrorType } from '@cdo/shared';
+import { EtlEngine, EtlContext } from '../engine/etl.engine';
+import { CanonicalProduct, CanonicalEntity, ErrorType, EntityType } from '@cdo/shared';
 import { SourceConnector, TargetConnector, LoadResult } from '../interfaces/index';
 // @ts-ignore
 import { jest } from '@jest/globals';
@@ -26,12 +26,13 @@ class MockTarget implements TargetConnector<CanonicalEntity> {
 }
 
 describe('EtlEngine', () => {
-    const context = {
-        tenantId: 't1',
-        jobId: 'j1',
-        correlationId: 'c1',
+    const context: EtlContext = {
+        tenantId: 'tenant-1',
+        jobId: 'job-1',
+        correlationId: 'corr-1',
         sourceCredentials: {},
         targetCredentials: {},
+        entityTypes: [EntityType.PRODUCTS]
     };
     const dummyItems = Array.from({ length: 5 }).map((_, i) => ({
         key: `item-${i}`
@@ -136,5 +137,50 @@ describe('EtlEngine', () => {
         expect(failureFn).toHaveBeenCalledTimes(1);
         expect(failureFn.mock.calls[0][0].message).toEqual('Validation Error: bad field');
         expect(failureFn.mock.calls[0][1]).toEqual(dummyItems[1]); // the item that failed
+    });
+
+    it('progress event receives only successful results (with targetId)', async () => {
+        const source = new MockSource([dummyItems[0], dummyItems[1]]);
+        const target = new MockTarget();
+
+        target.mockLoad.mockImplementation((batch: CanonicalEntity[]) => {
+            return Promise.resolve([
+                { key: 'item-0', success: true, targetId: 'target-0' },
+                { key: 'item-1', success: false, error: 'Failed' }
+            ]);
+        });
+
+        const progressFn = jest.fn();
+        const engine = new EtlEngine(source, target, context, { batchSize: 2 });
+        engine.on('progress', progressFn);
+
+        await engine.run();
+
+        // progress fires once with only the single successful item
+        expect(progressFn).toHaveBeenCalledTimes(1);
+        const passedResults = progressFn.mock.calls[0][0];
+        expect(passedResults.length).toBe(1);
+        expect(passedResults[0].key).toBe('item-0');
+        expect(passedResults[0].targetId).toBe('target-0');
+    });
+
+    it('progress event is NOT called when all items in a batch fail', async () => {
+        const source = new MockSource([dummyItems[0]]);
+        const target = new MockTarget();
+
+        target.mockLoad.mockImplementation((_batch: CanonicalEntity[]) => {
+            return Promise.resolve([
+                { key: 'item-0', success: false, error: 'Failed' }
+            ]);
+        });
+
+        const progressFn = jest.fn();
+        const engine = new EtlEngine(source, target, context, { batchSize: 2 });
+        engine.on('progress', progressFn);
+
+        await engine.run();
+
+        // No successful results → progress handler never fires
+        expect(progressFn).not.toHaveBeenCalled();
     });
 });

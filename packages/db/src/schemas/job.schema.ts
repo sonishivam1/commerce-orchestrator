@@ -29,6 +29,13 @@ export class Job {
     @Prop()
     sourceUrl?: string;
 
+    /**
+     * Entity types this job should migrate.
+     * Defaults to ['PRODUCTS'] for backward compatibility with existing jobs.
+     */
+    @Prop({ type: [String], enum: ['PRODUCTS', 'CATEGORIES', 'CUSTOMERS', 'ORDERS'], default: ['PRODUCTS'] })
+    entityTypes: string[];
+
     @Prop({ default: 0 })
     processedCount: number;
 
@@ -43,6 +50,28 @@ export class Job {
 
     @Prop({ type: Object })
     errorSummary?: Record<string, unknown>;
+
+    /** Absolute path to the exported JSONL file — set by EXPORT jobs on completion. */
+    @Prop()
+    exportFilePath?: string;
+
+    // ── MigrationProject linkage (Phase 1 addition) ──────────────────────────
+    // Absent on legacy jobs — backward compatible (no default needed).
+
+    /**
+     * The MigrationProject this job was initiated from.
+     * When present, the orchestrator writes IdentityMap entries keyed by this project.
+     * Absent on jobs created via the legacy Job API.
+     */
+    @Prop({ index: true })
+    migrationProjectId?: string;
+
+    /**
+     * When true, the ETL pass validates and transforms but does not write to the target.
+     * Defaults to false for all legacy jobs.
+     */
+    @Prop({ default: false })
+    dryRun: boolean;
 }
 
 export const JobSchema = SchemaFactory.createForClass(Job);

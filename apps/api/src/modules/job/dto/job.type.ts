@@ -15,8 +15,16 @@ export enum JobKind {
     EXPORT = 'EXPORT',
 }
 
+export enum EntityType {
+    PRODUCTS = 'PRODUCTS',
+    CATEGORIES = 'CATEGORIES',
+    CUSTOMERS = 'CUSTOMERS',
+    ORDERS = 'ORDERS',
+}
+
 registerEnumType(JobStatus, { name: 'JobStatus' });
 registerEnumType(JobKind, { name: 'JobKind' });
+registerEnumType(EntityType, { name: 'EntityType' });
 
 @ObjectType()
 export class JobType {
@@ -31,6 +39,9 @@ export class JobType {
 
     @Field(() => JobStatus)
     status: JobStatus;
+
+    @Field(() => [EntityType], { defaultValue: [EntityType.PRODUCTS] })
+    entityTypes: EntityType[];
 
     @Field({ nullable: true })
     traceId?: string;
@@ -58,4 +69,8 @@ export class JobType {
 
     @Field({ nullable: true })
     sourceUrl?: string;
+
+    /** Path to the exported file — only populated for EXPORT jobs that have completed. */
+    @Field({ nullable: true })
+    exportFilePath?: string;
 }

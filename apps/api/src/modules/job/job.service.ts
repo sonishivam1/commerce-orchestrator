@@ -1,9 +1,4 @@
-import {
-    Injectable,
-    NotFoundException,
-    BadRequestException,
-    ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { JobRepository, DlqRepository, CredentialRepository } from '@cdo/db';
 import { JobProducer } from '@cdo/queue';
@@ -81,6 +76,8 @@ export class JobService {
         const correlationId = randomUUID();
         const traceId       = randomUUID();
 
+        const entityTypes = input.entityTypes?.length ? input.entityTypes : ['PRODUCTS'];
+
         const jobDoc = await this.jobRepository.create({
             tenantId,
             kind:               input.kind,
@@ -90,6 +87,7 @@ export class JobService {
             sourceCredentialId: input.sourceCredentialId,
             targetCredentialId: input.targetCredentialId ?? undefined,
             sourceUrl:          input.sourceUrl ?? undefined,
+            entityTypes,
         });
 
         const jobId = String(jobDoc._id);
@@ -113,6 +111,7 @@ export class JobService {
                 kind:              input.kind as 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT',
                 sourceCredentialId: input.sourceCredentialId!,
                 targetCredentialId: input.targetCredentialId!,
+                entityTypes,
             });
         }
 

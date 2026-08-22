@@ -1,7 +1,7 @@
 /**
  * job.service.spec.ts
  *
- * Unit tests for JobService credential ownership validation.
+ * Unit tests for JobService credential ownership validation (Phase 4).
  *
  * Mock strategy: all repository and producer dependencies are mocked via
  * jest.fn(). No real MongoDB or Redis connections are opened.
@@ -52,9 +52,9 @@ const OTHER_TENANT = 'tenant-b';
 
 function buildService(): JobService {
     return new JobService(
-        mockJobRepository       as any,
-        mockDlqRepository       as any,
-        mockJobProducer         as any,
+        mockJobRepository        as any,
+        mockDlqRepository        as any,
+        mockJobProducer          as any,
         mockCredentialRepository as any,
     );
 }
@@ -79,7 +79,9 @@ const fakeJobDoc = (id = 'job-1') => ({
 
 beforeEach(() => {
     jest.clearAllMocks();
+    // Default: job create returns a stub
     mockJobRepository.create.mockResolvedValue(fakeJobDoc());
+    // Default: enqueue resolves
     mockJobProducer.enqueueEtlJob.mockResolvedValue(undefined);
     mockJobProducer.enqueueScrapeJob.mockResolvedValue(undefined);
 });
@@ -196,6 +198,7 @@ describe('JobService.create() — credential ownership', () => {
             targetCredentialId:'tgt-cred-1',
         } as any);
 
+        // findOneForTenant called exactly once (target only)
         expect(mockCredentialRepository.findOneForTenant).toHaveBeenCalledTimes(1);
         expect(mockCredentialRepository.findOneForTenant).toHaveBeenCalledWith(TENANT, 'tgt-cred-1');
         expect(mockJobProducer.enqueueScrapeJob).toHaveBeenCalledTimes(1);
@@ -228,9 +231,9 @@ describe('JobService.replayDlqItem() — credential ownership re-validation', ()
     const dlqItem = {
         _id:      'dlq-1',
         jobId:    'job-1',
-        replayed: false,
+        replayed:  false,
         canReplay: true,
-        tenantId: TENANT,
+        tenantId:  TENANT,
     };
 
     const parentJobEtl = {

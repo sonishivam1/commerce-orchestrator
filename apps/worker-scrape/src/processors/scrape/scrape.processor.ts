@@ -5,7 +5,7 @@ import { CredentialRepository, JobRepository } from '@cdo/db';
 import { ConnectorFactory } from '@cdo/connectors';
 import { ScrapeSourceConnector } from '@cdo/ingestion';
 import { EtlContext } from '@cdo/core';
-import { QUEUE_SCRAPE } from '@cdo/shared';
+import { QUEUE_SCRAPE, EntityType } from '@cdo/shared';
 import { ScrapeOrchestrator } from '../../orchestrator/scrape.orchestrator';
 import { CredentialDecryptor } from '../../services/credential.decryptor';
 import { LockService } from '../../services/lock.service';
@@ -69,6 +69,7 @@ export class ScrapeProcessor extends WorkerHost {
                 correlationId: job.id || jobId,
                 sourceCredentials,
                 targetCredentials,
+                entityTypes: [EntityType.PRODUCTS]
             };
 
             await this.orchestrator.execute({ jobKind: kind, source, target, context });

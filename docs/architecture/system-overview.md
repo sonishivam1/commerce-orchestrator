@@ -1,53 +1,42 @@
 # System Overview
 
-## Purpose
-The Commerce Data Orchestration Platform is a multi-tenant SaaS integration bus designed to extract, normalize, and load high-volume e-commerce data across different platforms (commercetools, Shopify, BigCommerce) and origins (web scraping, file uploads).
+Commerce Data Orchestrator is a specialized data migration platform focused on reliably moving commerce data between systems.
 
-## The Core Concept: The Universal Canonical Contract
-The system operates on an ETL (Extract, Transform, Load) paradigm built around a **Universal Canonical Contract**. Connectors (the spokes) do not communicate directly with each other. They only speak the "Canonical Language" (the hub).
-* An Input Spoke (API Source, or Scraper) transforms its proprietary format into a `CanonicalProduct`.
-* An Output Spoke (Target API) takes a `CanonicalProduct` and transforms it into its proprietary mutation payload.
+## The MVP Scope
+The initial MVP boundary is strictly limited to:
+- **Source**: commercetools
+- **Target**: Shopify
+- **Entities**: Categories, Products, Customers, Orders
 
-## Architecture
+## High-Level Architecture
+The architecture is designed to be a simple, one-way pipeline without complex workflow engines or generic abstractions.
 
 ```mermaid
-flowchart LR
-    Web[Next.js App Router]
-    API[NestJS API]
-    Mongo[(MongoDB Atlas)]
-    Redis[(Redis Queue + Mutex)]
-    Worker[NestJS Worker Clusters]
-    Orch[Orchestrator Layer]
-    Ing[Ingestion Layer]
-    Norm[Normalization Layer]
-    Map[Mapping Layer]
-    Val[Validate]
-    Canon[Canonical Contract v1]
-    Core[Core Engine]
-    Dep[Deployment Layer]
-    Target[(Target Store)]
-
-    Web -->|Job Trigger| API
-    API -->|Job State| Mongo
-    API -->|Enqueue Work + Mutex Lock| Redis
-
-    Worker -->|Pull Job| Redis
-    Worker -->|Delegates to| Orch
-
-    Orch -->|Injects Context| Ing
-    Ing --> Norm
-    Norm --> Map
-    Map --> Val
-    Val --> Canon
-    Canon --> Core
-    Core --> Dep
-    Dep -.->|Upserts| Target
+graph TD
+    A[Web UI] --> B[API (Control Plane)]
+    B --> C[Migration Orchestrator]
+    C --> D[Redis Queue (BullMQ)]
+    D --> E[ETL Worker]
+    
+    subgraph "ETL Worker Pipeline"
+        E --> F[Source Connector]
+        F --> G[Normalize]
+        G --> H[Canonical Model]
+        H --> I[Map]
+        I --> J[Validate]
+        J --> K[Target Connector]
+        K --> L[Identity Mapping]
+    end
+    
+    L --> M[Reconciliation]
 ```
 
-## Layer Separation
-- **Client Layer**: Pure presentation. React Server components securely fetch state.
-- **Control Plane**: Stateless, synchronous. Ensures `tenantId` is applied and valid. Encrypts credentials.
-- **Worker Plane**: Heavy computation. Stateless and horizontally scalable. Runs core pipelines.
-- **Orchestrator Layer**: Wires disparate systems together securely.
-- **Pipeline Runtime**: Holds Ingestion, Mapping, deployment logic isolated physically from Worker Plane.
-- **Shared State Layer**: Source of truth (Jobs state, credentials, Distributed Redlock queues).
+### Components
+1. **Web**: Next.js App Router for user control.
+2. **API**: NestJS GraphQL control plane.
+3. **Migration Orchestrator**: Submits migration jobs to the queue.
+4. **Queue**: Redis + BullMQ for asynchronous task execution.
+5. **ETL Worker**: Processes jobs in batches using the ETL Engine.
+6. **ETL Engine**: The core pipeline that connects Source to Target via Canonical normalization and mapping.
+7. **Identity Mapping**: Tracks entity ID changes across platforms.
+8. **Reconciliation**: Verifies success and data parity post-migration.
