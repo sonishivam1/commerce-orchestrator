@@ -6,7 +6,8 @@
         "build": "nest build",
         "dev": "nest start --watch",
         "start": "node dist/main.js",
-        "lint": "tsc --noEmit"
+        "lint": "tsc --noEmit",
+        "test": "jest"
     },
     "dependencies": {
         "@apollo/server": "^4.9.0",
@@ -41,6 +42,9 @@
     },
     "devDependencies": {
         "@nestjs/cli": "^10.0.0",
+        "@types/jest": "^30.0.0",
+        "jest": "^30.3.0",
+        "ts-jest": "^29.4.6",
         "@swc/cli": "^0.8.0",
         "@swc/core": "^1.15.18",
         "@swc/helpers": "^0.5.19",
