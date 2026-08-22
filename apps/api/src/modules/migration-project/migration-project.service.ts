@@ -262,4 +262,9 @@ export class MigrationProjectService {
         await this.findOne(tenantId, migrationProjectId);
         return this.reportRepository.findAllForProject(tenantId, migrationProjectId);
     }
+
+    /** Most recent N runs across all projects for the tenant (for the dashboard). */
+    async findRecentRuns(tenantId: string, limit: number) {
+        return this.runRepository.findRecentForTenant(tenantId, Math.min(limit, 20));
+    }
 }

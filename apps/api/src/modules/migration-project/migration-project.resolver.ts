@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { GqlAuthGuard, CurrentTenant, TenantContext } from '@cdo/auth';
 import { MigrationProjectService } from './migration-project.service';
@@ -76,6 +76,17 @@ export class MigrationProjectResolver {
     }
 
     // ── MigrationRun Queries ───────────────────────────────────────────────────
+
+    @Query(() => [MigrationRunType], {
+        description: 'Get the most recent migration runs across all projects for the tenant.',
+    })
+    @UseGuards(GqlAuthGuard)
+    recentMigrationRuns(
+        @Args('limit', { type: () => Int, defaultValue: 10 }) limit: number,
+        @CurrentTenant() tenant: TenantContext,
+    ) {
+        return this.service.findRecentRuns(tenant.tenantId, limit);
+    }
 
     @Query(() => [MigrationRunType], {
         description: 'List all runs for a migration project, newest first.',

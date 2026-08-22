@@ -33,6 +33,30 @@ export const GET_MIGRATION_PROJECT = gql`
   }
 `;
 
+// ── Recent Runs (dashboard) ─────────────────────────────────────────────────
+
+export const GET_RECENT_MIGRATION_RUNS = gql`
+  query GetRecentMigrationRuns($limit: Int) {
+    recentMigrationRuns(limit: $limit) {
+      id
+      migrationProjectId
+      status
+      dryRun
+      processedCount
+      failedCount
+      waves {
+        entityType
+        status
+        processedCount
+        failedCount
+      }
+      startedAt
+      completedAt
+      createdAt
+    }
+  }
+`;
+
 // ── Migration Runs ──────────────────────────────────────────────────────────
 
 export const GET_MIGRATION_RUNS = gql`

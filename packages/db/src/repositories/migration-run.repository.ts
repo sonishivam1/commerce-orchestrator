@@ -26,6 +26,18 @@ export class MigrationRunRepository {
             .exec();
     }
 
+    /** Most recent N runs across all projects for a tenant, newest first */
+    async findRecentForTenant(
+        tenantId: string,
+        limit: number,
+    ): Promise<MigrationRunDocument[]> {
+        return this.model
+            .find({ tenantId })
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .exec();
+    }
+
     async findOneForTenant(
         tenantId: string,
         id: string,
