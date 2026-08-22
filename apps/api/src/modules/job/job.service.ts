@@ -8,21 +8,24 @@ import { JobKind } from './dto/job.type';
 @Injectable()
 export class JobService {
     constructor(
-        private readonly jobRepository: JobRepository,
-        private readonly dlqRepository: DlqRepository,
-        private readonly jobProducer: JobProducer,
+        private readonly jobRepository:        JobRepository,
+        private readonly dlqRepository:        DlqRepository,
+        private readonly jobProducer:          JobProducer,
         private readonly credentialRepository: CredentialRepository,
     ) {}
 
+    // ── Credential guard ────────────────────────────────────────────────────
+
     /**
-     * Verifies that the named credential exists and belongs to tenantId.
-     * Throws ForbiddenException in both cases (missing or wrong tenant) so
-     * callers cannot infer whether a credential exists from the error type.
+     * Throws ForbiddenException (never NotFoundException) when the credential
+     * is missing or belongs to a different tenant. Using ForbiddenException
+     * rather than NotFoundException is deliberate — it avoids leaking whether
+     * a given credential ID exists in the system at all.
      */
     private async assertCredentialOwnership(
-        tenantId: string,
+        tenantId:     string,
         credentialId: string,
-        role: 'source' | 'target',
+        role:         'source' | 'target',
     ): Promise<void> {
         const cred = await this.credentialRepository.findOneForTenant(tenantId, credentialId);
         if (!cred) {
@@ -31,6 +34,8 @@ export class JobService {
             );
         }
     }
+
+    // ── Public API ──────────────────────────────────────────────────────────
 
     async findAll(tenantId: string) {
         return this.jobRepository.findAllForTenant(tenantId);
@@ -45,6 +50,7 @@ export class JobService {
     async create(tenantId: string, input: CreateJobInput) {
         const isScrapeJob = input.kind === JobKind.SCRAPE_IMPORT;
 
+        // ── Input validation ────────────────────────────────────────────────
         if (isScrapeJob && !input.sourceUrl) {
             throw new BadRequestException('sourceUrl is required for SCRAPE_IMPORT jobs');
         }
@@ -56,7 +62,9 @@ export class JobService {
             throw new BadRequestException('targetCredentialId is required for migration/clone jobs');
         }
 
-        // Ownership checks — before any state mutation (no job doc, no enqueue on denial)
+        // ── Credential ownership check (BEFORE any DB writes) ───────────────
+        // Verifying ownership before creating the Job document means a tenant
+        // can never anchor a job to credentials it doesn't own, even transiently.
         if (input.sourceCredentialId) {
             await this.assertCredentialOwnership(tenantId, input.sourceCredentialId, 'source');
         }
@@ -64,20 +72,21 @@ export class JobService {
             await this.assertCredentialOwnership(tenantId, input.targetCredentialId, 'target');
         }
 
+        // ── Create job ──────────────────────────────────────────────────────
         const correlationId = randomUUID();
-        const traceId = randomUUID();
+        const traceId       = randomUUID();
 
         const entityTypes = input.entityTypes?.length ? input.entityTypes : ['PRODUCTS'];
 
         const jobDoc = await this.jobRepository.create({
             tenantId,
-            kind: input.kind,
-            status: 'PENDING',
+            kind:               input.kind,
+            status:             'PENDING',
             traceId,
             correlationId,
             sourceCredentialId: input.sourceCredentialId,
             targetCredentialId: input.targetCredentialId ?? undefined,
-            sourceUrl: input.sourceUrl ?? undefined,
+            sourceUrl:          input.sourceUrl ?? undefined,
             entityTypes,
         });
 
@@ -89,8 +98,8 @@ export class JobService {
                 tenantId,
                 correlationId,
                 traceId,
-                kind: 'SCRAPE_IMPORT',
-                sourceUrl: input.sourceUrl!,
+                kind:              'SCRAPE_IMPORT',
+                sourceUrl:         input.sourceUrl!,
                 targetCredentialId: input.targetCredentialId!,
             });
         } else {
@@ -99,7 +108,7 @@ export class JobService {
                 tenantId,
                 correlationId,
                 traceId,
-                kind: input.kind as 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT',
+                kind:              input.kind as 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT',
                 sourceCredentialId: input.sourceCredentialId!,
                 targetCredentialId: input.targetCredentialId!,
                 entityTypes,
@@ -113,7 +122,9 @@ export class JobService {
         const job = await this.jobRepository.findOneForTenant(tenantId, id);
         if (!job) throw new NotFoundException(`Job ${id} not found`);
         if (job.status === 'RUNNING') {
-            throw new BadRequestException('Cannot delete a RUNNING job. Wait for it to complete or fail.');
+            throw new BadRequestException(
+                'Cannot delete a RUNNING job. Wait for it to complete or fail.',
+            );
         }
         return this.jobRepository.delete(tenantId, id);
     }
@@ -132,8 +143,10 @@ export class JobService {
         const parentJob = await this.jobRepository.findOneForTenant(tenantId, jobId);
         if (!parentJob) throw new NotFoundException(`Parent job ${jobId} not found`);
 
-        // Defense-in-depth: re-validate ownership of credentials from the stored parent job
-        // (credentials stored at job-creation time may now belong to another tenant)
+        // ── Re-validate credential ownership at replay time (defense-in-depth) ─
+        // Credentials can be deleted or re-assigned after a job was created.
+        // Re-checking prevents a tenant from replaying a job whose credentials
+        // are no longer accessible to it.
         if (parentJob.sourceCredentialId) {
             await this.assertCredentialOwnership(tenantId, parentJob.sourceCredentialId, 'source');
         }
@@ -143,24 +156,26 @@ export class JobService {
 
         if (parentJob.kind === 'SCRAPE_IMPORT') {
             if (!parentJob.sourceUrl) {
-                throw new BadRequestException(`Cannot replay: parent job ${jobId} has no sourceUrl`);
+                throw new BadRequestException(
+                    `Cannot replay: parent job ${jobId} has no sourceUrl`,
+                );
             }
             await this.jobProducer.enqueueScrapeJob({
-                jobId: dlqItem.jobId,
+                jobId:              dlqItem.jobId,
                 tenantId,
-                correlationId: randomUUID(),
-                traceId: randomUUID(),
-                kind: 'SCRAPE_IMPORT',
-                sourceUrl: parentJob.sourceUrl,
+                correlationId:      randomUUID(),
+                traceId:            randomUUID(),
+                kind:               'SCRAPE_IMPORT',
+                sourceUrl:          parentJob.sourceUrl,
                 targetCredentialId: parentJob.targetCredentialId!,
             });
         } else {
             await this.jobProducer.enqueueEtlJob({
-                jobId: dlqItem.jobId,
+                jobId:              dlqItem.jobId,
                 tenantId,
-                correlationId: randomUUID(),
-                traceId: randomUUID(),
-                kind: parentJob.kind as 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT',
+                correlationId:      randomUUID(),
+                traceId:            randomUUID(),
+                kind:               parentJob.kind as 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT',
                 sourceCredentialId: parentJob.sourceCredentialId!,
                 targetCredentialId: parentJob.targetCredentialId!,
             });

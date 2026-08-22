@@ -16,6 +16,8 @@ import { MigrationProjectModule } from './modules/migration-project/migration-pr
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TraceInterceptor } from './common/interceptors/trace.interceptor';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
+import { RedisThrottlerModule } from './common/storage/redis-throttler.module';
+import { RedisThrottlerStorage } from './common/storage/redis-throttler.storage';
 
 /**
  * Root application module.
@@ -35,16 +37,26 @@ import { RateLimitGuard } from './common/guards/rate-limit.guard';
     imports: [
         ConfigModule.forRoot({
             isGlobal: true,
-            envFilePath: ['.env'],
+            // Search order (first match wins):
+            //   1. ".env"      — found when CWD is the workspace root (Turborepo default)
+            //   2. "../../.env" — found when CWD is apps/api (direct nest start)
+            // Both paths point to the same root .env file.
+            envFilePath: ['.env', '../../.env'],
         }),
-        ThrottlerModule.forRoot([
-            {
-                // 100 requests per 60 seconds per client IP
-                name: 'default',
-                ttl: 60_000,
-                limit: 100,
-            },
-        ]),
+        ThrottlerModule.forRootAsync({
+            // RedisThrottlerModule provides + exports RedisThrottlerStorage
+            imports: [RedisThrottlerModule],
+            inject:  [RedisThrottlerStorage],
+            useFactory: (storage: RedisThrottlerStorage) => ({
+                // 100 requests per 60 seconds per tenant (or per IP for
+                // unauthenticated endpoints). Redis-backed so limits are
+                // shared across all API replicas.
+                storage,
+                throttlers: [
+                    { name: 'default', ttl: 60_000, limit: 100 },
+                ],
+            }),
+        }),
         GraphQLModule.forRoot<ApolloDriverConfig>({
             driver: ApolloDriver,
             autoSchemaFile: true,

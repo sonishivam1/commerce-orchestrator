@@ -48,12 +48,16 @@
 }
 
 @layer base {
-  * { 
-    @apply border-border; 
+  * {
+    @apply border-border;
   }
-  body { 
-    @apply bg-background text-foreground tracking-tight antialiased; 
+  body {
+    @apply bg-background text-foreground tracking-tight antialiased;
+    font-family: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  code, kbd, pre, [class*="font-mono"] {
+    font-family: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', monospace;
   }
   
   /* Custom scrollbar for sleeker look */

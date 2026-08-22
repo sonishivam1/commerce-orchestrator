@@ -4,7 +4,7 @@ import { ApolloWrapper } from '@/lib/graphql/apollo-wrapper';
 
 export const metadata: Metadata = {
     title: 'Commerce Orchestrator',
-    description: 'Multi-tenant commerce data migration and synchronization platform',
+    description: 'Multi-tenant commerce data migration and synchronisation platform',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -12,8 +12,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang="en" suppressHydrationWarning>
             <head>
                 {/*
-                 * Space Grotesk (display/UI headings) + IBM Plex Mono (data/code) loaded
-                 * directly from Google Fonts with a preconnect hint for performance.
+                 * Space Grotesk — headings & UI labels
+                 * IBM Plex Mono — data, IDs, code snippets
+                 * Loaded directly from Google Fonts with a preconnect hint for performance.
                  */}
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

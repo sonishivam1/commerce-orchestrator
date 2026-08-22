@@ -47,30 +47,32 @@ const mockCredentialRepository = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const TENANT = 'tenant-a';
+const TENANT       = 'tenant-a';
 const OTHER_TENANT = 'tenant-b';
 
 function buildService(): JobService {
     return new JobService(
-        mockJobRepository as any,
-        mockDlqRepository as any,
-        mockJobProducer  as any,
+        mockJobRepository        as any,
+        mockDlqRepository        as any,
+        mockJobProducer          as any,
         mockCredentialRepository as any,
     );
 }
 
 /** Minimal credential document owned by TENANT */
-const ownedCred = (id: string) => ({ _id: id, tenantId: TENANT, platform: 'SHOPIFY', alias: 'my-shop' });
+const ownedCred = (id: string) => ({
+    _id: id, tenantId: TENANT, platform: 'SHOPIFY', alias: 'my-shop',
+});
 
 /** Minimal job document created in the happy path */
 const fakeJobDoc = (id = 'job-1') => ({
-    _id: id,
-    tenantId: TENANT,
-    kind: 'CROSS_PLATFORM_MIGRATION',
-    status: 'PENDING',
-    sourceCredentialId: 'src-cred-1',
-    targetCredentialId: 'tgt-cred-1',
-    entityTypes: ['PRODUCTS'],
+    _id:               id,
+    tenantId:          TENANT,
+    kind:              'CROSS_PLATFORM_MIGRATION',
+    status:            'PENDING',
+    sourceCredentialId:'src-cred-1',
+    targetCredentialId:'tgt-cred-1',
+    entityTypes:       ['PRODUCTS'],
 });
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
@@ -96,10 +98,10 @@ describe('JobService.create() — credential ownership', () => {
         const svc = buildService();
         await expect(
             svc.create(TENANT, {
-                kind: 'CROSS_PLATFORM_MIGRATION',
-                sourceCredentialId: 'src-cred-1',
-                targetCredentialId: 'tgt-cred-1',
-                entityTypes: ['PRODUCTS'],
+                kind:              'CROSS_PLATFORM_MIGRATION',
+                sourceCredentialId:'src-cred-1',
+                targetCredentialId:'tgt-cred-1',
+                entityTypes:       ['PRODUCTS'],
             } as any),
         ).resolves.toBeDefined();
 
@@ -114,10 +116,10 @@ describe('JobService.create() — credential ownership', () => {
         const svc = buildService();
         await expect(
             svc.create(TENANT, {
-                kind: 'CROSS_PLATFORM_MIGRATION',
-                sourceCredentialId: 'other-tenant-src',
-                targetCredentialId: 'tgt-cred-1',
-                entityTypes: ['PRODUCTS'],
+                kind:              'CROSS_PLATFORM_MIGRATION',
+                sourceCredentialId:'other-tenant-src',
+                targetCredentialId:'tgt-cred-1',
+                entityTypes:       ['PRODUCTS'],
             } as any),
         ).rejects.toBeInstanceOf(ForbiddenException);
 
@@ -131,10 +133,10 @@ describe('JobService.create() — credential ownership', () => {
         const svc = buildService();
         await expect(
             svc.create(TENANT, {
-                kind: 'CROSS_PLATFORM_MIGRATION',
-                sourceCredentialId: 'nonexistent-cred',
-                targetCredentialId: 'tgt-cred-1',
-                entityTypes: ['PRODUCTS'],
+                kind:              'CROSS_PLATFORM_MIGRATION',
+                sourceCredentialId:'nonexistent-cred',
+                targetCredentialId:'tgt-cred-1',
+                entityTypes:       ['PRODUCTS'],
             } as any),
         ).rejects.toBeInstanceOf(ForbiddenException);
 
@@ -149,10 +151,10 @@ describe('JobService.create() — credential ownership', () => {
         const svc = buildService();
         await expect(
             svc.create(TENANT, {
-                kind: 'CROSS_PLATFORM_MIGRATION',
-                sourceCredentialId: 'src-cred-1',
-                targetCredentialId: 'other-tenant-tgt',
-                entityTypes: ['PRODUCTS'],
+                kind:              'CROSS_PLATFORM_MIGRATION',
+                sourceCredentialId:'src-cred-1',
+                targetCredentialId:'other-tenant-tgt',
+                entityTypes:       ['PRODUCTS'],
             } as any),
         ).rejects.toBeInstanceOf(ForbiddenException);
 
@@ -167,10 +169,10 @@ describe('JobService.create() — credential ownership', () => {
 
         const svc = buildService();
         const result = await svc.create(TENANT, {
-            kind: 'CROSS_PLATFORM_MIGRATION',
-            sourceCredentialId: 'src-cred-1',
-            targetCredentialId: 'tgt-cred-1',
-            entityTypes: ['PRODUCTS', 'CATEGORIES'],
+            kind:              'CROSS_PLATFORM_MIGRATION',
+            sourceCredentialId:'src-cred-1',
+            targetCredentialId:'tgt-cred-1',
+            entityTypes:       ['PRODUCTS', 'CATEGORIES'],
         } as any);
 
         expect(result).toBeDefined();
@@ -184,16 +186,16 @@ describe('JobService.create() — credential ownership', () => {
         mockCredentialRepository.findOneForTenant.mockResolvedValueOnce(ownedCred('tgt-cred-1'));
         mockJobRepository.create.mockResolvedValue({
             ...fakeJobDoc(),
-            kind: 'SCRAPE_IMPORT',
-            sourceUrl: 'https://example.com',
+            kind:              'SCRAPE_IMPORT',
+            sourceUrl:         'https://example.com',
             sourceCredentialId: undefined,
         });
 
         const svc = buildService();
         await svc.create(TENANT, {
-            kind: 'SCRAPE_IMPORT',
-            sourceUrl: 'https://example.com',
-            targetCredentialId: 'tgt-cred-1',
+            kind:              'SCRAPE_IMPORT',
+            sourceUrl:         'https://example.com',
+            targetCredentialId:'tgt-cred-1',
         } as any);
 
         // findOneForTenant called exactly once (target only)
@@ -209,9 +211,9 @@ describe('JobService.create() — credential ownership', () => {
         let thrown: unknown;
         try {
             await svc.create(TENANT, {
-                kind: 'CROSS_PLATFORM_MIGRATION',
-                sourceCredentialId: 'src-cred-1',
-                targetCredentialId: 'tgt-cred-1',
+                kind:              'CROSS_PLATFORM_MIGRATION',
+                sourceCredentialId:'src-cred-1',
+                targetCredentialId:'tgt-cred-1',
             } as any);
         } catch (err) {
             thrown = err;
@@ -227,19 +229,19 @@ describe('JobService.create() — credential ownership', () => {
 describe('JobService.replayDlqItem() — credential ownership re-validation', () => {
 
     const dlqItem = {
-        _id: 'dlq-1',
-        jobId: 'job-1',
-        replayed: false,
+        _id:      'dlq-1',
+        jobId:    'job-1',
+        replayed:  false,
         canReplay: true,
-        tenantId: TENANT,
+        tenantId:  TENANT,
     };
 
     const parentJobEtl = {
-        _id: 'job-1',
-        tenantId: TENANT,
-        kind: 'CROSS_PLATFORM_MIGRATION',
-        sourceCredentialId: 'src-cred-1',
-        targetCredentialId: 'tgt-cred-1',
+        _id:               'job-1',
+        tenantId:          TENANT,
+        kind:              'CROSS_PLATFORM_MIGRATION',
+        sourceCredentialId:'src-cred-1',
+        targetCredentialId:'tgt-cred-1',
     };
 
     it('[7] stored source credential now owned by another tenant → ForbiddenException, no re-enqueue', async () => {
@@ -265,7 +267,7 @@ describe('JobService.replayDlqItem() — credential ownership re-validation', ()
             .mockResolvedValueOnce(ownedCred('tgt-cred-1')); // target passes
         mockDlqRepository.markReplayed.mockResolvedValue(undefined);
 
-        const svc = buildService();
+        const svc    = buildService();
         const result = await svc.replayDlqItem(TENANT, 'job-1', 'dlq-1');
 
         expect(result).toBeDefined();

@@ -64,21 +64,32 @@ const REPOSITORIES = [
  * If missing, initializes a virtual in-memory MongoDB server for development.
  */
 async function getMongoUri(): Promise<string> {
-    const uri = process.env['MONGODB_URI'];
+    const raw = process.env['MONGODB_URI'];
 
-    if (!uri) {
+    if (!raw) {
         const logger = new Logger('DatabaseModule');
         logger.warn('MONGODB_URI not set. Initializing Virtual MongoDB (MongoMemoryServer)');
         // Defer load to avoid overhead if not needed
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { MongoMemoryServer } = require('mongodb-memory-server');
         const mongod = await MongoMemoryServer.create({
-            instance: {
-                dbName: 'cdo-db',
-            },
+            instance: { dbName: 'cdo-db' },
         });
-        const mockUri = mongod.getUri();
-        return mockUri;
+        return mongod.getUri();
+    }
+
+    // Guard against the common copy-paste mistake where the value itself
+    // starts with "MONGODB_URI=", e.g. MONGODB_URI=MONGODB_URI=mongodb+srv://...
+    // This happens when the whole "KEY=VALUE" line is pasted as the value.
+    const uri = raw.startsWith('MONGODB_URI=') ? raw.slice('MONGODB_URI='.length) : raw;
+
+    if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
+        throw new Error(
+            `[DatabaseModule] MONGODB_URI does not look like a valid MongoDB connection string.\n` +
+            `  Received: "${uri.slice(0, 60)}..."\n` +
+            `  Expected it to start with "mongodb://" or "mongodb+srv://"\n` +
+            `  Check your root .env file — the value must be only the URI, not "MONGODB_URI=<URI>".`,
+        );
     }
 
     return uri;

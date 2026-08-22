@@ -49,7 +49,8 @@ function getJwtConfig(): { secret: string; signOptions: { expiresIn: string } } 
         );
     }
 
-    const expiresIn = process.env.JWT_EXPIRES_IN ?? DEFAULT_TOKEN_EXPIRY;
+    // Accept either JWT_EXPIRES_IN (canonical) or JWT_EXPIRY (common alias)
+    const expiresIn = process.env.JWT_EXPIRES_IN ?? process.env.JWT_EXPIRY ?? DEFAULT_TOKEN_EXPIRY;
 
     return { secret, signOptions: { expiresIn } };
 }

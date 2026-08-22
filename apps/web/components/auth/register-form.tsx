@@ -5,22 +5,23 @@ import { useMutation } from '@apollo/client';
 import { CREATE_TENANT } from '@/lib/graphql/mutations';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, Eye, EyeOff, Mail, Lock, Users, ShieldCheck } from 'lucide-react';
+import { Loader2, Eye, EyeOff, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export function RegisterForm() {
     const router = useRouter();
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [errorMsg, setErrorMsg] = useState('');
+
+    const [name, setName]            = useState('');
+    const [email, setEmail]          = useState('');
+    const [password, setPassword]    = useState('');
+    const [showPassword, setShowPwd] = useState(false);
+    const [errorMsg, setErrorMsg]    = useState('');
 
     const [createTenant, { loading }] = useMutation(CREATE_TENANT, {
         onCompleted() {
-            router.push('/login');
+            router.push('/login?registered=1');
         },
         onError(error) {
-            setErrorMsg(error.message);
+            setErrorMsg(error.message.replace(/^GraphQL error:\s*/i, ''));
         },
     });
 
@@ -31,89 +32,102 @@ export function RegisterForm() {
     };
 
     return (
-        <div className="flex flex-col w-full">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-400/80 ml-1">Workspace / Team Name</label>
-                    <div className="relative group/input">
-                        <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within/input:text-primary transition-colors" />
-                        <input
-                            type="text"
-                            required
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Acme Corp."
-                            className="w-full bg-[#0F172A]/80 border border-white/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm text-white placeholder-slate-600 hover:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-2xl"
-                        />
-                    </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+
+            {/* Workspace name */}
+            <div className="space-y-1.5">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-white/40">
+                    Workspace name
+                </label>
+                <input
+                    type="text"
+                    required
+                    autoComplete="organization"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Acme Corp"
+                    className="w-full bg-white/[0.04] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 hover:border-white/[0.12] focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+                />
+            </div>
+
+            {/* Email */}
+            <div className="space-y-1.5">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-white/40">
+                    Admin email
+                </label>
+                <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    className="w-full bg-white/[0.04] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 hover:border-white/[0.12] focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+                />
+            </div>
+
+            {/* Password */}
+            <div className="space-y-1.5">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-white/40">
+                    Password
+                </label>
+                <div className="relative">
+                    <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        autoComplete="new-password"
+                        minLength={8}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Min. 8 characters"
+                        className="w-full bg-white/[0.04] border border-white/8 rounded-xl px-4 pr-11 py-3 text-sm text-white placeholder-white/20 hover:border-white/[0.12] focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPwd(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors p-1"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                 </div>
+            </div>
 
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-400/80 ml-1">Admin Email Address</label>
-                    <div className="relative group/input">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within/input:text-primary transition-colors" />
-                        <input
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="hello@example.com"
-                            className="w-full bg-[#0F172A]/80 border border-white/5 rounded-2xl pl-11 pr-4 py-3.5 text-sm text-white placeholder-slate-600 hover:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-2xl"
-                        />
-                    </div>
+            {/* Error */}
+            {errorMsg && (
+                <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>{errorMsg}</span>
                 </div>
+            )}
 
-                <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-400/80 ml-1">Secure Password</label>
-                    <div className="relative group/input">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within/input:text-primary transition-colors" />
-                        <input
-                            type={showPassword ? "text" : "password"}
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            className="w-full bg-[#0F172A]/80 border border-white/5 rounded-2xl pl-11 pr-12 py-3.5 text-sm text-white placeholder-slate-600 hover:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-2xl"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-1"
-                        >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                    </div>
-                </div>
+            {/* Encryption notice */}
+            <div className="flex items-center gap-3 bg-emerald-500/[0.06] border border-emerald-500/[0.12] rounded-xl px-4 py-3">
+                <ShieldCheck className="h-4 w-4 text-emerald-500/70 shrink-0" />
+                <p className="text-xs text-white/30 leading-relaxed">
+                    All credentials are AES-256-GCM encrypted at rest.
+                    Your password is never stored in plain text.
+                </p>
+            </div>
 
-                {errorMsg && (
-                    <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3.5 text-[13px] text-red-400 font-medium animate-in fade-in slide-in-from-top-1">
-                        {errorMsg}
-                    </div>
-                )}
+            {/* Submit */}
+            <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-1 bg-primary hover:bg-primary/90 disabled:bg-primary/40 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-sm font-semibold tracking-wide transition-all flex justify-center items-center gap-2 shadow-lg shadow-primary/20"
+            >
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {loading ? 'Creating workspace…' : 'Create account'}
+            </button>
 
-                <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-4 flex items-center gap-3">
-                    <ShieldCheck className="h-5 w-5 text-emerald-500 shrink-0" />
-                    <p className="text-[11px] text-emerald-500/80 font-medium leading-tight">
-                        By joining, you agree to our terms and the deployment of encrypted telemetry nodes within your VPC.
-                    </p>
-                </div>
+            {/* Login link */}
+            <p className="text-center text-sm text-white/30">
+                Already have an account?{' '}
+                <Link href="/login" className="text-primary hover:text-primary/80 font-semibold transition-colors">
+                    Sign in
+                </Link>
+            </p>
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full mt-2 bg-primary hover:bg-primary/90 text-white rounded-2xl px-4 py-4 text-[15px] font-extrabold tracking-tight transition-all glow-btn shadow-lg shadow-primary/25 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center overflow-hidden hover:scale-[1.02] active:scale-95"
-                >
-                    {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-                    {loading ? 'Initializing Workspace...' : 'Create Account'}
-                </button>
-
-                <div className="text-center mt-6 text-sm font-medium text-slate-400">
-                    Already an orchestrator?{' '}
-                    <Link href="/login" className="text-primary hover:underline font-bold transition-all">
-                        Sign In
-                    </Link>
-                </div>
-            </form>
-        </div>
+        </form>
     );
 }
