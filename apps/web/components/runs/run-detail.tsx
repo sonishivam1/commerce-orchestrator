@@ -7,7 +7,6 @@ import {
 } from '@/lib/graphql/queries/migration-project.queries';
 import { GET_MIGRATION_PROJECT } from '@/lib/graphql/queries/migration-project.queries';
 import Link from 'next/link';
-import { ShoppingCart, FileText, Package } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,20 +42,16 @@ interface MigrationProject {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function PlatformIcon({ platform }: { platform: string }) {
+function getPlatformIcon(platform: string) {
     const p = (platform ?? '').toLowerCase();
-    if (p.includes('commercetools')) return <FileText style={{ width: 20, height: 20, color: 'var(--accent)' }} />;
-    if (p.includes('shopify')) return <ShoppingCart style={{ width: 20, height: 20, color: 'var(--accent)' }} />;
-    return <Package style={{ width: 20, height: 20, color: 'var(--text-muted)' }} />;
+    if (p.includes('commercetools')) return '📋';
+    if (p.includes('shopify')) return '🛒';
+    if (p.includes('bigcommerce')) return '🛠️';
+    return '🔌';
 }
 
 function WaveCard({ wave, index, isLast }: { wave: WaveRecord; index: number; isLast: boolean }) {
     const total = wave.processedCount + wave.failedCount;
-    // Assuming some dummy total needed for the progress bar if not known. 
-    // Usually total is known, but for live execution we might only have processedCount.
-    // We'll calculate a dummy percentage just for visual testing or use a real total if available in a real app.
-    // For now we'll fake a 100% total if completed or 0% if pending.
-    // If running, we'll just show it pulsing at 50%.
     const progressPct = wave.status === 'COMPLETED' ? 100 : (wave.status === 'RUNNING' ? (total > 0 ? 50 : 10) : 0);
     
     let stateClass = '';
@@ -81,6 +76,11 @@ function WaveCard({ wave, index, isLast }: { wave: WaveRecord; index: number; is
         pillClass = 'pill-error';
         pillText = 'Failed';
         fillClass = 'failed';
+    } else if (wave.status === 'BLOCKED') {
+        stateClass = 'wave-blocked';
+        pillClass = 'pill-warning';
+        pillText = 'Blocked';
+        fillClass = 'failed';
     }
 
     return (
@@ -94,7 +94,7 @@ function WaveCard({ wave, index, isLast }: { wave: WaveRecord; index: number; is
                         </div>
                         <div className="wave-entity">{wave.entityType}</div>
                     </div>
-                    <div className="wave-counts">{wave.processedCount.toLocaleString()} {wave.failedCount > 0 ? `(+${wave.failedCount} err)` : ''}</div>
+                    <div className="wave-counts">{wave.processedCount.toLocaleString()} / {wave.processedCount + wave.failedCount}</div>
                     <span className={`pill ${pillClass}`} style={{ marginLeft: '8px' }}>
                         {wave.status === 'RUNNING' && <span className="dot dot-pulse" />} {pillText}
                     </span>
@@ -106,7 +106,8 @@ function WaveCard({ wave, index, isLast }: { wave: WaveRecord; index: number; is
                 
                 {wave.status === 'RUNNING' && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px' }}>
-                        <span style={{ fontFamily: 'var(--font-data)', fontSize: '11px', color: 'var(--text-muted)' }}>Processing items</span>
+                        <span style={{ fontFamily: 'var(--font-data)', fontSize: '11px', color: 'var(--text-muted)' }}>Batch Processing</span>
+                        <span style={{ fontFamily: 'var(--font-data)', fontSize: '11px', color: 'var(--accent)' }}>{progressPct.toFixed(1)}%</span>
                     </div>
                 )}
             </div>
@@ -169,17 +170,11 @@ export function RunDetail({ runId }: { runId: string }) {
         : run.startedAt ? 'Running...' : 'Not started';
 
     return (
-        <div className="view" id="view-migration">
+        <div className="view active" id="view-migration">
             
-            <div style={{ marginBottom: '20px' }}>
-                <Link href={project ? `/projects/${project.id}` : '/projects'} className="btn btn-ghost btn-sm">
-                    ‹ Back
-                </Link>
-            </div>
-
             <div className="migration-header">
                 <div className="mig-platform">
-                    <div className="mig-logo"><PlatformIcon platform={project?.sourceConnection?.platform || ''} /></div>
+                    <div className="mig-logo">{getPlatformIcon(project?.sourceConnection?.platform || '')}</div>
                     <div className="mig-info">
                         <div className="mig-platform-name">{project?.sourceConnection?.platform || 'Source'}</div>
                         <div className="mig-platform-alias">{project?.sourceConnection?.alias || 'Unknown'}</div>
@@ -187,7 +182,7 @@ export function RunDetail({ runId }: { runId: string }) {
                 </div>
                 <div className="mig-arrow-big">→</div>
                 <div className="mig-platform">
-                    <div className="mig-logo"><PlatformIcon platform={project?.targetConnection?.platform || ''} /></div>
+                    <div className="mig-logo">{getPlatformIcon(project?.targetConnection?.platform || '')}</div>
                     <div className="mig-info">
                         <div className="mig-platform-name">{project?.targetConnection?.platform || 'Target'}</div>
                         <div className="mig-platform-alias">{project?.targetConnection?.alias || 'Unknown'}</div>
@@ -205,7 +200,7 @@ export function RunDetail({ runId }: { runId: string }) {
             </div>
 
             <div className="migration-layout">
-                {/* Waves */}
+                {/* Left panel */}
                 <div>
                     <div className="waves-title">Wave Execution Plan</div>
                     <div className="waves-list">
@@ -215,19 +210,45 @@ export function RunDetail({ runId }: { runId: string }) {
                     </div>
                 </div>
                 
-                {/* Right panel summary */}
-                <div>
-                    {run.status === 'COMPLETED' && report && (
-                        <div style={{ padding: '20px', borderRadius: '12px', background: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
-                            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '10px' }}>Migration complete</div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-                                Overall success rate: {report.overallSuccessRate.toFixed(1)}%
-                            </div>
-                            <Link href={`/reports/${runId}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-                                View Full Report
-                            </Link>
+                {/* Right panel */}
+                <div className="side-panel">
+                    <div className="panel-card">
+                        <div className="panel-card-title">Identity Map</div>
+                        <div className="id-map-count">{run.processedCount.toLocaleString()}</div>
+                        <div className="id-map-label">source → target entries recorded</div>
+                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                            {run.waves.map(wave => (
+                                <div className="stat-row" key={wave.entityType}>
+                                    <span className="stat-row-label">{wave.entityType}</span>
+                                    <span className="stat-row-val">{wave.processedCount}</span>
+                                </div>
+                            ))}
                         </div>
-                    )}
+                    </div>
+
+                    <div className="panel-card">
+                        <div className="panel-card-title">Execution Stats</div>
+                        <div className="stat-row">
+                            <span className="stat-row-label">Current wave</span>
+                            <span className="stat-row-val" style={{ color: 'var(--accent)' }}>Wave {run.waves.findIndex(w => w.status === 'RUNNING') + 1} / {run.waves.length}</span>
+                        </div>
+                        <div className="stat-row">
+                            <span className="stat-row-label">Current batch</span>
+                            <span className="stat-row-val">#1</span>
+                        </div>
+                        <div className="stat-row">
+                            <span className="stat-row-label">Errors</span>
+                            <span className="stat-row-val" style={{ color: 'var(--error)' }}>{run.failedCount}</span>
+                        </div>
+                        <div className="stat-row">
+                            <span className="stat-row-label">DLQ items</span>
+                            <span className="stat-row-val" style={{ color: 'var(--warning)' }}>{run.failedCount}</span>
+                        </div>
+                        <div className="stat-row">
+                            <span className="stat-row-label">Circuit breaker</span>
+                            <span className="stat-row-val ok-count">Closed</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

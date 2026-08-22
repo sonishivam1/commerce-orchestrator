@@ -228,7 +228,7 @@ export default function DlqPage() {
     };
 
     return (
-        <div className="view" id="view-dlq">
+        <div className="view active" id="view-dlq">
             <div className="section-header">
                 <div>
                     <div className="section-title">Dead Letter Queue</div>

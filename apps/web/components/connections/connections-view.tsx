@@ -4,13 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
 import { STORE_CREDENTIAL, DELETE_CREDENTIAL } from '@/lib/graphql/mutations';
-import {
-    Plus,
-    X,
-    Trash2,
-    Database,
-    ShoppingBag
-} from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -56,29 +50,38 @@ function ConnectionCard({
     onDelete: (id: string) => void;
 }) {
     const isShopify = credential.platform === 'SHOPIFY';
-    const Icon = isShopify ? ShoppingBag : Database;
+    const logo = isShopify ? '🛒' : credential.platform === 'BIGCOMMERCE' ? '🛠️' : '📋';
     
     return (
         <div className="conn-card">
             <div className="conn-header">
-                <div className="conn-icon">
-                    <Icon size={24} />
-                </div>
+                <div className="conn-logo">{logo}</div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div className="conn-status status-completed">Connected</div>
+                    <span className="pill pill-success"><span className="dot dot-pulse"></span> Active</span>
                     <button 
-                        className="btn btn-ghost" 
+                        className="btn btn-ghost btn-sm" 
                         style={{ padding: '4px', height: 'auto' }} 
                         onClick={() => onDelete(credential.id)}
                         title="Delete connection"
                     >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                     </button>
                 </div>
             </div>
-            <div className="conn-info">
-                <div className="conn-name">{credential.alias}</div>
-                <div className="conn-type">{credential.platform}</div>
+            <div className="conn-name">{credential.platform}</div>
+            <div className="conn-alias">{credential.alias}</div>
+            <hr className="conn-divider" />
+            <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '8px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Capabilities</div>
+            <div className="conn-caps">
+                <span className="cap-tag enabled">Products</span>
+                <span className="cap-tag enabled">Categories</span>
+                <span className="cap-tag enabled">Customers</span>
+                <span className="cap-tag enabled">Orders</span>
+                <span className="cap-tag enabled">Inventory</span>
+            </div>
+            <div className="conn-footer">
+                <span className="conn-count">Active connection</span>
+                <button className="btn btn-ghost btn-sm">Configure</button>
             </div>
         </div>
     );
@@ -132,14 +135,14 @@ function AddConnectionModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                     {error && (
-                        <div style={{ color: 'var(--status-failed)', marginBottom: '16px', fontSize: '0.875rem' }}>
+                        <div style={{ color: 'var(--error)', marginBottom: '16px', fontSize: '13px' }}>
                             {error}
                         </div>
                     )}
-                    <div className="form-group">
-                        <label className="form-label">Platform</label>
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Platform</label>
                         <select 
-                            className="form-select"
+                            style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
                             value={platform}
                             onChange={e => handlePlatformChange(e.target.value)}
                         >
@@ -150,22 +153,22 @@ function AddConnectionModal({ onClose }: { onClose: () => void }) {
                             ))}
                         </select>
                     </div>
-                    <div className="form-group">
-                        <label className="form-label">Connection Name</label>
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Connection Name</label>
                         <input 
                             type="text" 
-                            className="form-input" 
+                            style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
                             placeholder="e.g. Shopify Production" 
                             value={alias}
                             onChange={e => setAlias(e.target.value)}
                         />
                     </div>
                     {fields.map(key => (
-                        <div className="form-group" key={key}>
-                            <label className="form-label">{key.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}</label>
+                        <div className="form-group" key={key} style={{ marginBottom: '16px' }}>
+                            <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>{key.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}</label>
                             <input
                                 type={key.toLowerCase().includes('secret') || key.toLowerCase().includes('token') ? 'password' : 'text'}
-                                className="form-input"
+                                style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)' }}
                                 value={formData[key] ?? ''}
                                 onChange={e => setFormData(prev => ({ ...prev, [key]: e.target.value }))}
                                 placeholder={`Enter ${key}...`}
@@ -173,7 +176,7 @@ function AddConnectionModal({ onClose }: { onClose: () => void }) {
                         </div>
                     ))}
                 </div>
-                <div className="modal-footer">
+                <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
                     <button className="btn btn-ghost" onClick={onClose} type="button">Cancel</button>
                     <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
                         {loading ? 'Saving...' : 'Save Connection'}
@@ -203,11 +206,14 @@ export function ConnectionsView() {
     const credentials = data?.credentials ?? [];
 
     return (
-        <div className="view">
-            <div className="table-header">
-                <h2>Platform Connections</h2>
-                <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-                    <Plus size={16} />
+        <div className="view active" id="view-connections">
+            <div className="section-header">
+                <div>
+                    <div className="section-title">Connections</div>
+                    <div className="section-sub">Platform credentials with discovered capabilities</div>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '6px' }}><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
                     Add Connection
                 </button>
             </div>
@@ -215,14 +221,18 @@ export function ConnectionsView() {
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading connections...</div>
             ) : error ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--status-failed)' }}>Error: {error.message}</div>
-            ) : credentials.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No connections found. Add one to get started.</div>
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--error)' }}>Error: {error.message}</div>
             ) : (
                 <div className="conn-grid">
                     {credentials.map(c => (
                         <ConnectionCard key={c.id} credential={c} onDelete={handleDelete} />
                     ))}
+                    
+                    <div className="conn-card add-new" role="button" tabIndex={0} onClick={() => setShowModal(true)}>
+                        <div className="add-icon">+</div>
+                        <div className="add-text">Add Connection</div>
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-dim)', textAlign: 'center' }}>Shopify · Commercetools · BigCommerce · CSV · CRM</div>
+                    </div>
                 </div>
             )}
 

@@ -127,7 +127,7 @@ export default function SettingsPage() {
     const me = meData?.me;
 
     return (
-        <div className="view" id="view-settings">
+        <div className="view active" id="view-settings">
             <div className="section-header">
                 <div>
                     <div className="section-title">Settings</div>

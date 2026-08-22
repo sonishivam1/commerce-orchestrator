@@ -90,7 +90,7 @@ export function JobList() {
     const failed    = jobs.filter(j => j.status === 'FAILED').length;
 
     return (
-        <div className="view" id="view-jobs">
+        <div className="view active" id="view-jobs">
             <div className="section-header">
                 <div>
                     <div className="section-title">Background Jobs</div>
