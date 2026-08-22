@@ -87,9 +87,9 @@ function ConnectionCard({
     );
 }
 
-// ── Add Connection Modal ─────────────────────────────────────────────────────
+// ── Add Connection Form ──────────────────────────────────────────────────────
 
-function AddConnectionModal({ onClose }: { onClose: () => void }) {
+function AddConnectionForm({ onClose }: { onClose: () => void }) {
     const [platform, setPlatform] = useState('COMMERCETOOLS');
     const [alias, setAlias] = useState('');
     const [formData, setFormData] = useState<Record<string, string>>(
@@ -125,65 +125,66 @@ function AddConnectionModal({ onClose }: { onClose: () => void }) {
     const fields = PLATFORM_FIELDS[platform] ?? [];
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-4">
-            <div className="w-full max-w-md bg-[#0D1526] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="flex items-center justify-between px-6 py-5 border-b border-white/8 shrink-0">
-                    <div>
-                        <h2 className="text-base font-semibold text-white">Add New Connection</h2>
+        <div className="card" style={{ marginTop: '24px', maxWidth: '600px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px' }}>Add New Connection</h3>
+                <button className="btn btn-ghost" onClick={onClose} type="button" style={{ padding: '6px', height: 'auto' }}>
+                    <X size={18} />
+                </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {error && (
+                    <div style={{ color: 'var(--status-failed)', fontSize: '13px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                        {error}
                     </div>
-                    <button onClick={onClose} type="button" className="h-7 w-7 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer">
-                        <X size={16} />
-                    </button>
+                )}
+                
+                <div className="form-group">
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px', display: 'block', fontWeight: 500 }}>Platform</label>
+                    <select 
+                        style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '14px' }}
+                        value={platform}
+                        onChange={e => handlePlatformChange(e.target.value)}
+                    >
+                        {PLATFORM_OPTIONS.map(p => (
+                            <option key={p.value} value={p.value}>
+                                {p.label}
+                            </option>
+                        ))}
+                    </select>
                 </div>
-                <div className="p-6 space-y-4 overflow-y-auto min-h-0">
-                    {error && (
-                        <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                            {error}
-                        </div>
-                    )}
-                    <div className="space-y-1.5">
-                        <label className="text-[12px] font-medium text-slate-400">Platform</label>
-                        <select 
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            value={platform}
-                            onChange={e => handlePlatformChange(e.target.value)}
-                        >
-                            {PLATFORM_OPTIONS.map(p => (
-                                <option key={p.value} value={p.value} className="bg-slate-800 text-white">
-                                    {p.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="space-y-1.5">
-                        <label className="text-[12px] font-medium text-slate-400">Connection Name</label>
-                        <input 
-                            type="text" 
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            placeholder="e.g. Shopify Production" 
-                            value={alias}
-                            onChange={e => setAlias(e.target.value)}
+                
+                <div className="form-group">
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px', display: 'block', fontWeight: 500 }}>Connection Name</label>
+                    <input 
+                        type="text" 
+                        style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '14px' }}
+                        placeholder="e.g. Shopify Production" 
+                        value={alias}
+                        onChange={e => setAlias(e.target.value)}
+                    />
+                </div>
+                
+                {fields.map(key => (
+                    <div className="form-group" key={key}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px', display: 'block', fontWeight: 500 }}>{key.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}</label>
+                        <input
+                            type={key.toLowerCase().includes('secret') || key.toLowerCase().includes('token') ? 'password' : 'text'}
+                            style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '14px' }}
+                            value={formData[key] ?? ''}
+                            onChange={e => setFormData(prev => ({ ...prev, [key]: e.target.value }))}
+                            placeholder={`Enter ${key}...`}
                         />
                     </div>
-                    {fields.map(key => (
-                        <div className="space-y-1.5" key={key}>
-                            <label className="text-[12px] font-medium text-slate-400">{key.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase())}</label>
-                            <input
-                                type={key.toLowerCase().includes('secret') || key.toLowerCase().includes('token') ? 'password' : 'text'}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                value={formData[key] ?? ''}
-                                onChange={e => setFormData(prev => ({ ...prev, [key]: e.target.value }))}
-                                placeholder={`Enter ${key}...`}
-                            />
-                        </div>
-                    ))}
-                </div>
-                <div className="flex gap-3 px-6 py-5 border-t border-white/8 shrink-0 bg-[#0D1526]">
-                    <button className="flex-1 bg-white/5 border border-white/8 text-slate-300 font-medium py-2.5 rounded-xl text-sm hover:bg-white/8 transition-all cursor-pointer" onClick={onClose} type="button">Cancel</button>
-                    <button className="flex-[2] bg-primary hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-60" onClick={handleSubmit} disabled={loading}>
-                        {loading ? 'Saving...' : 'Save Connection'}
-                    </button>
-                </div>
+                ))}
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                <button className="btn btn-ghost" onClick={onClose} type="button">Cancel</button>
+                <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Connection'}
+                </button>
             </div>
         </div>
     );
@@ -192,7 +193,7 @@ function AddConnectionModal({ onClose }: { onClose: () => void }) {
 // ── Main View ────────────────────────────────────────────────────────────────
 
 export function ConnectionsView() {
-    const [showModal, setShowModal] = useState(false);
+    const [showForm, setShowForm] = useState(false);
     const { data, loading, error } = useQuery<{ credentials: Credential[] }>(GET_CREDENTIALS);
 
     const [deleteCredential] = useMutation(DELETE_CREDENTIAL, {
@@ -214,7 +215,7 @@ export function ConnectionsView() {
                     <div className="section-title">Connections</div>
                     <div className="section-sub">Platform credentials with discovered capabilities</div>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowForm(true)}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '6px' }}><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
                     Add Connection
                 </button>
@@ -230,7 +231,7 @@ export function ConnectionsView() {
                         <ConnectionCard key={c.id} credential={c} onDelete={handleDelete} />
                     ))}
                     
-                    <div className="conn-card add-new" role="button" tabIndex={0} onClick={() => setShowModal(true)}>
+                    <div className="conn-card add-new" role="button" tabIndex={0} onClick={() => setShowForm(true)}>
                         <div className="add-icon">+</div>
                         <div className="add-text">Add Connection</div>
                         <div style={{ fontSize: '11.5px', color: 'var(--text-dim)', textAlign: 'center' }}>Shopify · Commercetools · BigCommerce · CSV · CRM</div>
@@ -238,7 +239,7 @@ export function ConnectionsView() {
                 </div>
             )}
 
-            {showModal && <AddConnectionModal onClose={() => setShowModal(false)} />}
+            {showForm && <AddConnectionForm onClose={() => setShowForm(false)} />}
         </div>
     );
 }
