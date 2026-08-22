@@ -45,9 +45,11 @@ const PLATFORM_DEFAULTS: Record<string, Record<string, string>> = {
 function ConnectionCard({
     credential,
     onDelete,
+    onConfigure,
 }: {
     credential: Credential;
     onDelete: (id: string) => void;
+    onConfigure: (credential: Credential) => void;
 }) {
     const isShopify = credential.platform === 'SHOPIFY';
     const logo = isShopify ? '🛒' : credential.platform === 'BIGCOMMERCE' ? '🛠️' : '📋';
@@ -81,7 +83,7 @@ function ConnectionCard({
             </div>
             <div className="conn-footer">
                 <span className="conn-count">Active connection</span>
-                <button className="btn btn-ghost btn-sm">Configure</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => onConfigure(credential)}>Configure</button>
             </div>
         </div>
     );
@@ -89,11 +91,11 @@ function ConnectionCard({
 
 // ── Add Connection Form ──────────────────────────────────────────────────────
 
-function AddConnectionForm({ onClose }: { onClose: () => void }) {
-    const [platform, setPlatform] = useState('COMMERCETOOLS');
-    const [alias, setAlias] = useState('');
+function AddConnectionForm({ onClose, initialData }: { onClose: () => void, initialData?: Credential | null }) {
+    const [platform, setPlatform] = useState(initialData?.platform || 'COMMERCETOOLS');
+    const [alias, setAlias] = useState(initialData?.alias || '');
     const [formData, setFormData] = useState<Record<string, string>>(
-        PLATFORM_DEFAULTS['COMMERCETOOLS'],
+        PLATFORM_DEFAULTS[initialData?.platform || 'COMMERCETOOLS'] ?? PLATFORM_DEFAULTS['COMMERCETOOLS']
     );
     const [error, setError] = useState<string | null>(null);
 
@@ -127,7 +129,7 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
     return (
         <div className="card" style={{ marginTop: '24px', maxWidth: '600px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
-                <h3 style={{ margin: 0, fontSize: '16px' }}>Add New Connection</h3>
+                <h3 style={{ margin: 0, fontSize: '16px' }}>{initialData ? 'Configure Connection' : 'Add New Connection'}</h3>
                 <button className="btn btn-ghost" onClick={onClose} type="button" style={{ padding: '6px', height: 'auto' }}>
                     <X size={18} />
                 </button>
@@ -146,6 +148,7 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
                         style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '14px' }}
                         value={platform}
                         onChange={e => handlePlatformChange(e.target.value)}
+                        disabled={!!initialData}
                     >
                         {PLATFORM_OPTIONS.map(p => (
                             <option key={p.value} value={p.value}>
@@ -194,6 +197,7 @@ function AddConnectionForm({ onClose }: { onClose: () => void }) {
 
 export function ConnectionsView() {
     const [showForm, setShowForm] = useState(false);
+    const [editingCredential, setEditingCredential] = useState<Credential | null>(null);
     const { data, loading, error } = useQuery<{ credentials: Credential[] }>(GET_CREDENTIALS);
 
     const [deleteCredential] = useMutation(DELETE_CREDENTIAL, {
@@ -201,9 +205,23 @@ export function ConnectionsView() {
     });
 
     const handleDelete = (id: string) => {
-        if (confirm('Remove this connection? Migration projects using it may be affected.')) {
-            deleteCredential({ variables: { id } });
-        }
+        // Removed native window.confirm to ensure delete works in all embedded browsers
+        deleteCredential({ variables: { id } });
+    };
+
+    const handleConfigure = (credential: Credential) => {
+        setEditingCredential(credential);
+        setShowForm(true);
+    };
+
+    const handleAddClick = () => {
+        setEditingCredential(null);
+        setShowForm(true);
+    };
+
+    const handleCloseForm = () => {
+        setShowForm(false);
+        setEditingCredential(null);
     };
 
     const credentials = data?.credentials ?? [];
@@ -215,7 +233,7 @@ export function ConnectionsView() {
                     <div className="section-title">Connections</div>
                     <div className="section-sub">Platform credentials with discovered capabilities</div>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowForm(true)}>
+                <button className="btn btn-primary btn-sm" onClick={handleAddClick}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '6px' }}><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
                     Add Connection
                 </button>
@@ -228,10 +246,10 @@ export function ConnectionsView() {
             ) : (
                 <div className="conn-grid">
                     {credentials.map(c => (
-                        <ConnectionCard key={c.id} credential={c} onDelete={handleDelete} />
+                        <ConnectionCard key={c.id} credential={c} onDelete={handleDelete} onConfigure={handleConfigure} />
                     ))}
                     
-                    <div className="conn-card add-new" role="button" tabIndex={0} onClick={() => setShowForm(true)}>
+                    <div className="conn-card add-new" role="button" tabIndex={0} onClick={handleAddClick}>
                         <div className="add-icon">+</div>
                         <div className="add-text">Add Connection</div>
                         <div style={{ fontSize: '11.5px', color: 'var(--text-dim)', textAlign: 'center' }}>Shopify · Commercetools · BigCommerce · CSV · CRM</div>
@@ -239,7 +257,7 @@ export function ConnectionsView() {
                 </div>
             )}
 
-            {showForm && <AddConnectionForm onClose={() => setShowForm(false)} />}
+            {showForm && <AddConnectionForm onClose={handleCloseForm} initialData={editingCredential} />}
         </div>
     );
 }
