@@ -515,7 +515,7 @@ import React from 'react';
 export default function JobDetailPage({ params }: { params: { id: string } }) {
     const router = useRouter();
 
-    const { data, loading, error } = useQuery<{ job: Job }>(GET_JOB, {
+    const { data, loading, error, refetch } = useQuery<{ job: Job }>(GET_JOB, {
         variables: { id: params.id },
         pollInterval: 5_000,
     });
@@ -546,7 +546,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                     <h1 className="text-2xl font-black text-white tracking-tighter mb-2">Job Not Found</h1>
                     <p className="text-sm text-slate-400 mb-8 font-medium">{error?.message ?? 'Job ID not found in this tenant.'}</p>
                     <button
-                        onClick={() => window.location.reload()}
+                        onClick={() => refetch()}
                         className="bg-red-500 hover:bg-red-600 text-white font-black px-8 py-4 rounded-2xl text-[13px] uppercase tracking-widest transition-all"
                     >
                         Retry

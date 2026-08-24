@@ -70,7 +70,7 @@ export function JobList() {
             <div style={{ padding: '40px', color: 'var(--error)' }}>
                 <h3>Sync Error</h3>
                 <p>{error.message}</p>
-                <button className="btn btn-primary" onClick={() => window.location.reload()} style={{ marginTop: '10px' }}>Retry</button>
+                <button className="btn btn-primary" onClick={() => refetch()} style={{ marginTop: '10px' }}>Retry</button>
             </div>
         );
     }
