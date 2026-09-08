@@ -1,33 +1,49 @@
 # Connector Contracts
 
-All platform integrations (e.g., commercetools, Shopify) interact with the core ETL engine via standard Connector interfaces. Connectors abstract the underlying API complexities and adhere to strict contracts.
+Every platform integration implements one or both of these interfaces (defined in `@cdo/core`). Connectors hide API/SDK specifics; the pipeline only sees canonical data.
 
-## Source Connector
-The `SourceConnector` is responsible for fetching data from the origin platform.
+Instantiate connectors through `ConnectorFactory.createSource(platform, entityType)` / `createTarget(...)` — never `new` directly.
+
+## SourceConnector
 
 ```typescript
-export interface SourceConnector<TRaw = any> {
-    /** Initialize connection, authenticate, and validate credentials */
-    initialize(credentials: Record<string, string>): Promise<void>;
+export interface SourceConnector<TCanonical = CanonicalEntity> {
+    /** Authenticate and validate credentials. Throws FATAL on bad config. */
+    initialize(credentials: Record<string, unknown>): Promise<void>;
 
-    /** Extract data in batches using a generator to control memory footprint */
-    extract(): AsyncGenerator<TRaw[]>;
+    /** Stream canonical entities in batches. `cursor` resumes a prior run. */
+    extract(cursor?: string): AsyncIterableIterator<TCanonical[]>;
+
+    /** Opaque pagination token for the last committed batch (resume support). */
+    getCursor?(): string | undefined;
 }
 ```
 
-## Target Connector
-The `TargetConnector` is responsible for writing canonical data to the destination platform.
+The source connector maps raw SDK objects to the canonical contract as it extracts, so `extract()` yields `CanonicalEntity[]` directly.
+
+## TargetConnector
 
 ```typescript
-export interface TargetConnector<TCanonical = any> {
-    /** Initialize connection, authenticate, and validate credentials */
-    initialize(credentials: Record<string, string>): Promise<void>;
+export interface TargetConnector<TCanonical = CanonicalEntity> {
+    /** Authenticate and validate credentials. Throws FATAL on bad config. */
+    initialize(credentials: Record<string, unknown>): Promise<void>;
 
-    /** Load canonical entities in batches into the target platform */
+    /** Upsert a validated canonical batch. Returns per-item results. */
     load(entities: TCanonical[]): Promise<LoadResult[]>;
 }
+
+export interface LoadResult {
+    sourceId: string;
+    targetId: string;   // id assigned by the target platform
+    status: 'created' | 'updated' | 'skipped';
+}
 ```
 
-## Key Guarantees
-- **Idempotency**: All `load()` operations MUST be implemented as upserts. The Target Connector must never blindly create entities; it must check for existence or rely on platform-native upsert logic to ensure safe retries.
-- **Stateless Extraction**: The `extract()` method should support pagination natively and yield data efficiently.
+The file-export destination is also a `TargetConnector` — `load()` appends canonical rows to the CSV/JSON output instead of calling a platform API.
+
+## Guarantees
+
+- **Idempotency.** `load()` MUST upsert (check-then-write, or a platform-native upsert / import API). A run that restarts at record 50,000 of 100,000 must not duplicate the first 50,000.
+- **Streaming extraction.** `extract()` paginates natively and yields incrementally to bound memory.
+- **No schema mutation.** Connectors move entities only. They do not create custom types, channels, or tax categories on the target (the old `PLATFORM_CLONE` / `deploySchema` / `getCapabilities` path is removed).
+- **No `db` / `queue` / NestJS imports.** Connectors depend only on `@cdo/core` and `@cdo/shared`.

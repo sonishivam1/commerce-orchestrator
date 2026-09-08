@@ -1,151 +1,108 @@
 # Commerce Data Orchestrator
 
-## Project Overview
-The Commerce Data Orchestrator is a robust, multi-tenant SaaS integration bus designed to extract, normalize, and load high-volume e-commerce data across different platforms (commercetools, Shopify, BigCommerce) and origins (web scraping, file uploads).
+## What it is
 
-## System Purpose
-To provide a highly scalable, idempotent, and intelligent data migration and synchronization pipeline that eliminates manual data mapping and platform-specific tight coupling.
+A hosted tool for moving commerce catalog data between platforms.
 
----
+An organization signs up, adds encrypted **connections** to their commerce
+platforms (Shopify, commercetools, BigCommerce), then creates **migration
+projects** that either:
 
-## 🖥️ UI Previews
+- **migrate** categories / products / customers / orders into another platform, or
+- **export** them to a CSV or JSON file for download.
 
-> These are design mockups of the `apps/web` Next.js control panel — built on top of `@cdo/ui` (shadcn) and `@cdo/gql` (Apollo + GraphQL Codegen).
+Each project is executed as a **run** — as a dry run (validate only) or for real —
+with per-entity progress and a list of any items that failed.
 
-### Login
-![Login Page](docs/ui-previews/02-login.png)
-
-### Jobs Dashboard
-![Jobs Dashboard](docs/ui-previews/01-jobs-dashboard.png)
-
-### Job Detail & Pipeline Progress
-![Job Detail](docs/ui-previews/03-job-detail.png)
-
-### Create New Job (Wizard)
-![Create Job Wizard](docs/ui-previews/04-create-job.png)
-
-### Platform Credentials Management
-![Credentials Page](docs/ui-previews/05-credentials.png)
-
-### Dead Letter Queue (DLQ) Viewer
-![Dead Letter Queue](docs/ui-previews/06-dlq.png)
+> The codebase is mid-simplification. See
+> [docs/architecture/migration-scope.md](docs/architecture/migration-scope.md) for the
+> product boundary and
+> [docs/implementation-plans/00-simplification-plan.md](docs/implementation-plans/00-simplification-plan.md)
+> for what is being removed. Older design docs live in `docs/archive/`.
 
 ---
 
-## High-Level Architecture Summary
-The system operates on an ETL (Extract, Transform, Load) paradigm built around a **Universal Canonical Contract**. 
-- **Ingestion**: Scrapes websites, consumes files, or pulls from APIs.
-- **Mapping**: Transforms proprietary payloads into decoupled Canonical Models.
-- **Execution**: A Core Engine orchestrates the pipeline using memory-safe async generators.
-- **Deployment**: Load balanced, rate-limited Target Connectors upsert Canonical Models into destination platforms.
+## Architecture
+
+ETL around a **Universal Canonical Contract**: extract from the source → map to
+canonical → Zod-validate → upsert into the target (or append to an export file).
 
 ```mermaid
 flowchart TD
-    classDef client   fill:#3b82f6,stroke:#1d4ed8,color:#fff
-    classDef control  fill:#10b981,stroke:#047857,color:#fff
-    classDef infra    fill:#7c3aed,stroke:#5b21b6,color:#fff
-    classDef worker   fill:#f59e0b,stroke:#b45309,color:#fff
-    classDef orch     fill:#f97316,stroke:#c2410c,color:#fff
+    classDef client fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    classDef infra fill:#7c3aed,stroke:#5b21b6,color:#fff
+    classDef worker fill:#f59e0b,stroke:#b45309,color:#fff
     classDef pipeline fill:#0891b2,stroke:#0e7490,color:#fff
-    classDef canon    fill:#ef4444,stroke:#991b1b,color:#fff
-    classDef deploy   fill:#6366f1,stroke:#4338ca,color:#fff
-    classDef target   fill:#059669,stroke:#047857,color:#fff
+    classDef target fill:#059669,stroke:#047857,color:#fff
 
-    UI["Next.js App Router"]:::client
-    API["NestJS Control Plane"]:::control
-    Redis[("Redis Queue + Redlock")]:::infra
-    Mongo[("MongoDB Atlas")]:::infra
-    WorkerETL["Worker: ETL Plane"]:::worker
-    WorkerScrape["Worker: Scrape Plane"]:::worker
-    Orch["Orchestrator Layer"]:::orch
-    CoreEngine["Core Engine"]:::orch
-    Source["Source Connector / Scraper"]:::pipeline
-    Norm["Normalization Layer"]:::pipeline
-    Map["Mapping Layer"]:::pipeline
-    Val["Validate"]:::pipeline
-    Canon["Canonical Contract v1"]:::canon
-    Dep["Deployment Layer / Target Connector"]:::deploy
-    TargetStore[("Target Platform")]:::target
+    UI["apps/web — Next.js"]:::client
+    API["apps/api — NestJS GraphQL"]:::client
+    Redis[("Redis — BullMQ")]:::infra
+    Mongo[("MongoDB")]:::infra
+    Worker["apps/worker"]:::worker
+    Engine["@cdo/core EtlEngine"]:::pipeline
+    Src["Source Connector"]:::pipeline
+    Map["Map → Canonical → Validate"]:::pipeline
+    Tgt["Target Connector / Export File"]:::target
+    Store[("Target platform / file")]:::target
 
-    UI -->|Job Config| API
-    API -->|Enqueue Work + Mutex Lock| Redis
-    API -->|Job State| Mongo
-    WorkerETL -->|Pull Job| Redis
-    WorkerScrape -->|Pull Job| Redis
-    WorkerETL --> Orch
-    WorkerScrape --> Orch
-    Orch -->|Injects Context & Wires| CoreEngine
-    CoreEngine --> Source
-    Source --> Norm
-    Norm --> Map
-    Map --> Val
-    Val --> Canon
-    Canon --> Dep
-    Dep --> TargetStore
+    UI -->|GraphQL| API
+    API -->|enqueue MIGRATION_RUN| Redis
+    API -->|state| Mongo
+    Worker -->|pull job| Redis
+    Worker --> Engine
+    Engine --> Src --> Map --> Tgt --> Store
+    Worker -->|progress| Mongo
 ```
 
-*Note: Distributed locking via Redis is strictly enforced to prevent concurrent destructive operations on target APIs.*
+## Run mode
 
-## Job Types Overview
-- `SCRAPE_IMPORT`: Public HTML → Raw JSON → Canonical → Target Platform
-- `CROSS_PLATFORM_MIGRATION`: Source Platform → Canonical → Target Platform
-- `PLATFORM_CLONE`: Source Platform → Phase 1: Schema Replication → Phase 2: Entity Replication → Target Platform
-- `EXPORT`: Platform → Canonical → CSV/JSONL
+One job kind: `MIGRATION_RUN`, with `mode` = `MIGRATE` (→ target connection) or
+`EXPORT` (→ CSV/JSON file). See
+[docs/architecture/run-lifecycle.md](docs/architecture/run-lifecycle.md).
 
-## Multi-Tenancy Strategy
-All architectural layers enforce data isolation natively.
-- **Database**: Mongoose schemas require `tenantId`. Repositories perform strict scoping.
-- **Execution**: Each worker instance retrieves only the credentials for the tenant executing the job. Workers are stateless and horizontally scalable.
-- **Encryption**: API keys are AES-256-GCM encrypted and only decrypted at the edge inside the worker's execution memory.
-- **Locking**: Redis-based distributed Redlocks prohibit concurrent destructive operations against the same target environment for a single tenant.
-- **Isolation**: Per-job correlation IDs and trace IDs guarantee absolute execution isolation and observable log trailing.
+## Org scoping
 
-## Dependency Rules
-Dependencies must flow **inwards** toward the core.
+- **Database**: every schema (except `organizations`/`users`) carries `tenantId` (the org id); repositories scope by it.
+- **Users**: a `users` collection; each user belongs to one org with a `role` (`OWNER`/`MEMBER`).
+- **Encryption**: connection credentials are AES-256-GCM encrypted, decrypted only in worker memory.
+- **Concurrency**: a project with a `RUNNING` run rejects a second run (single worker; no Redlock).
+
+## Dependency rules
+
+Dependencies flow **inwards**.
 - `apps/` depend on `packages/`
-- `packages/connectors`, `packages/mapping`, `packages/ingestion` depend on `packages/core` and `packages/shared`
-- `packages/core` depends **ONLY** on `packages/shared`
-- `packages/shared` depends on nothing.
+- `@cdo/connectors` depends on `@cdo/core` and `@cdo/shared`
+- `@cdo/core` depends **only** on `@cdo/shared`
+- `@cdo/shared` depends on nothing
+- `apps/api` never imports `@cdo/core` or `@cdo/connectors`
 
-## Monorepo Structure
+## Monorepo structure (target)
+
 ```text
 commerce-orchestrator/
 ├── apps/
-│   ├── web/                     # Next.js App Router
-│   ├── api/                     # NestJS (Control Plane)
-│   ├── worker-etl/              # NestJS (Data Plane)
-│   └── worker-scrape/           # NestJS (Scraping Plane)
+│   ├── web/       # Next.js App Router dashboard
+│   ├── api/       # NestJS GraphQL control plane
+│   └── worker/    # NestJS BullMQ run executor
 └── packages/
-    ├── core/                    # Pure TS ETL Pipeline
-    ├── shared/                  # Canonical Contracts & Zod Schemas
-    ├── connectors/              # Platform SDK implementations
-    ├── ingestion/               # Puppeteer/Playwright Clusters
-    ├── mapping/                 # Heuristic & AI Mapping Engine
-    ├── db/                      # Tenant-aware Mongoose DAO
-    ├── queue/                   # BullMQ Job Producers
-    └── auth/                    # RBAC & Middlewares
+    ├── shared/      # Canonical contract & Zod schemas
+    ├── core/        # Pure-TS pipeline engine
+    ├── connectors/  # Platform adapters + mappers + file export
+    ├── db/          # Org-scoped Mongoose repositories
+    ├── queue/       # BullMQ producer + Redis config
+    ├── auth/        # JWT strategy & guards
+    ├── ui/          # shadcn/ui components
+    └── gql/         # Apollo client + codegen hooks
 ```
 
-## Developer Rules
-1. **No Global State**: Everything is scoped per job. Caching happens in Redis.
-2. **No Env Leakage**: Core modules rely on explicit Injection, never `process.env`.
-3. **No Domain Leakage**: NestJS Controllers do not possess mapping rules.
-4. **Idempotency**: Connectors upsert, they do not blindly create.
+## Developer rules
 
-## Documentation Index
-- [System Overview](docs/architecture/system-overview.md)
-- [Orchestrator Design](docs/architecture/orchestrator.md)
-- [Dependency Graph](docs/architecture/dependency-graph.md)
-- [Job Topologies](docs/architecture/job-topologies.md)
-- [Ingestion Layer](docs/architecture/ingestion-layer.md)
-- [Mapping Layer](docs/architecture/mapping-layer.md)
-- [Deployment Layer](docs/architecture/deployment-layer.md)
-- [Canonical Models](docs/data-models/canonical-models.md)
-- [Versioning Strategy](docs/data-models/versioning-strategy.md)
-- [Error Taxonomy](docs/operations/error-taxonomy.md)
-- [Locking Strategy](docs/operations/locking-strategy.md)
-- [Observability](docs/operations/observability.md)
-- [Retry Strategy](docs/operations/retry-strategy.md)
-- [Getting Started](docs/onboarding/getting-started.md)
-- [Local Development](docs/onboarding/local-development.md)
-- [Contribution Guide](docs/onboarding/contribution-guide.md)
+1. Everything is scoped per run. No global mutable state.
+2. `packages/` never read `process.env` — config is injected. Only `apps/` read env.
+3. NestJS resolvers hold no mapping logic.
+4. Connectors upsert; they never blindly create.
+
+## Documentation
+
+Start at [docs/README.md](docs/README.md).

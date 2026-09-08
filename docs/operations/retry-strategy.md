@@ -1,23 +1,28 @@
 # Retry Strategy
 
-To ensure reliability during migrations, the system implements resilience mechanisms at both the item and batch levels.
+## Item-level retries (exponential backoff)
 
-## Item-Level Retries (Exponential Backoff)
-When a Target or Source Connector encounters a `TransientError` (e.g., HTTP 429 Rate Limit, HTTP 502 Bad Gateway), the engine will automatically retry the specific operation.
+When a connector raises a `TRANSIENT` error (HTTP 429, 502/503/504, timeout), the engine retries that single operation.
 
-- **Initial Delay**: 500ms
-- **Multiplier**: 2x
-- **Max Retries**: 5
-- **Max Delay**: 10000ms
+- **Initial delay**: 500ms
+- **Multiplier**: 2×
+- **Max retries**: 5
+- **Max delay**: 10000ms
 
-If an item exceeds the maximum retries, it is flagged as a `ValidationError` (for DLQ storage) or a `FatalError` if it signifies a broader outage.
+If the operation still fails after the last retry, the item is recorded as a
+failed item on the run (`MigrationRun.failedItems[]`) and the wave continues. It
+does not escalate to `FATAL` — only genuinely fatal conditions (bad credentials,
+unsupported entity, sustained platform outage surfaced as such) do that.
 
-## Circuit Breaker (Batch-Level)
-To prevent the ETL pipeline from aggressively hammering a downed platform and filling up logs, a circuit breaker is implemented on the batch processor.
+There is **no circuit breaker**. If a platform is down, `FATAL` errors from
+`initialize()` or the first batch stop the wave quickly enough on their own.
 
-- **Threshold**: 10 consecutive non-validation failures.
-- **Action**: The circuit breaker trips, instantly failing the entire Job with a `FatalError`.
+## Batch-level fallback
 
-## Infrastructure Resiliency
-- **Queue (BullMQ)**: Jobs that crash mid-execution (e.g., worker node dies) will be picked up again by another worker according to BullMQ's active/stalled job configuration.
-- **Locking**: (If implemented) Ensures that multiple workers do not attempt to process the exact same job ID simultaneously.
+Batch size is 50. If a whole-batch write fails, the engine retries the batch
+item-by-item so one poison record does not lose the other 49.
+
+## Infrastructure resiliency
+
+- **BullMQ**: a job whose worker dies mid-run is re-delivered per BullMQ's stalled-job config. The job id equals the run id, so re-delivery resumes the same run rather than creating a duplicate.
+- **Concurrency**: `createMigrationRun` rejects a new run while the project has one in `RUNNING`. With a single worker this is enough; no distributed lock.

@@ -1,8 +1,6 @@
 # Dependency Graph & Boundaries
 
-To prevent architecture erosion, the monorepo strictly enforces dependency boundaries between packages. Violating these lines will result in circular dependencies.
-
-## Architecture Layers
+Package dependencies flow one way. Violations create cycles and let framework code leak into pure layers.
 
 ```mermaid
 graph TD
@@ -14,15 +12,13 @@ graph TD
     API["apps/api"]:::app
     Worker["apps/worker"]:::app
 
-    Core["repo/core"]:::core
-    Shared["repo/shared"]:::core
+    Core["@cdo/core"]:::core
+    Shared["@cdo/shared"]:::core
 
-    Conn["repo/connectors"]:::pkg
-    Map["repo/mapping"]:::pkg
-    Ingest["repo/ingestion"]:::pkg
-    DB["repo/db"]:::pkg
-    Queue["repo/queue"]:::pkg
-    Auth["repo/auth"]:::pkg
+    Conn["@cdo/connectors"]:::pkg
+    DB["@cdo/db"]:::pkg
+    Queue["@cdo/queue"]:::pkg
+    Auth["@cdo/auth"]:::pkg
 
     Web --> API
     API --> DB
@@ -31,27 +27,30 @@ graph TD
     API --> Shared
     Worker --> Core
     Worker --> Conn
-    Worker --> Map
-    Worker --> Ingest
     Worker --> DB
     Worker --> Queue
     Worker --> Shared
 
     Conn --> Core
     Conn --> Shared
-    Map --> Shared
-    Ingest --> Shared
     Core --> Shared
     DB --> Shared
     Queue --> Shared
     Auth --> Shared
 ```
 
-## The Rules
-1. **Level 0 (`@cdo/shared`)**: The absolute center. Depends on nothing. Provides Enums and Zod schemas out to the entire monorepo.
-2. **Level 1 (`@cdo/core`)**: Depends only on `shared`. Implements the pure TypeScript pipeline operations. Must NEVER import `nestjs`, `mongoose`, or `bullmq`.
-3. **Level 2 (`@cdo/mapping`)**: Depends only on `shared`. Takes raw objects, outputs Canonical interfaces.
-4. **Level 3 (`@cdo/connectors`)**: Depends on `core` (for Interfaces) and `shared` (for data structures). Speaks to APIs. Must NEVER import `db`.
-5. **Level 4 (`@cdo/db`)**: Depends on `shared`. Wraps `mongoose` and `nestjs`. Only imports definitions, never execution logic.
-6. **Level 5 (`apps/api`)**: Depends on `db`, `queue`, `auth`, `shared`. NEVER imports `core` or `connectors`.
-7. **Level 6 (`apps/worker`)**: The host. Depends on EVERYTHING to wire the systems together securely.
+## Rules
+
+1. **`@cdo/shared`** — the center. Depends on nothing. Enums, canonical types, Zod validators, constants.
+2. **`@cdo/core`** — depends only on `shared`. Pure pipeline mechanics (`EtlEngine`, retry). MUST NEVER import `nestjs`, `mongoose`, or `bullmq`.
+3. **`@cdo/connectors`** — depends on `core` (interfaces) and `shared` (types). Speaks to platform APIs; also holds canonical mappers/normalizers and the file-export target. MUST NEVER import `db`.
+4. **`@cdo/db`** — depends on `shared`. Wraps `mongoose` + NestJS. Schemas + org-scoped repositories only.
+5. **`@cdo/queue`** — depends on `shared`. BullMQ producer + Redis connection config.
+6. **`@cdo/auth`** — depends on `shared`. JWT strategy, guard, `@CurrentOrg()`.
+7. **`apps/api`** — depends on `db`, `queue`, `auth`, `shared`. NEVER imports `core` or `connectors`.
+8. **`apps/worker`** — the host. Wires everything: pulls jobs, decrypts credentials, builds connectors, drives `@cdo/core`.
+9. **`apps/web`** — talks to `apps/api` over GraphQL. Uses `@cdo/ui`, `@cdo/gql`.
+
+## Removed from the old graph
+
+`@cdo/mapping` (merged into `@cdo/connectors`), `@cdo/ingestion` (deleted), `@cdo/redis` (merged into `@cdo/queue`), `apps/worker-scrape` (deleted). `apps/worker-etl` is now `apps/worker`.

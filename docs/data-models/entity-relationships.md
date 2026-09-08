@@ -1,16 +1,32 @@
-# Entity Relationships & Dependencies
+# Entity Relationships & Migration Order
 
-During migration, entities must be processed in a specific topological order to satisfy foreign key constraints in the Target platform.
+During a run, commerce entities must be written in an order that satisfies foreign-key dependencies in the target platform.
 
-## Migration Order
-To ensure a successful migration, entities MUST be migrated in the following sequence:
+## Fixed migration order
 
-1. **Categories**: Have self-referencing dependencies (parent/child) and must exist before Products.
-2. **Products**: Depend on Categories.
-3. **Customers**: Standalone, but must exist before Orders.
-4. **Orders**: Depend on Customers and Products (Line Items).
+```
+1. CATEGORIES   — self-referencing (parent/child); must exist before products
+2. PRODUCTS     — reference categories
+3. CUSTOMERS    — standalone; must exist before orders
+4. ORDERS       — reference customers and products (line items)
+```
 
-## Dependency Resolution
-When the target platform assigns a new primary ID to a migrated entity, that ID is stored in the `IdentityMap`.
-Downstream entities use the `IdentityMap` to resolve foreign keys before upsert.
-- e.g., When migrating a Product, its Canonical `categories` list (which contains commercetools keys) is translated into Shopify `gid`s via the Identity Map before writing to Shopify.
+This order is a **hardcoded constant** (`CANONICAL_ENTITY_ORDER` in `@cdo/shared`). A project's `entityTypes` selection is filtered against it — e.g. selecting `[ORDERS, PRODUCTS]` runs `PRODUCTS` then `ORDERS`. There is no runtime topological sort.
+
+## Foreign-key resolution
+
+When the target platform assigns a new id to a written entity, the pair `{ entityType, sourceId, targetId }` is stored in `identity_maps` (scoped to the run).
+
+Downstream waves translate references before writing:
+
+| Wave | Reference | Resolved via |
+|---|---|---|
+| PRODUCTS | `categoryKeys` (source category ids) | `identity_maps` where `entityType = CATEGORIES` |
+| ORDERS | `customerId` | `identity_maps` where `entityType = CUSTOMERS` |
+| ORDERS | line-item product ids | `identity_maps` where `entityType = PRODUCTS` |
+
+If a reference cannot be resolved (the referenced entity was not part of this run and does not already exist in the target), the item is recorded as a `VALIDATION` failure and skipped.
+
+## Export mode
+
+`EXPORT` runs do not use `identity_maps`. Each entity type is written to the output file as-is in canonical form; references stay as source ids.

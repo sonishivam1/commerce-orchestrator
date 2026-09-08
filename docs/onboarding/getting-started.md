@@ -26,9 +26,11 @@ pnpm turbo run dev
 Or run individual apps natively (useful for debugging):
 ```bash
 cd apps/api && pnpm dev
-cd apps/worker-etl && pnpm dev
+cd apps/worker && pnpm dev   # currently apps/worker-etl — see 00-simplification-plan.md
 cd apps/web && pnpm dev
 ```
 
-## First Job Execution Hook
-Until the frontend forms are fully configured, you can dispatch workloads by executing a GraphQL Mutation against the API layer, which will enqueue it to the Redis Worker loop for execution.
+## First run
+Register an org in the web UI, add a source connection (and a target connection
+for a `MIGRATE` project), create a project, then start a run — or call the
+`createMigrationRun` GraphQL mutation directly to enqueue a `MIGRATION_RUN` job.

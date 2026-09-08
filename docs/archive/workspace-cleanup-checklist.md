@@ -1,3 +1,8 @@
+> [!WARNING]
+> **Archived / superseded.** Pre-simplification checklist (its "Enterprise Scale Hardening"
+> step is the source of much of what is now being removed). See
+> [docs/implementation-plans/00-simplification-plan.md](../implementation-plans/00-simplification-plan.md).
+
 # Workspace Cleanup Checklist
 
 To safely deprecate your existing procedural implementation and move to the SaaS architecture, follow these exact steps. **Do not execute them simultaneously; implement sequentially.**

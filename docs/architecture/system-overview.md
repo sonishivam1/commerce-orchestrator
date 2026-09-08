@@ -1,42 +1,60 @@
 # System Overview
 
-Commerce Data Orchestrator is a specialized data migration platform focused on reliably moving commerce data between systems.
+Commerce Data Orchestrator is a hosted tool for moving commerce catalog data between platforms (commercetools, Shopify, BigCommerce) or exporting it to a file.
 
-## The MVP Scope
-The initial MVP boundary is strictly limited to:
-- **Source**: commercetools
-- **Target**: Shopify
-- **Entities**: Categories, Products, Customers, Orders
+See [migration-scope.md](./migration-scope.md) for the product boundary.
 
-## High-Level Architecture
-The architecture is designed to be a simple, one-way pipeline without complex workflow engines or generic abstractions.
+## Shape of the system
+
+Three deployables and a small set of packages.
 
 ```mermaid
 graph TD
-    A[Web UI] --> B[API (Control Plane)]
-    B --> C[Migration Orchestrator]
-    C --> D[Redis Queue (BullMQ)]
-    D --> E[ETL Worker]
-    
-    subgraph "ETL Worker Pipeline"
-        E --> F[Source Connector]
-        F --> G[Normalize]
-        G --> H[Canonical Model]
-        H --> I[Map]
-        I --> J[Validate]
-        J --> K[Target Connector]
-        K --> L[Identity Mapping]
-    end
-    
-    L --> M[Reconciliation]
+    Web["apps/web — Next.js dashboard"] --> API["apps/api — NestJS GraphQL"]
+    API --> Mongo[("MongoDB")]
+    API --> Redis[("Redis — BullMQ")]
+    Redis --> Worker["apps/worker — run executor"]
+    Worker --> Mongo
+    Worker --> Src["Source platform API"]
+    Worker --> Tgt["Target platform API / export file"]
 ```
 
-### Components
-1. **Web**: Next.js App Router for user control.
-2. **API**: NestJS GraphQL control plane.
-3. **Migration Orchestrator**: Submits migration jobs to the queue.
-4. **Queue**: Redis + BullMQ for asynchronous task execution.
-5. **ETL Worker**: Processes jobs in batches using the ETL Engine.
-6. **ETL Engine**: The core pipeline that connects Source to Target via Canonical normalization and mapping.
-7. **Identity Mapping**: Tracks entity ID changes across platforms.
-8. **Reconciliation**: Verifies success and data parity post-migration.
+### Apps
+
+| App | Responsibility |
+|---|---|
+| `apps/web` | Next.js App Router dashboard. Register/login, connections, projects, runs. Talks to the API over GraphQL (Apollo). |
+| `apps/api` | NestJS code-first GraphQL. Auth, organizations, users, connections, projects, runs. Enqueues run jobs. Never touches connector code. |
+| `apps/worker` | Single BullMQ consumer. Picks up a `MIGRATION_RUN` job, decrypts credentials, runs the pipeline per entity type, writes progress back to MongoDB. |
+
+### Packages
+
+| Package | Role | Depends on |
+|---|---|---|
+| `@cdo/shared` | Canonical types, Zod validators, enums, constants. Zero deps. | — |
+| `@cdo/core` | Pure-TS pipeline: `EtlEngine` (extract → map → validate → load), bounded retry. No NestJS/Mongoose/BullMQ. | `@cdo/shared` |
+| `@cdo/connectors` | commercetools / Shopify / BigCommerce source + target adapters, plus canonical mappers and normalizers. File-export target. | `@cdo/core`, `@cdo/shared` |
+| `@cdo/db` | Mongoose schemas + org-scoped repositories. NestJS `@Global()` module. | `@cdo/shared` |
+| `@cdo/queue` | BullMQ producer + Redis connection. | `@cdo/shared` |
+| `@cdo/auth` | JWT strategy, guard, `@CurrentOrg()` decorator. | `@cdo/shared` |
+| `@cdo/ui` | shadcn/ui components. | — |
+| `@cdo/gql` | Apollo client wrapper + generated GraphQL hooks. | — |
+
+> Removed vs the old design: `apps/worker-scrape`, `@cdo/ingestion`, `@cdo/mapping` (merged into `@cdo/connectors`), `@cdo/redis` (merged into `@cdo/queue`).
+
+## Request → run flow
+
+1. User creates a **MigrationProject** in the web UI: source connection + entity types + (`MIGRATE` → target connection | `EXPORT` → format).
+2. User starts a **MigrationRun** (optionally `dryRun`). The API validates ownership, creates the run with one wave stub per entity type, and enqueues a `MIGRATION_RUN` BullMQ job keyed by run id.
+3. The **worker** picks up the job:
+   - Decrypts source (and target) credentials in memory.
+   - For each entity type, in dependency order: stream batches from the source connector → map to canonical → Zod-validate → upsert into the target connector (or append to the export file). `dryRun` skips the write.
+   - Records new target ids in `identity_maps` so later entities can resolve foreign keys (e.g. a product's categories).
+   - Updates `migration_runs` progress counters and wave status; appends failures to `migration_runs.failedItems[]`.
+4. On completion the run is `COMPLETED` (or `FAILED`). For exports, the file path/size is recorded and served via a download endpoint.
+
+## Infra
+
+- **MongoDB** — all persistent state.
+- **Redis 7** — BullMQ only.
+- **docker compose** brings up both for local dev.

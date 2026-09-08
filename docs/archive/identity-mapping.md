@@ -1,3 +1,9 @@
+> [!WARNING]
+> **Archived / superseded.** This document describes the pre-simplification design.
+> See [docs/architecture/migration-scope.md](../architecture/migration-scope.md) and
+> [docs/implementation-plans/00-simplification-plan.md](../implementation-plans/00-simplification-plan.md)
+> for the current design. Kept for historical context only.
+
 # Identity Mapping
 
 During the migration from commercetools to Shopify, entities will receive new primary IDs in Shopify. To maintain data integrity across the 4 entities and allow for idempotent updates and reconciliation, we must map the original commercetools ID to the new Shopify ID.

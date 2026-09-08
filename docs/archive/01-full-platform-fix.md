@@ -1,3 +1,9 @@
+> [!WARNING]
+> **Archived / superseded.** This document describes the pre-simplification design.
+> See [docs/architecture/migration-scope.md](../architecture/migration-scope.md) and
+> [docs/implementation-plans/00-simplification-plan.md](../implementation-plans/00-simplification-plan.md)
+> for the current design. Kept for historical context only.
+
 # Sub-Plan 01 — Full Platform Architectural Fix
 
 **Status: COMPLETE** (User directive: "act as senior architect and do things accordingly")  

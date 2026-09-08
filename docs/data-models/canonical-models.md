@@ -2,9 +2,9 @@
 
 To facilitate a clean migration, all data is transformed into a Universal Canonical Contract in transit. This prevents an N x M mapping problem and enforces a strict, typed schema.
 
-## MVP Supported Entities
+## Supported Entities
 
-The MVP restricts the canonical models to the following 4 entities:
+The canonical contract covers 4 entities. It is a single unversioned shape (no `_version`, no downcast adapters).
 
 ### 1. CanonicalCategory
 - `key`: Unique identifier (String)

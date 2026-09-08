@@ -1,3 +1,9 @@
+> [!WARNING]
+> **Archived / superseded.** This document describes the pre-simplification design.
+> See [docs/architecture/migration-scope.md](../architecture/migration-scope.md) and
+> [docs/implementation-plans/00-simplification-plan.md](../implementation-plans/00-simplification-plan.md)
+> for the current design. Kept for historical context only.
+
 # Reconciliation
 
 Reconciliation is the final phase of the migration lifecycle. It verifies that the data successfully extracted from the source exactly matches the data residing in the target, ensuring a complete and accurate migration.
