@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation } from '@apollo/client';
-import { CREATE_TENANT } from '@/lib/graphql/mutations';
+import { REGISTER } from '@/lib/graphql/mutations';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, Eye, EyeOff, AlertCircle, ShieldCheck } from 'lucide-react';
@@ -10,13 +10,14 @@ import { Loader2, Eye, EyeOff, AlertCircle, ShieldCheck } from 'lucide-react';
 export function RegisterForm() {
     const router = useRouter();
 
+    const [organizationName, setOrgName] = useState('');
     const [name, setName]            = useState('');
     const [email, setEmail]          = useState('');
     const [password, setPassword]    = useState('');
     const [showPassword, setShowPwd] = useState(false);
     const [errorMsg, setErrorMsg]    = useState('');
 
-    const [createTenant, { loading }] = useMutation(CREATE_TENANT, {
+    const [register, { loading }] = useMutation(REGISTER, {
         onCompleted() {
             router.push('/login?registered=1');
         },
@@ -28,24 +29,40 @@ export function RegisterForm() {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMsg('');
-        createTenant({ variables: { input: { name, email, password } } });
+        register({ variables: { input: { organizationName, name, email, password } } });
     };
 
     return (
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-            {/* Workspace name */}
+            {/* Organization name */}
             <div className="space-y-1.5">
                 <label className="block text-xs font-semibold tracking-widest uppercase text-white/40">
-                    Workspace name
+                    Organization name
                 </label>
                 <input
                     type="text"
                     required
                     autoComplete="organization"
+                    value={organizationName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    placeholder="Acme Corp"
+                    className="w-full bg-white/[0.04] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 hover:border-white/[0.12] focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-colors"
+                />
+            </div>
+
+            {/* Your name */}
+            <div className="space-y-1.5">
+                <label className="block text-xs font-semibold tracking-widest uppercase text-white/40">
+                    Your name
+                </label>
+                <input
+                    type="text"
+                    required
+                    autoComplete="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Acme Corp"
+                    placeholder="Jane Doe"
                     className="w-full bg-white/[0.04] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 hover:border-white/[0.12] focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-colors"
                 />
             </div>
@@ -53,7 +70,7 @@ export function RegisterForm() {
             {/* Email */}
             <div className="space-y-1.5">
                 <label className="block text-xs font-semibold tracking-widest uppercase text-white/40">
-                    Admin email
+                    Email
                 </label>
                 <input
                     type="email"

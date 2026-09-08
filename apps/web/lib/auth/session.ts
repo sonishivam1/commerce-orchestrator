@@ -49,8 +49,16 @@ export function decodeToken(token: string): Record<string, unknown> | null {
     }
 }
 
-/** Return the tenantId from the stored token, or null. */
+/** Return the organization id (tenantId) from the stored token, or null. */
 export function getTenantId(): string | null {
+    const token = getToken();
+    if (!token) return null;
+    const payload = decodeToken(token);
+    return (payload?.tenantId as string) ?? null;
+}
+
+/** Return the signed-in user id from the stored token, or null. */
+export function getUserId(): string | null {
     const token = getToken();
     if (!token) return null;
     const payload = decodeToken(token);

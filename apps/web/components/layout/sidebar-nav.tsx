@@ -108,7 +108,7 @@ export function SidebarNav() {
                         {me?.name?.charAt(0)?.toUpperCase() ?? 'T'}
                     </div>
                     <div className="user-info">
-                        <div className="user-name">{me?.name ?? 'Tenant'}</div>
+                        <div className="user-name">{me?.name ?? 'User'}</div>
                         <div className="user-email">{me?.email ?? '—'}</div>
                     </div>
                 </div>

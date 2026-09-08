@@ -75,6 +75,16 @@ export enum ErrorType {
 }
 
 /**
+ * UserRole — a user's role within their organization.
+ * OWNER: the first user; can add and disable members.
+ * MEMBER: everyone else; full access to the org's data.
+ */
+export enum UserRole {
+    OWNER = 'OWNER',
+    MEMBER = 'MEMBER',
+}
+
+/**
  * ConnectionHealth — real-time health state of a platform connection.
  * Stored on the Connection document; updated when credentials are tested.
  */

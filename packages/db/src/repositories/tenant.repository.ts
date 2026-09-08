@@ -11,10 +11,6 @@ export class TenantRepository {
         return this.model.create(data);
     }
 
-    async findByEmail(email: string): Promise<TenantDocument | null> {
-        return this.model.findOne({ email }).exec();
-    }
-
     async findById(id: string): Promise<TenantDocument | null> {
         return this.model.findById(id).exec();
     }

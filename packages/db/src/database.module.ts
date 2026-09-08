@@ -19,12 +19,14 @@ import { Connection } from 'mongoose';
 
 import { Credential, CredentialSchema } from './schemas/credential.schema';
 import { Tenant, TenantSchema } from './schemas/tenant.schema';
+import { User, UserSchema } from './schemas/user.schema';
 import { MigrationProject, MigrationProjectSchema } from './schemas/migration-project.schema';
 import { MigrationRun, MigrationRunSchema } from './schemas/migration-run.schema';
 import { IdentityMap, IdentityMapSchema } from './schemas/identity-map.schema';
 
 import { CredentialRepository } from './repositories/credential.repository';
 import { TenantRepository } from './repositories/tenant.repository';
+import { UserRepository } from './repositories/user.repository';
 import { MigrationProjectRepository } from './repositories/migration-project.repository';
 import { MigrationRunRepository } from './repositories/migration-run.repository';
 import { IdentityMapRepository } from './repositories/identity-map.repository';
@@ -33,6 +35,7 @@ import { IdentityMapRepository } from './repositories/identity-map.repository';
 const FEATURE_MODULES = MongooseModule.forFeature([
     { name: Credential.name, schema: CredentialSchema },
     { name: Tenant.name, schema: TenantSchema },
+    { name: User.name, schema: UserSchema },
     { name: MigrationProject.name, schema: MigrationProjectSchema },
     { name: MigrationRun.name, schema: MigrationRunSchema },
     { name: IdentityMap.name, schema: IdentityMapSchema },
@@ -42,6 +45,7 @@ const FEATURE_MODULES = MongooseModule.forFeature([
 const REPOSITORIES = [
     CredentialRepository,
     TenantRepository,
+    UserRepository,
     MigrationProjectRepository,
     MigrationRunRepository,
     IdentityMapRepository,

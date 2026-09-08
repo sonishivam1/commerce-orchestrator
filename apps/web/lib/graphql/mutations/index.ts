@@ -64,13 +64,32 @@ export const LOGIN = gql`
   }
 `;
 
-export const CREATE_TENANT = gql`
-  mutation CreateTenant($input: CreateTenantInput!) {
-    createTenant(input: $input) {
+export const REGISTER = gql`
+  mutation Register($input: RegisterInput!) {
+    register(input: $input) {
       id
       name
       email
+      role
     }
+  }
+`;
+
+export const ADD_ORG_MEMBER = gql`
+  mutation AddOrganizationMember($input: AddMemberInput!) {
+    addOrganizationMember(input: $input) {
+      id
+      name
+      email
+      role
+      status
+    }
+  }
+`;
+
+export const SET_MEMBER_ACTIVE = gql`
+  mutation SetMemberActive($userId: ID!, $active: Boolean!) {
+    setMemberActive(userId: $userId, active: $active)
   }
 `;
 

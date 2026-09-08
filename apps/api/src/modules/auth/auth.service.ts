@@ -10,19 +10,19 @@ export class AuthService {
     ) {}
 
     async login(email: string, password: string) {
-        // Delegates credential check to TenantService — AuthService must NOT query the DB directly
-        const { tenantId, email: validatedEmail } = await this.tenantService.validateCredentials(email, password);
+        const { userId, tenantId, email: validatedEmail, role } =
+            await this.tenantService.validateCredentials(email, password);
 
-        const payload = { sub: tenantId, email: validatedEmail };
+        const payload = { sub: userId, tenantId, email: validatedEmail, role };
         const accessToken = this.jwtService.sign(payload);
 
         return { accessToken, tenantId };
     }
 
-    async validateToken(token: string): Promise<{ tenantId: string } | null> {
+    async validateToken(token: string): Promise<{ tenantId: string; userId: string } | null> {
         try {
-            const payload = this.jwtService.verify<{ sub: string }>(token);
-            return { tenantId: payload.sub };
+            const payload = this.jwtService.verify<{ sub: string; tenantId: string }>(token);
+            return { tenantId: payload.tenantId, userId: payload.sub };
         } catch {
             return null;
         }

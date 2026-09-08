@@ -1,5 +1,9 @@
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
+import { UserRole } from '@cdo/shared';
 
+registerEnumType(UserRole, { name: 'UserRole' });
+
+/** A user within an organization. */
 @ObjectType()
 export class TenantType {
     @Field(() => ID)
@@ -10,6 +14,16 @@ export class TenantType {
 
     @Field()
     email: string;
+
+    @Field(() => UserRole)
+    role: UserRole;
+
+    @Field()
+    status: string;
+
+    /** The organization id this user belongs to. */
+    @Field()
+    tenantId: string;
 
     @Field()
     createdAt: Date;
