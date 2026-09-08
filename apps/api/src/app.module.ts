@@ -9,7 +9,6 @@ import { QueueModule } from '@cdo/queue';
 import { AuthModule as AppAuthModule } from './modules/auth/auth.module';
 import { CredentialModule } from './modules/credential/credential.module';
 import { TenantModule } from './modules/tenant/tenant.module';
-import { DlqModule } from './modules/dlq/dlq.module';
 import { HealthModule } from './modules/health/health.module';
 import { MigrationProjectModule } from './modules/migration-project/migration-project.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -72,7 +71,6 @@ import { RedisThrottlerStorage } from './common/storage/redis-throttler.storage'
         AppAuthModule,
         TenantModule,
         CredentialModule,
-        DlqModule,
         HealthModule,
         MigrationProjectModule,
     ],

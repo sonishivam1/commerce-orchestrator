@@ -53,7 +53,7 @@ export interface WaveExecutionConfig {
  *    connector can resolve cross-entity references (e.g. CT category key → Shopify ID).
  * 4. Run EtlEngine for this entity type.
  * 5. On each progress batch, write successful LoadResult.targetId values to IdentityMap.
- * 6. On each failure, push items to DLQ.
+ * 6. On each failure, append the item to MigrationRun.failedItems[].
  * 7. Mark the wave COMPLETED or FAILED and return stats for the run coordinator.
  *
  * The EtlEngine is NOT modified — this service is the seam between the migration

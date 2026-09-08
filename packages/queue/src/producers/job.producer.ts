@@ -20,27 +20,19 @@ import {
 
 /** Payload shape for a migration/export run job. */
 export interface EtlJobPayload {
+    /** Equals the MigrationRun id — also used as the BullMQ job id for idempotent enqueue. */
     jobId: string;
     tenantId: string;
+    /** Single request id, propagated to worker log lines. */
     correlationId: string;
     traceId: string;
-    kind: 'CROSS_PLATFORM_MIGRATION' | 'PLATFORM_CLONE' | 'EXPORT' | 'REPLAY' | 'MIGRATION_RUN';
+    kind: 'MIGRATION_RUN';
     sourceCredentialId: string;
     targetCredentialId: string;
-    /** Entity types to migrate. Defaults to ['PRODUCTS'] when omitted. */
     entityTypes?: string[];
-    dlqItemId?: string;
-    rawPayload?: Record<string, unknown>;
-    /**
-     * Set when kind === 'MIGRATION_RUN'. The MigrationRun document ID that the
-     * worker should drive to completion. Also used as the BullMQ job ID for
-     * idempotent enqueue (duplicate calls for the same run are deduplicated).
-     */
+    /** The MigrationRun document id the worker drives to completion. */
     migrationRunId?: string;
-    /**
-     * When true the wave executor skips target.load() calls.
-     * Propagated from MigrationRun.dryRun.
-     */
+    /** When true the wave executor skips target.load() calls. */
     dryRun?: boolean;
 }
 

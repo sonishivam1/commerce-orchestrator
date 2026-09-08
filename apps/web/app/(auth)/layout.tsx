@@ -47,9 +47,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                     {/* Feature bullets */}
                     <div className="space-y-3 pt-2">
                         {[
-                            'AES-256-GCM encrypted at rest',
-                            'Tenant-isolated pipelines',
-                            'Real-time DLQ replay',
+                            'AES-256-GCM encrypted credentials',
+                            'Organization-isolated data',
+                            'Migrate or export in one place',
                         ].map((text) => (
                             <div key={text} className="flex items-center gap-3">
                                 <div className="h-1.5 w-1.5 rounded-full bg-primary/70 shrink-0" />

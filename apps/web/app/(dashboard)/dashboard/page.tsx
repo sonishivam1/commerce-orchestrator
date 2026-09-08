@@ -46,7 +46,7 @@ interface Credential {
 
 // ── System Health Component ───────────────────────────────────────────────────
 
-function SystemHealth({ dlqHasErrors }: { dlqHasErrors: boolean }) {
+function SystemHealth({ hasFailedItems }: { hasFailedItems: boolean }) {
     const [apiStatus, setApiStatus] = useState<'loading' | 'ok' | 'error'>('loading');
 
     useEffect(() => {
@@ -69,13 +69,13 @@ function SystemHealth({ dlqHasErrors }: { dlqHasErrors: boolean }) {
                 <span className={`pill ${apiClass}`}>{apiLabel}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Dead Letter Queue</span>
-                <Link href="/dlq" className={`pill ${dlqHasErrors ? 'pill-error' : 'pill-success'}`} style={{ textDecoration: 'none' }}>
-                    {dlqHasErrors ? 'Action Required' : 'Clear'}
-                </Link>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Recent runs</span>
+                <span className={`pill ${hasFailedItems ? 'pill-error' : 'pill-success'}`}>
+                    {hasFailedItems ? 'Failed items' : 'Clean'}
+                </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Worker ETL</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Worker</span>
                 <span className="pill pill-muted">No Heartbeat</span>
             </div>
         </div>
@@ -170,7 +170,7 @@ export default function DashboardPage() {
                     <div className="stat-value" style={{ color: runningRuns.length > 0 ? 'var(--accent)' : 'inherit' }}>{loading ? '—' : runningRuns.length}</div>
                     <div className="stat-delta" style={{ color: runningRuns.length > 0 ? 'var(--accent)' : 'inherit' }}>
                         {runningRuns.length > 0 && <span className="dot dot-pulse" style={{ background: 'var(--accent)', marginRight: '4px' }}></span>}
-                        Active Sync Jobs
+                        Active runs
                     </div>
                 </div>
 
@@ -235,7 +235,7 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div className="card">
                         <div className="card-title">System Health</div>
-                        <SystemHealth dlqHasErrors={runs.some(r => r.failedCount > 0)} />
+                        <SystemHealth hasFailedItems={runs.some(r => r.failedCount > 0)} />
                     </div>
                 </div>
             </div>

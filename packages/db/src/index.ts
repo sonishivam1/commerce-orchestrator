@@ -9,7 +9,6 @@ export * from './database.module';
 // Mongoose Schemas
 export * from './schemas/credential.schema';
 export * from './schemas/tenant.schema';
-export * from './schemas/dlq.schema';
 export * from './schemas/migration-project.schema';
 export * from './schemas/migration-run.schema';
 export * from './schemas/identity-map.schema';
@@ -17,7 +16,6 @@ export * from './schemas/identity-map.schema';
 // Repositories
 export * from './repositories/credential.repository';
 export * from './repositories/tenant.repository';
-export * from './repositories/dlq.repository';
 export * from './repositories/migration-project.repository';
 export * from './repositories/migration-run.repository';
 export * from './repositories/identity-map.repository';

@@ -221,7 +221,7 @@ export function RunDetail({ runId }: { runId: string }) {
                 </div>
             )}
 
-            {/* FAILED banner with DLQ link */}
+            {/* FAILED banner */}
             {run.status === 'FAILED' && run.failedCount > 0 && (
                 <div style={{
                     display: 'flex',
@@ -237,11 +237,8 @@ export function RunDetail({ runId }: { runId: string }) {
                 }}>
                     <AlertCircle size={16} style={{ flexShrink: 0 }} />
                     <span>
-                        {run.failedCount} item(s) failed.{' '}
-                        <Link href="/dlq" style={{ color: 'var(--error)', textDecoration: 'underline' }}>
-                            View Dead Letter Queue
-                        </Link>{' '}
-                        to inspect and replay errors.
+                        {run.failedCount} item(s) failed. See the failed items list below,
+                        then re-run the project once the underlying data is fixed.
                     </span>
                 </div>
             )}
