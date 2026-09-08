@@ -53,39 +53,6 @@ export const CREATE_MIGRATION_RUN = gql`
   }
 `;
 
-export const CREATE_JOB = gql`
-  mutation CreateJob($input: CreateJobInput!) {
-    createJob(input: $input) {
-      id
-      kind
-      status
-      entityTypes
-      createdAt
-    }
-  }
-`;
-
-export const DELETE_JOB = gql`
-  mutation DeleteJob($id: String!) {
-    deleteJob(id: $id)
-  }
-`;
-
-export const REPLAY_JOB = gql`
-  mutation ReplayJob($jobId: String!, $dlqItemId: String!) {
-    replayJob(jobId: $jobId, dlqItemId: $dlqItemId) {
-      id
-      status
-    }
-  }
-`;
-
-export const DELETE_DLQ_ITEM = gql`
-  mutation DeleteDlqItem($id: String!) {
-    deleteDlqItem(id: $id)
-  }
-`;
-
 export const LOGIN = gql`
   mutation Login($email: String!, $password: String!) {
     login(email: $email, password: $password) {

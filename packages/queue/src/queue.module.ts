@@ -2,7 +2,7 @@
  * @file queue.module.ts
  * @package @cdo/queue
  *
- * NestJS BullMQ module — registers the ETL and Scrape queues against Redis.
+ * NestJS BullMQ module — registers the ETL queue against Redis.
  *
  * Import this module in the root AppModule of both the API (to produce jobs)
  * and worker apps (to consume jobs).
@@ -17,7 +17,7 @@
 
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import { QUEUE_ETL, QUEUE_SCRAPE } from '@cdo/shared';
+import { QUEUE_ETL } from '@cdo/shared';
 import { JobProducer } from './producers/job.producer';
 import { createRedisConnection } from '@cdo/redis';
 
@@ -30,10 +30,9 @@ import { createRedisConnection } from '@cdo/redis';
             }),
         }),
 
-        // Register both queues so producers and consumers can inject them by name
+        // Register the ETL queue so producers and consumers can inject it by name
         BullModule.registerQueue(
             { name: QUEUE_ETL },
-            { name: QUEUE_SCRAPE },
         ),
     ],
     providers: [JobProducer],

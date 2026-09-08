@@ -2,7 +2,6 @@ import { ErrorType, CanonicalProduct, validateCanonicalProduct } from '@cdo/shar
 // Note: We're using CanonicalProductSchema directly or validating directly vs building custom error throws.
 import { mapShopifyProduct, canonicalToShopifyProductInput } from '../rules-engine/shopify.rules';
 import { mapCommercetoolsProduct, canonicalToCtProductDraft } from '../rules-engine/commercetools.rules';
-import { mapScrapedProduct, ScrapedProductInput } from '../rules-engine/scrape.rules';
 
 /**
  * SourcePlatform — mirrors Platform from @cdo/shared using the same lowercase values.
@@ -13,7 +12,6 @@ export enum SourcePlatform {
     SHOPIFY = 'shopify',
     COMMERCETOOLS = 'commercetools',
     BIGCOMMERCE = 'bigcommerce',
-    SCRAPER = 'scraper',
 }
 
 /**
@@ -42,9 +40,6 @@ export class ProductMapper implements EntityMapper<any, CanonicalProduct> {
                 break;
             case SourcePlatform.COMMERCETOOLS:
                 unvalidatedProduct = mapCommercetoolsProduct(rawPayload);
-                break;
-            case SourcePlatform.SCRAPER:
-                unvalidatedProduct = mapScrapedProduct(rawPayload as ScrapedProductInput);
                 break;
             default:
                 const fatal = new Error(`Unsupported source platform: ${this.platform}`);
@@ -77,8 +72,6 @@ export class ProductMapper implements EntityMapper<any, CanonicalProduct> {
      * `canonical.customAttributes.productType`) because CT requires a ProductType
      * reference.  For Shopify the caller may optionally pass `options.existingId`
      * and `options.locationId`.
-     *
-     * Scraper is a read-only source and throws FATAL on reverse mapping.
      */
     fromCanonical(canonical: CanonicalProduct, options?: Record<string, unknown>): any {
         switch (this.platform) {
@@ -103,12 +96,6 @@ export class ProductMapper implements EntityMapper<any, CanonicalProduct> {
                 }
 
                 return canonicalToCtProductDraft(canonical, productTypeId);
-            }
-
-            case SourcePlatform.SCRAPER: {
-                const err = new Error('Scraper is a read-only source — reverse mapping is not supported.');
-                (err as any).type = ErrorType.FATAL;
-                throw err;
             }
 
             default: {

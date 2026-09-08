@@ -49,11 +49,8 @@ jobs:
       - name: Type-check web
         run: npx tsc --noEmit --project apps/web/tsconfig.json
 
-      - name: Type-check worker-etl
+      - name: Type-check worker
         run: npx tsc --noEmit --project apps/worker-etl/tsconfig.json
-
-      - name: Type-check worker-scrape
-        run: npx tsc --noEmit --project apps/worker-scrape/tsconfig.json
 
   # ── Unit tests ───────────────────────────────────────────────────────────
   test:
@@ -123,8 +120,5 @@ jobs:
       - name: Build API
         run: pnpm --filter @cdo/api build
 
-      - name: Build worker-etl
+      - name: Build worker
         run: pnpm --filter @cdo/worker-etl build
-
-      - name: Build worker-scrape
-        run: pnpm --filter @cdo/worker-scrape build

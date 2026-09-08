@@ -9,8 +9,6 @@ import {
     FolderKanban,
     Zap,
     BarChart3,
-    BriefcaseBusiness,
-    Inbox,
     Settings,
     LogOut,
 } from 'lucide-react';
@@ -29,9 +27,7 @@ const migrationsNavItems = [
 ];
 
 const systemNavItems = [
-    { href: '/jobs',        label: 'Jobs',            icon: BriefcaseBusiness },
-    { href: '/dlq',         label: 'Dead Letter Queue', icon: Inbox           },
-    { href: '/settings',    label: 'Settings',        icon: Settings          },
+    { href: '/settings',    label: 'Settings',        icon: Settings },
 ];
 
 function cn(...classes: (string | false | undefined | null)[]) {

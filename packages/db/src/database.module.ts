@@ -17,7 +17,6 @@ import { Global, Module, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { MongooseModule, InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 
-import { Job, JobSchema } from './schemas/job.schema';
 import { Credential, CredentialSchema } from './schemas/credential.schema';
 import { Tenant, TenantSchema } from './schemas/tenant.schema';
 import { DlqItem, DlqItemSchema } from './schemas/dlq.schema';
@@ -26,7 +25,6 @@ import { MigrationRun, MigrationRunSchema } from './schemas/migration-run.schema
 import { IdentityMap, IdentityMapSchema } from './schemas/identity-map.schema';
 import { ReconciliationReport, ReconciliationReportSchema } from './schemas/reconciliation-report.schema';
 
-import { JobRepository } from './repositories/job.repository';
 import { CredentialRepository } from './repositories/credential.repository';
 import { TenantRepository } from './repositories/tenant.repository';
 import { DlqRepository } from './repositories/dlq.repository';
@@ -37,7 +35,6 @@ import { ReconciliationReportRepository } from './repositories/reconciliation-re
 
 /** All Mongoose feature modules registered in the database layer */
 const FEATURE_MODULES = MongooseModule.forFeature([
-    { name: Job.name, schema: JobSchema },
     { name: Credential.name, schema: CredentialSchema },
     { name: Tenant.name, schema: TenantSchema },
     { name: DlqItem.name, schema: DlqItemSchema },
@@ -49,7 +46,6 @@ const FEATURE_MODULES = MongooseModule.forFeature([
 
 /** All repository providers exposed from this module */
 const REPOSITORIES = [
-    JobRepository,
     CredentialRepository,
     TenantRepository,
     DlqRepository,

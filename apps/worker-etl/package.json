@@ -13,7 +13,6 @@
         "@cdo/connectors": "workspace:*",
         "@cdo/core": "workspace:*",
         "@cdo/db": "workspace:*",
-        "@cdo/ingestion": "workspace:*",
         "@cdo/mapping": "workspace:*",
         "@cdo/queue": "workspace:*",
         "@cdo/shared": "workspace:*",

@@ -72,23 +72,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  worker-scrape:
-    build:
-      context: .
-      dockerfile: apps/worker-scrape/Dockerfile
-    env_file:
-      - apps/worker-scrape/.env
-    environment:
-      - MONGODB_URI=mongodb://mongodb:27017/cdo
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
   web:
     build:
       context: .

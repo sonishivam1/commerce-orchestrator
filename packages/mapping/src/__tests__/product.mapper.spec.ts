@@ -59,23 +59,4 @@ describe('ProductMapper', () => {
         }
     });
 
-    it('should map a raw Scraper payload without a variant or ID safely', () => {
-        const rawScraped = {
-            url: 'https://example.com/item/1',
-            title: 'Found Item',
-            price: 5.50, // Float
-            currency: 'EUR',
-            inStock: false
-        };
-
-        const mapper = new ProductMapper(SourcePlatform.SCRAPER);
-        const mapped = mapper.toCanonical(rawScraped);
-
-        // Uses url base64 fallback key since no SKU
-        expect(mapped.key).toBeDefined();
-        expect(mapped.masterVariant.stockQuantity).toBe(0); // inStock false handled
-        expect(mapped.masterVariant.prices[0].centAmount).toBe(550);
-        expect(mapped.masterVariant.prices[0].currencyCode).toBe('EUR');
-    });
-
 });

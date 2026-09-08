@@ -15,8 +15,6 @@ export function Topbar() {
     else if (pathname.startsWith('/projects')) breadcrumb = 'Projects';
     else if (pathname.startsWith('/runs')) breadcrumb = 'Live Execution';
     else if (pathname === '/reports') breadcrumb = 'Reconciliation';
-    else if (pathname === '/jobs') breadcrumb = 'Jobs';
-    else if (pathname === '/dlq') breadcrumb = 'Dead Letter Queue';
     else if (pathname === '/settings') breadcrumb = 'Settings';
 
     return (

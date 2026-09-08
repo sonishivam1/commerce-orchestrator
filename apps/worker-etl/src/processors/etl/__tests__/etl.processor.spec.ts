@@ -1,85 +1,56 @@
 import { EtlProcessor } from '../etl.processor';
-import { EntityType } from '@cdo/shared';
 // @ts-ignore
 import { jest } from '@jest/globals';
 
 describe('EtlProcessor', () => {
     let processor: EtlProcessor;
-    let mockCredRepo: any;
-    let mockJobRepo: any;
-    let mockOrchestrator: any;
     let mockMigrationRunOrchestrator: any;
-    let mockDecryptor: any;
     let mockLockService: any;
 
     beforeEach(() => {
-        mockCredRepo = {
-            findOneDecrypted: jest.fn().mockResolvedValue({ encryptedPayload: '', iv: '', authTag: '', platform: 'commercetools' })
-        };
-        mockJobRepo = {
-            markRunning: jest.fn().mockResolvedValue(undefined)
-        };
-        mockOrchestrator = {
-            execute: jest.fn().mockResolvedValue(undefined)
-        };
         mockMigrationRunOrchestrator = {
-            execute: jest.fn().mockResolvedValue(undefined)
-        };
-        mockDecryptor = {
-            decrypt: jest.fn().mockReturnValue({})
+            execute: jest.fn().mockResolvedValue(undefined),
         };
         mockLockService = {
             acquire: jest.fn().mockResolvedValue('lock'),
-            release: jest.fn().mockResolvedValue(undefined)
+            release: jest.fn().mockResolvedValue(undefined),
         };
 
-        processor = new EtlProcessor(
-            mockCredRepo,
-            mockJobRepo,
-            mockOrchestrator,
-            mockMigrationRunOrchestrator,
-            mockDecryptor,
-            mockLockService,
-        );
+        processor = new EtlProcessor(mockMigrationRunOrchestrator, mockLockService);
     });
 
-    it('existing Product migration remains compatible (defaults to PRODUCTS if entityTypes is missing)', async () => {
+    it('delegates a MIGRATION_RUN job to the orchestrator with a lock held', async () => {
         const job: any = {
-            id: 'job-1',
+            id: 'run-1',
             data: {
                 tenantId: 't1',
-                jobId: 'job-1',
-                kind: 'CROSS_PLATFORM_MIGRATION',
-                sourceCredentialId: 'sc1',
-                targetCredentialId: 'tc1'
-                // Notice: no entityTypes provided!
-            }
-        };
-
-        await processor.process(job);
-
-        expect(mockOrchestrator.execute).toHaveBeenCalled();
-        const executeCall = mockOrchestrator.execute.mock.calls[0][0];
-        expect(executeCall.context.entityTypes).toContain(EntityType.PRODUCTS);
-    });
-
-    it('respects explicitly provided entityTypes', async () => {
-        const job: any = {
-            id: 'job-1',
-            data: {
-                tenantId: 't1',
-                jobId: 'job-1',
-                kind: 'CROSS_PLATFORM_MIGRATION',
-                sourceCredentialId: 'sc1',
+                migrationRunId: 'run-1',
                 targetCredentialId: 'tc1',
-                entityTypes: [EntityType.CATEGORIES]
-            }
+                dryRun: false,
+                correlationId: 'corr-1',
+            },
         };
 
         await processor.process(job);
 
-        expect(mockOrchestrator.execute).toHaveBeenCalled();
-        const executeCall = mockOrchestrator.execute.mock.calls[0][0];
-        expect(executeCall.context.entityTypes).toContain(EntityType.CATEGORIES);
+        expect(mockLockService.acquire).toHaveBeenCalledWith('t1', 'tc1');
+        expect(mockMigrationRunOrchestrator.execute).toHaveBeenCalledWith({
+            tenantId: 't1',
+            migrationRunId: 'run-1',
+            correlationId: 'corr-1',
+            dryRun: false,
+        });
+        expect(mockLockService.release).toHaveBeenCalledWith('lock');
+    });
+
+    it('releases the lock and rethrows when the orchestrator fails', async () => {
+        mockMigrationRunOrchestrator.execute.mockRejectedValueOnce(new Error('boom'));
+        const job: any = {
+            id: 'run-2',
+            data: { tenantId: 't1', migrationRunId: 'run-2', targetCredentialId: 'tc1' },
+        };
+
+        await expect(processor.process(job)).rejects.toThrow('boom');
+        expect(mockLockService.release).toHaveBeenCalledWith('lock');
     });
 });

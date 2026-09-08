@@ -31,9 +31,6 @@
             "@cdo/mapping": [
                 "./packages/mapping/src/index.ts"
             ],
-            "@cdo/ingestion": [
-                "./packages/ingestion/src/index.ts"
-            ],
             "@cdo/db": [
                 "./packages/db/src/index.ts"
             ],

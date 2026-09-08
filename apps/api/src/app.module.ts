@@ -8,7 +8,6 @@ import { DatabaseModule } from '@cdo/db';
 import { QueueModule } from '@cdo/queue';
 import { AuthModule as AppAuthModule } from './modules/auth/auth.module';
 import { CredentialModule } from './modules/credential/credential.module';
-import { JobModule } from './modules/job/job.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { DlqModule } from './modules/dlq/dlq.module';
 import { HealthModule } from './modules/health/health.module';
@@ -29,9 +28,9 @@ import { RedisThrottlerStorage } from './common/storage/redis-throttler.storage'
  * 4. AppAuthModule   — login resolver + JWT strategy
  * 5. TenantModule    — registration + profile
  * 6. CredentialModule — encrypted credential CRUD
- * 7. JobModule       — job lifecycle + DLQ replay
- * 8. DlqModule       — dedicated DLQ queries + delete
- * 9. HealthModule    — GET /health liveness probe (simple, no external deps)
+ * 7. DlqModule       — dedicated DLQ queries + delete
+ * 8. HealthModule    — GET /health liveness probe (simple, no external deps)
+ * 9. MigrationProjectModule — migration/export projects + runs
  */
 @Module({
     imports: [
@@ -73,7 +72,6 @@ import { RedisThrottlerStorage } from './common/storage/redis-throttler.storage'
         AppAuthModule,
         TenantModule,
         CredentialModule,
-        JobModule,
         DlqModule,
         HealthModule,
         MigrationProjectModule,

@@ -9,25 +9,16 @@
 // ─── Queue Names ─────────────────────────────────────────────────────────────
 // Must match exactly between producers (@cdo/queue) and consumers (apps/worker-*)
 
-/** BullMQ queue for API-based ETL jobs (CROSS_PLATFORM_MIGRATION, PLATFORM_CLONE, EXPORT) */
+/** BullMQ queue for migration/export run jobs (MIGRATION_RUN) */
 export const QUEUE_ETL = 'etl-queue';
-
-/** BullMQ queue for Playwright-based scrape import jobs (SCRAPE_IMPORT) */
-export const QUEUE_SCRAPE = 'scrape-queue';
 
 // ─── Job Retry Policy ────────────────────────────────────────────────────────
 
-/** How many times BullMQ will retry a TransientError before sending to DLQ */
+/** How many times BullMQ will retry a TransientError before the run is failed */
 export const MAX_JOB_RETRIES = 3;
-
-/** How many times the scrape worker retries before DLQ (fewer — GPU/browser cost) */
-export const MAX_SCRAPE_RETRIES = 2;
 
 /** Initial delay (ms) before first retry — grows exponentially each attempt */
 export const RETRY_BACKOFF_DELAY_MS = 5_000;
-
-/** Scrape jobs wait longer before retry (browser startup overhead) */
-export const SCRAPE_RETRY_BACKOFF_DELAY_MS = 10_000;
 
 // ─── Completed Job Retention ──────────────────────────────────────────────────
 

@@ -1,24 +1,12 @@
 // Shared enums — used across the entire monorepo
 // These are the authoritative enum definitions
 
+/**
+ * JobKind — the one kind of BullMQ job. A run executes a MigrationProject in
+ * either MIGRATE or EXPORT mode (mode lives on the project, not the job).
+ */
 export enum JobKind {
-    SCRAPE_IMPORT = 'SCRAPE_IMPORT',
-    CROSS_PLATFORM_MIGRATION = 'CROSS_PLATFORM_MIGRATION',
-    PLATFORM_CLONE = 'PLATFORM_CLONE',
-    EXPORT = 'EXPORT',
-    /**
-     * Wave-based migration run — processed by MigrationRunOrchestrator.
-     * Job payload carries migrationRunId instead of jobId.
-     */
     MIGRATION_RUN = 'MIGRATION_RUN',
-}
-
-export enum JobStatus {
-    PENDING = 'PENDING',
-    RUNNING = 'RUNNING',
-    COMPLETED = 'COMPLETED',
-    FAILED = 'FAILED',
-    PAUSED = 'PAUSED',
 }
 
 /**

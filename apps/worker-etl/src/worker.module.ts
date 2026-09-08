@@ -5,8 +5,7 @@ import { QueueModule } from '@cdo/queue';
 import { EtlProcessorModule } from './processors/etl/etl-processor.module';
 
 /**
- * ETL Worker — processes the etl-queue.
- * Scrape jobs are handled by apps/worker-scrape, not this worker.
+ * Worker — processes the etl-queue (MIGRATION_RUN jobs).
  */
 @Module({
     imports: [
