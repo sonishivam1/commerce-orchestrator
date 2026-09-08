@@ -3,39 +3,31 @@ paths:
   - "packages/core/**/*.ts"
   - "packages/mapping/**/*.ts"
   - "packages/connectors/**/*.ts"
-  - "packages/ingestion/**/*.ts"
 ---
 
 # Pipeline & Connectors Rules
 
 ## Core Engine (`@cdo/core`)
-- The `EtlEngine` class is the heart of all job execution. It accepts `SourceConnector`, `TargetConnector`, and `EtlContext`.
-- `EtlContext` carries: `tenantId`, `jobId`, `correlationId`, `lockToken`, `sourceCredentials`, `targetCredentials`.
-- The engine emits typed events: `progress` (batch results), `failure` (per-item errors), `complete`.
-- `@cdo/core` must NEVER import from `@cdo/db`, `@cdo/queue`, `@cdo/auth`, or any NestJS module.
-- `@cdo/core` may only depend on `@cdo/shared`.
+- `EtlEngine` accepts a `SourceConnector`, a `TargetConnector`, and an `EtlContext`, plus optional `{ batchSize, maxRetries, onFatal }`.
+- `EtlContext` carries: `tenantId`, `jobId`, `correlationId`, `sourceCredentials`, `targetCredentials`, optional `migrationProjectId` / `dryRun` / `startCursor`.
+- Events: `progress` (successful batch results), `failure` (per-item errors), `complete`.
+- Batch size 50; whole-batch failure falls back to item-by-item. Bounded retry via `withRetry`. NO circuit breaker.
+- `@cdo/core` may only depend on `@cdo/shared` — never `@cdo/db`, `@cdo/queue`, `@cdo/auth`, or NestJS.
 
 ## Connector Rules
-- All connectors implement `SourceConnector<T>` or `TargetConnector<T>` from `@cdo/core/interfaces`.
-- `SourceConnector.extract()` must return `AsyncGenerator<T[]>` (paginated batches).
-- `TargetConnector.load(items: T[])` must return `LoadResult[]` with per-item success/failure.
-- Both interfaces have `initialize(credentials)` — called by the engine before extract/load.
-- Use `ConnectorFactory` to instantiate connectors — never `new CommercetoolsSourceConnector()` directly.
-- Target connectors MUST upsert, never blindly create.
+- Implement `SourceConnector<T>` or `TargetConnector<T>` from `@cdo/core`.
+- `SourceConnector.extract(cursor?)` returns `AsyncIterableIterator<T[]>` and maps to canonical as it pages; optional `getCursor()` for resume.
+- `TargetConnector.load(items)` returns `LoadResult[]` (per-item `{ key, success, targetId? }`) and MUST upsert, never blindly create.
+- Platform connectors: `ConnectorFactory.createSource/createTarget(platform, entityType)` — never `new`.
+- `FileExportTarget` (EXPORT mode) is the exception — not platform-keyed, instantiated directly by the worker orchestrator.
+- No schema-mutation methods (`deploySchema` / `extractSchema`).
 
-## Mapping Rules
-- Each platform has a rules file: `shopify.rules.ts`, `commercetools.rules.ts`, `scrape.rules.ts`.
-- Rules transform platform-specific SDK objects into `CanonicalProduct` (or other canonical types).
-- Normalizers handle cross-cutting concerns: `money.normalizer.ts` (string→cents), `date.normalizer.ts` (any→ISO8601), `locale.normalizer.ts` (flatten to `Record<string, string>`).
-- `ProductMapper.toCanonical()` orchestrates: normalize → apply rules → Zod validate.
-- On Zod validation failure, throw a typed error with `ErrorType.VALIDATION`.
-
-## Ingestion Rules
-- `ScraperService` uses real Playwright with concurrency pooling and stealth headers.
-- `PageExtractor` handles DOM extraction. `ProductParser` parses JSON-LD structured data.
-- `ScrapeSourceConnector` bridges `ScraperService` to the `SourceConnector` interface.
+## Mapping (`@cdo/mapping`)
+- Platform rules files: `shopify.rules.ts`, `commercetools.rules.ts` (no scrape).
+- Normalizers: `money.normalizer.ts` (→ integer cents), `date.normalizer.ts` (→ ISO8601), `locale.normalizer.ts` (→ `Record<string,string>`).
+- `ProductMapper.toCanonical()`: normalize → apply rules → Zod validate. On failure throw `ErrorType.VALIDATION`.
+- `SourcePlatform` = `SHOPIFY | COMMERCETOOLS | BIGCOMMERCE`.
 
 ## Testing
-- Unit tests live in `__tests__/` directories colocated with source.
-- Mock `SourceConnector` and `TargetConnector` in engine tests — never hit real APIs.
-- Test files are named `*.spec.ts`.
+- Colocated `__tests__/`, `*.spec.ts`. Mock connectors in engine tests — never hit real APIs.
+- Every new mapper / normalizer / connector ships with at least one test.

@@ -6,76 +6,73 @@ Rough effect: remove ~8–10k LOC, one worker app, two packages, three collectio
 
 Do the phases in order. Each phase should end with `npx tsc --noEmit` clean and `pnpm test` green.
 
+**Status: phases 0–4 and most of 6 are done. Remaining: phase 5 (cosmetic rename), the `_version` removal + package merges in phase 6, worker-etl→worker rename, and phase 7 cleanup.**
+
 ---
 
-## Phase 0 — Docs (this change)
+## Phase 0 — Docs ✅ done
 
 - [x] Rewrite scope, system overview, entity relationships, connector contracts.
 - [x] New `data-models/schemas.md`, `architecture/run-lifecycle.md`, this plan.
 - [x] Archive superseded docs with a deprecation banner.
 - [x] Update `CLAUDE.md`, `AGENTS.md`, `README.md`.
 
-## Phase 1 — Delete scraping
+## Phase 1 — Delete scraping ✅ done
 
-- [ ] Delete `apps/worker-scrape/`.
-- [ ] Delete `packages/ingestion/`.
-- [ ] Remove `packages/mapping/src/rules-engine/scrape.rules.ts` and any scrape mapper paths.
-- [ ] Remove `SCRAPE_IMPORT` from `JobKind`, `Job` schema enums, and API DTO unions.
-- [ ] Remove `QUEUE_SCRAPE` constant and its producer.
-- [ ] Drop `playwright` from dependencies; remove `docker`/CI steps for it.
-- [ ] Delete scrape UI: any `sourceUrl` fields in job/create forms.
+- [x] Delete `apps/worker-scrape/` and `packages/ingestion/`.
+- [x] Remove `scrape.rules.ts` and `SourcePlatform.SCRAPER`.
+- [x] Remove `SCRAPE_IMPORT`, `QUEUE_SCRAPE` + scrape retry constants and the scrape producer.
+- [x] Remove scrape docker-compose / CI steps.
+- [x] Delete scrape UI (`/jobs` went entirely in phase 2).
 
-## Phase 2 — Collapse to one run model
+## Phase 2 — Collapse to one run model ✅ done (bar the rename)
 
-- [ ] Delete the legacy `Job` path: `packages/db` `job.schema.ts` + `job.repository.ts`, `apps/api/src/modules/job/`, `apps/worker-etl/src/orchestrator/data-etl.orchestrator.ts`.
-- [ ] Keep `MigrationProject` / `MigrationRun` / `migration-run.orchestrator.ts` / `wave-executor.service.ts`.
-- [ ] Remove `PLATFORM_CLONE` and the standalone `EXPORT` topology from `JobKind`; keep only `MIGRATION_RUN`.
-- [ ] Remove `getCapabilities()` / `extractSchema()` / `deploySchema()` from connector interfaces and implementations.
-- [ ] Rename `apps/worker-etl` → `apps/worker`.
-- [ ] Web: delete `/jobs`, `components/jobs/*`, `create-job-wizard.tsx`, `new-job-form.tsx`. Projects + runs are the only execution UI.
+- [x] Delete the legacy `Job` path (db schema+repo, `apps/api` job module, `data-etl.orchestrator.ts`).
+- [x] `EtlProcessor` handles only `MIGRATION_RUN`.
+- [x] `JobKind` collapses to `MIGRATION_RUN`; `JobStatus` removed.
+- [x] Web: delete `/jobs`, `components/jobs/*`, job queries/mutations, sidebar entry.
+- [ ] Rename `apps/worker-etl` → `apps/worker` (deferred — package rename churn).
+- [ ] Remove `getCapabilities()` from the `TargetConnector` interface (still present; unused).
 
-## Phase 3 — Add mode: MIGRATE | EXPORT
+## Phase 3 — mode: MIGRATE | EXPORT ✅ done
 
-- [ ] `MigrationProject`: add `mode`, make `targetConnectionId` nullable, add `exportFormat`. Update the create input + service validation (see `schemas.md`).
-- [ ] `MigrationRun`: add `export: { filePath, byteSize, format }`.
-- [ ] `@cdo/connectors`: add a `FileExportTarget` implementing `TargetConnector` (CSV via a tiny writer, JSON as an array stream). No new package.
-- [ ] Worker orchestrator: when `mode = EXPORT`, build `FileExportTarget` instead of a platform target; skip `identity_maps`; on finish, stat the file and write `run.export`.
-- [ ] API: `GET /runs/:id/export` (auth + org scope) streams the file. Add a download button on the run detail page.
-- [ ] Decide file storage: local disk volume for the POC (`EXPORT_DIR` env in `apps/api` + `apps/worker`, shared volume) — S3 is a later swap behind the same interface.
+- [x] `MigrationProject.mode` / `exportFormat`, nullable `targetConnectionId`; `MigrationRun.export`.
+- [x] `FileExportTarget` in `@cdo/connectors` + tests.
+- [x] Worker orchestrator builds the file target for EXPORT, skips identity maps, records `run.export`.
+- [x] `GET /runs/:id/export` (JWT, org-scoped) + web download button + mode toggle on the create form.
+- [x] File storage: local `EXPORT_DIR` (default `<cwd>/exports`, gitignored).
 
-## Phase 4 — Org + User
+## Phase 4 — Org + User ✅ done
 
-- [ ] `packages/db`: rename `tenant.schema.ts` → `organization.schema.ts` (collection `organizations`), drop `email`/`passwordHash` from it. New `user.schema.ts` (collection `users`) per `schemas.md`.
-- [ ] `apps/api` `tenant` module → `organization` module. New `user` module (invite member, list members, disable member — `OWNER` only).
-- [ ] `auth`: `register` creates org + owner user together. `login` looks up `users` by email. JWT payload `{ sub: userId, tenantId, role }`.
-- [ ] `@cdo/auth`: `JwtStrategy` reads both claims; rename `@CurrentTenant()` → `@CurrentOrg()` returning `{ userId, tenantId, role }`. Keep `tenantId` as the scoping field name everywhere else (no mass rename).
-- [ ] Web: registration form collects org name + user name + email + password. Add a bare "Members" section under settings.
+- [x] `Tenant` is the organization (`{ name, status }`); new `User` collection + `UserRepository`. `tenantId` stays the scoping field.
+- [x] `apps/api/tenant`: `register` (org + owner), `login` (user), `me`, `organizationMembers`, `addOrganizationMember`, `setMemberActive` + tests.
+- [x] JWT `{ sub: userId, tenantId, email, role }`; `TenantContext` gains `userId` + `role`; `@CurrentOrg` alias.
+- [x] Web: register form (org name + your name); settings Members section.
 
-## Phase 5 — Rename credentials → connections
+## Phase 5 — Rename credentials → connections (not started)
 
 - [ ] `credential.schema.ts` → `connection.schema.ts` (collection `credentials` → `connections`), `CredentialRepository` → `ConnectionRepository`.
 - [ ] `apps/api/src/modules/credential` → `connection`. GraphQL types `Credential*` → `Connection*`.
-- [ ] Wire the "Test connection" action end to end: API mutation → worker-less inline check (call `connector.initialize()` + a cheap read) → set `health` + `lastTestedAt`.
-- [ ] Web: `connections-view.tsx` already exists; point it at the renamed API.
+- [ ] Wire "Test connection" end to end (call `connector.initialize()` + a cheap read) → set `health` + `lastTestedAt`.
 
-## Phase 6 — Strip speculative infra
+## Phase 6 — Strip speculative infra (mostly done)
 
-- [ ] Remove `packages/db` `dlq.schema.ts` + `dlq.repository.ts`, `apps/api/src/modules/dlq/`, `components/shared/dlq-table.tsx`, `/dlq` route, DLQ replay methods. Add `failedItems[]` to `MigrationRun` + a table on the run page.
-- [ ] Remove `reconciliation-report.schema.ts` + repository, reconciliation API queries, `RECONCILIATION` job kind, `/reports` routes, `components/reports/*`.
-- [ ] Remove Redlock: `apps/worker*/src/services/lock.service.ts`, `distributed-locking` skill, `operations/locking-strategy.md`. Guard concurrency with a `RUNNING` status check in `createMigrationRun`.
-- [ ] Remove the custom throttler: `common/storage/redis-throttler.*`, `common/guards/rate-limit.guard.ts`. Keep `ThrottlerModule` with the in-memory default.
-- [ ] Remove `circuit-breaker.ts` from `@cdo/core`; keep `retry.ts`.
-- [ ] Collapse `correlationId` + `traceId` → `requestId`. Remove `trace.interceptor.ts`, keep `logging.interceptor.ts`.
-- [ ] Merge `@cdo/redis` into `@cdo/queue`. Merge `@cdo/mapping` into `@cdo/connectors`.
-- [ ] Delete `packages/core/src/wave/wave-planner.ts` (Kahn sort); replace call sites with `CANONICAL_ENTITY_ORDER.filter(t => selected.includes(t))`.
-- [ ] Remove `_version` from canonical types; delete `data-models/versioning-strategy.md` references.
+- [x] Remove the DLQ subsystem; `MigrationRun.failedItems[]` + run-detail table.
+- [x] Remove `ReconciliationReport` + API queries + `/reports` UI + worker `generateReport`.
+- [x] Remove Redlock (`lock.service.ts`, lock constants); concurrency via a `RUNNING`-run check in `createMigrationRun`.
+- [x] Remove `circuit-breaker.ts` from `@cdo/core` (`onFatal` option kept); drop `CIRCUIT_BREAKER_THRESHOLD`.
+- [x] Replace the Kahn `wave-planner.ts` with `CANONICAL_ENTITY_ORDER` + `planEntityWaves`/`entityWaveDependencies` in `@cdo/shared`.
+- [ ] Remove the custom Redis throttler (`common/storage/redis-throttler.*`, `rate-limit.guard.ts`); keep `ThrottlerModule` in-memory.
+- [ ] Collapse `correlationId` + `traceId` → `requestId`; remove `trace.interceptor.ts`.
+- [ ] Merge `@cdo/redis` into `@cdo/queue`; merge `@cdo/mapping` into `@cdo/connectors`.
+- [ ] Remove `_version` from canonical types + validators + connectors (high blast radius — do as its own change).
 
-## Phase 7 — Regenerate + verify
+## Phase 7 — Regenerate + verify (not started)
 
-- [ ] Re-run GraphQL codegen (`@cdo/gql`).
-- [ ] Update `.claude/skills/` and `.claude/agents/` that reference removed pieces (`bullmq` scrape queue, wave planner, rules engine, Redlock, DLQ).
+- [ ] Re-run GraphQL codegen (`@cdo/gql`) — the generated hooks still carry removed operations.
+- [ ] Update `.claude/rules/`, `.claude/skills/`, `.claude/agents/` (scrape queue, wave planner, rules engine, Redlock, DLQ, `@CurrentTenant` semantics).
 - [ ] `npx tsc --noEmit`, `pnpm test`, `pnpm build`.
-- [ ] Update `README.md` UI previews / screenshots.
+- [ ] Refresh `README.md` UI previews / screenshots.
 - [ ] Run the smoke script end to end against sandbox commercetools + Shopify.
 
 ---

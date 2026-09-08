@@ -92,29 +92,25 @@ describe('EtlEngine', () => {
         expect(progressFn.mock.calls[0][0].length).toBe(2);
     });
 
-    it('should trip circuit breaker on repeated target item failures', async () => {
+    it('records each transient item failure and keeps going', async () => {
         const source = new MockSource(Array.from({ length: 15 }).map((_, i) => ({
             key: `bad-${i}`
         } as CanonicalEntity)));
         const target = new MockTarget();
-        
+
         // Always fail to load
         target.mockLoad.mockImplementation(() => {
             throw new Error('Service Unavailable');
         });
 
-        const cbFn = jest.fn();
-        const engine = new EtlEngine(source, target, context, { 
-            batchSize: 1, 
-            maxRetries: 0, 
-            circuitBreaker: cbFn 
-        });
+        const failures: string[] = [];
+        const engine = new EtlEngine(source, target, context, { batchSize: 1, maxRetries: 0 });
+        engine.on('failure', (_err, item) => { if (item) failures.push(item.key); });
 
         await engine.run();
 
-        // The circuit breaker should trip after 10 failures by default
-        expect(cbFn).toHaveBeenCalled();
-        expect(cbFn.mock.calls[0][0].message).toContain('Circuit breaker tripped');
+        // Every item is surfaced as a failure — no circuit breaker halts the run early.
+        expect(failures).toHaveLength(15);
     });
 
     it('should correctly emit failure events for individual problematic items', async () => {

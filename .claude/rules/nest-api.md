@@ -2,37 +2,34 @@
 paths:
   - "apps/api/**/*.ts"
   - "apps/worker-etl/**/*.ts"
-  - "apps/worker-scrape/**/*.ts"
 ---
 
 # NestJS Backend Rules
 
 ## Module Structure
 - Every feature module lives in `apps/api/src/modules/{feature}/` with its own `{feature}.module.ts`, `{feature}.service.ts`, `{feature}.resolver.ts`, and DTOs.
-- Modules register services, resolvers, and import `DatabaseModule` or `QueueModule` as needed.
-- The `AppModule` imports all feature modules plus `DatabaseModule` (global), `QueueModule`, and `AuthModule`.
+- `AppModule` imports the feature modules plus `DatabaseModule` (global), `QueueModule`, and the auth module.
 
-## Authentication & Tenancy
-- All resolvers MUST use `@UseGuards(GqlAuthGuard)` unless the endpoint is explicitly public (e.g., login, register).
-- Extract tenant context with the `@CurrentTenant()` decorator — never parse the JWT manually in resolvers.
-- Pass `tenantId` from the resolver down to every service and repository call.
+## Authentication & Org scoping
+- GraphQL resolvers MUST use `@UseGuards(GqlAuthGuard)` unless explicitly public (`login`, `register`). REST controllers use `@UseGuards(AuthGuard('jwt'))`.
+- Get the principal with `@CurrentTenant()` / `@CurrentOrg()` — never parse the JWT by hand.
+- `tenantId` (the organization id) scopes every service and repository call. `userId` / `role` identify the user; owner-only actions check `role === UserRole.OWNER` in the service.
 
 ## GraphQL
-- Schema is **code-first** via NestJS `@Resolver`, `@Query`, `@Mutation` decorators with `autoSchemaFile: true`.
-- Return types are `@ObjectType()` classes. Inputs are `@InputType()` classes.
-- Never return raw Mongoose documents — map them to GraphQL DTOs.
+- Code-first via `@Resolver` / `@Query` / `@Mutation` with `autoSchemaFile: true`.
+- Return types are `@ObjectType()` classes; inputs are `@InputType()`. Never return raw Mongoose documents.
 
-## Workers
-- Workers are BullMQ processors that pull jobs from Redis queues (`QUEUE_ETL`, `QUEUE_SCRAPE`).
-- Workers MUST NOT import `@cdo/mapping`, `@cdo/connectors`, or `@cdo/ingestion` directly. The `Orchestrator` class handles wiring.
-- Workers are responsible for: polling Redis, decrypting credentials, acquiring Redlock, delegating to Orchestrator, releasing Redlock.
-- The Orchestrator builds the pipeline context (`EtlContext`) and runs `EtlEngine`.
+## Worker (`apps/worker-etl`)
+- One BullMQ processor on `QUEUE_ETL`, handling `MIGRATION_RUN` jobs only.
+- The processor does infra only (pick up the job, delegate, handle throw). No Redlock.
+- `MigrationRunOrchestrator` loads the run + project, decrypts credentials, orders the waves (`planEntityWaves`), and runs each via `WaveExecutorService` → `@cdo/core` `EtlEngine`.
+- For `EXPORT`-mode runs the orchestrator builds a `FileExportTarget` from `@cdo/connectors` and writes the file; identity maps are skipped.
 
 ## Dependency Injection
-- Use NestJS DI for all services. Never use `new Service()` inside controllers or resolvers.
-- Repository classes from `@cdo/db` are injectable and `@Global()` — available across all modules.
+- NestJS DI for all services. Never `new Service()` in a controller/resolver.
+- `@cdo/db` repositories are `@Global()` and injectable everywhere.
 
 ## Error Handling
-- Services must throw NestJS-compatible exceptions (`BadRequestException`, etc.) for API errors.
-- Workers must classify errors using `ErrorType` enum and push failed items to the DLQ repository.
-- Never swallow errors silently. Always log with context (tenantId, jobId).
+- Services throw NestJS exceptions (`BadRequestException`, `ForbiddenException`, …).
+- The worker classifies errors with `ErrorType` and appends failures via `runRepository.appendFailedItem()` (→ `MigrationRun.failedItems[]`). No DLQ collection.
+- Never swallow errors silently. Log with `tenantId` + `runId`.

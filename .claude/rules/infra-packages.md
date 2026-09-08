@@ -10,27 +10,24 @@ paths:
 # Shared Infrastructure Rules
 
 ## `@cdo/shared` — The Foundation
-- This package has ZERO external dependencies. It is the leaf of the dependency graph.
-- All canonical types live in `models/canonical.types.ts`.
-- All runtime validators live in `validators/` as Zod schemas.
-- All enums live in `enums/index.ts`: `JobKind`, `JobStatus`, `Platform`, `ErrorType`.
-- All constants live in `constants.ts`. Never use magic strings or raw numbers — import from here.
-- Key constants: `QUEUE_ETL`, `QUEUE_SCRAPE`, `DEFAULT_BATCH_SIZE = 50`, `CIRCUIT_BREAKER_THRESHOLD = 10`, `LOCK_TTL_MS = 30min`, `MAX_JOB_RETRIES = 3`.
+- ZERO external dependencies. The leaf of the dependency graph.
+- Canonical types in `models/canonical.types.ts`; Zod validators in `validators/`.
+- Enums in `enums/index.ts`: `JobKind` (one value: `MIGRATION_RUN`), `Platform`, `EntityType`, `ErrorType`, `MigrationMode`, `ExportFormat`, `UserRole`, `MigrationProjectStatus`, `MigrationRunStatus`, `WaveStatus`, `ConnectionHealth`.
+- Wave ordering helpers in `enums/index.ts`: `CANONICAL_ENTITY_ORDER`, `planEntityWaves()`, `entityWaveDependencies()` — a fixed list, not a topological sort.
+- Constants in `constants.ts`: `QUEUE_ETL`, `DEFAULT_BATCH_SIZE = 50`, `MAX_JOB_RETRIES = 3`, `RETRY_BACKOFF_DELAY_MS`, `CANONICAL_VERSION`. No magic strings/numbers elsewhere.
 
 ## `@cdo/db` — Data Access
-- Mongoose schemas live in `schemas/`. Each has `tenantId` as a required indexed field.
-- Repository classes live in `repositories/`. Every query method scopes by `tenantId`.
-- `DatabaseModule` is `@Global()` — all schemas and repositories are available everywhere.
-- Schemas: `Job`, `Credential`, `Tenant`, `DLQ`.
-- DLQ repository methods: `create()`, `findAllForJob()`, `markReplayed()`, `findReplayableItems()`, `countPendingForJob()`.
+- Mongoose schemas in `schemas/`. Repositories in `repositories/` — every query method scopes by `tenantId` (the organization id).
+- `DatabaseModule` is `@Global()`.
+- Collections: `Tenant` (= organization), `User`, `Credential` (= connection), `MigrationProject`, `MigrationRun`, `IdentityMap`.
+- `MigrationRun` embeds `waves[]`, `failedItems[]`, and `export` — there is NO separate DLQ or reconciliation collection.
 
-## `@cdo/queue` — Job Producers
-- `JobProducer` has `enqueueEtlJob()` and `enqueueScrapeJob()`.
-- Queue names MUST match constants: `QUEUE_ETL = 'etl-queue'`, `QUEUE_SCRAPE = 'scrape-queue'`.
-- Jobs include retry config from constants (`MAX_JOB_RETRIES`, `RETRY_BACKOFF_DELAY_MS`).
+## `@cdo/queue` — Job Producer
+- `JobProducer.enqueueEtlJob()` — the only producer. Queue name `QUEUE_ETL = 'etl-queue'`.
+- Retry config from constants (`MAX_JOB_RETRIES`, `RETRY_BACKOFF_DELAY_MS`).
 
 ## `@cdo/auth` — Authentication
-- `JwtStrategy` extracts `tenantId` from the `sub` claim.
-- `GqlAuthGuard` protects GraphQL resolvers.
-- `@CurrentTenant()` is a custom parameter decorator for resolvers.
-- `AuthModule` validates `JWT_SECRET` env var exists and meets minimum length.
+- `JwtStrategy` returns `{ userId, tenantId, email, role }` (`sub` = userId, plus `tenantId` and `role` claims).
+- `GqlAuthGuard` protects GraphQL resolvers; plain `AuthGuard('jwt')` protects REST controllers.
+- `@CurrentTenant()` / `@CurrentOrg()` (aliases) inject `TenantContext` — `.tenantId` for scoping, `.userId` / `.role` for the user.
+- `AuthModule` validates `JWT_SECRET` (min 32 chars) on startup.

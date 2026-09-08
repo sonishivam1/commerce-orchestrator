@@ -1,6 +1,5 @@
 import { CanonicalEntity, EntityType, ErrorType, DEFAULT_BATCH_SIZE, MAX_JOB_RETRIES } from '@cdo/shared';
 import type { SourceConnector, TargetConnector, LoadResult } from '../interfaces/index';
-import { CircuitBreaker } from './circuit-breaker';
 import { withRetry } from './retry';
 
 export { LoadResult };
@@ -47,7 +46,8 @@ export interface EtlContext {
 export interface EtlEngineOptions {
     batchSize?: number;
     maxRetries?: number;
-    circuitBreaker?: (error: Error) => void;
+    /** Called with a FATAL error instead of re-throwing it, when provided. */
+    onFatal?: (error: Error) => void;
 }
 
 type ProgressHandler = (results: LoadResult[]) => void;
@@ -61,13 +61,11 @@ interface JobError extends Error {
 export class EtlEngine<T extends CanonicalEntity = CanonicalEntity> {
     private readonly batchSize: number;
     private readonly maxRetries: number;
-    private readonly circuitBreakerCallback?: (error: Error) => void;
+    private readonly onFatal?: (error: Error) => void;
 
     private progressHandler?: ProgressHandler;
     private failureHandler?: FailureHandler<T>;
     private completeHandler?: CompleteHandler;
-
-    private readonly circuitBreaker: CircuitBreaker;
 
     constructor(
         private readonly source: SourceConnector<T>,
@@ -77,8 +75,7 @@ export class EtlEngine<T extends CanonicalEntity = CanonicalEntity> {
     ) {
         this.batchSize = options.batchSize ?? DEFAULT_BATCH_SIZE;
         this.maxRetries = options.maxRetries ?? MAX_JOB_RETRIES;
-        this.circuitBreakerCallback = options.circuitBreaker;
-        this.circuitBreaker = new CircuitBreaker();
+        this.onFatal = options.onFatal;
     }
 
     on(event: 'progress', handler: ProgressHandler): this;
@@ -121,8 +118,6 @@ export class EtlEngine<T extends CanonicalEntity = CanonicalEntity> {
     }
 
     private async processBatch(batch: T[]): Promise<void> {
-        this.circuitBreaker.check();
-
         let targetResults: LoadResult[] = [];
 
         try {
@@ -130,19 +125,16 @@ export class EtlEngine<T extends CanonicalEntity = CanonicalEntity> {
                 () => this.target.load(batch),
                 { maxRetries: this.maxRetries }
             );
-            this.circuitBreaker.recordSuccess();
         } catch (error: any) {
             const errType = (error as JobError).type;
-            
+
             if (errType === ErrorType.FATAL) {
                 this.handleFatalError(error);
                 return;
             }
 
-            this.circuitBreaker.recordFailure(errType);
-
-            // If the whole batch fails consistently, fallback to item-by-item processing
-            // to isolate bad items (like a single Validation error failing the entire batch request)
+            // If the whole batch fails consistently, fall back to item-by-item
+            // processing to isolate the bad items.
             targetResults = await this.recoverBatchItemByItem(batch);
         }
 
@@ -154,16 +146,14 @@ export class EtlEngine<T extends CanonicalEntity = CanonicalEntity> {
 
         for (const item of batch) {
             try {
-                this.circuitBreaker.check();
                 const individualResults = await withRetry(
                     () => this.target.load([item]),
                     { maxRetries: this.maxRetries }
                 );
-                
+
                 if (individualResults.length > 0) {
                     results.push(individualResults[0]);
                 }
-                this.circuitBreaker.recordSuccess();
 
             } catch (error: any) {
                 const errType = (error as JobError).type;
@@ -171,8 +161,6 @@ export class EtlEngine<T extends CanonicalEntity = CanonicalEntity> {
                     this.handleFatalError(error);
                     break;
                 }
-                
-                this.circuitBreaker.recordFailure(errType);
 
                 // Emulate a failed LoadResult for this isolated item
                 results.push({
@@ -220,9 +208,8 @@ export class EtlEngine<T extends CanonicalEntity = CanonicalEntity> {
 
     private handleFatalError(error: Error): void {
         (error as JobError).type = ErrorType.FATAL;
-        this.circuitBreaker.trip();
-        if (this.circuitBreakerCallback) {
-            this.circuitBreakerCallback(error);
+        if (this.onFatal) {
+            this.onFatal(error);
         } else {
             this.failureHandler?.(error);
             // Re-throw fatal errors to stop pipeline execution entirely

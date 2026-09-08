@@ -4,6 +4,9 @@ description: MongoDB operations skill for Commerce Data Orchestrator. Encodes te
 user-invocable: true
 ---
 
+> **SIMPLIFIED SCOPE (2026-09):** parts of this skill predate the simplification. No scraping, no DLQ collection (failures live on `MigrationRun.failedItems[]`), no Redlock, no circuit breaker, no wave-planner sort, one `JobKind.MIGRATION_RUN`. See `docs/architecture/migration-scope.md` and `docs/implementation-plans/00-simplification-plan.md`.
+
+
 # Database Operations Skill — Commerce Data Orchestrator
 
 ## Connection Management

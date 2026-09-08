@@ -4,6 +4,9 @@ description: Core ETL engine design and implementation skill for Commerce Data O
 user-invocable: true
 ---
 
+> **SIMPLIFIED SCOPE (2026-09):** no circuit breaker (bounded retry only), no wave-planner topological sort (`planEntityWaves` uses the fixed `CANONICAL_ENTITY_ORDER`), failures go to `MigrationRun.failedItems[]` not a DLQ. See `docs/architecture/migration-scope.md`.
+
+
 # ETL Pipeline Skill — Commerce Data Orchestrator
 
 ## Pipeline Architecture Overview

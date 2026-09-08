@@ -38,9 +38,6 @@ export const DEFAULT_LOCALE = 'en';
 /** Default number of entities per extract/load batch in the Core Engine */
 export const DEFAULT_BATCH_SIZE = 50;
 
-/** Maximum consecutive failures before the circuit breaker trips a FatalError */
-export const CIRCUIT_BREAKER_THRESHOLD = 10;
-
 // ─── Canonical Schema Version ────────────────────────────────────────────────
 
 /** Current canonical contract version — bump when making breaking changes */

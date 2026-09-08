@@ -33,7 +33,7 @@ Every significant feature or fix MUST have an approved sub-plan in `docs/impleme
 - Any new NestJS module or service
 - Any new connector or mapper
 - Any database schema change
-- Any change to worker processor logic (Redlock, job status, orchestrator)
+- Any change to worker processor / orchestrator logic
 - Any new Next.js page or significant component
 - Any infrastructure change (docker-compose, CI, env vars)
 
@@ -47,19 +47,18 @@ Every significant feature or fix MUST have an approved sub-plan in `docs/impleme
 
 ## Implementation Rules (apply to all code changes)
 
-### NestJS (API + Workers)
-- Every resolver class gets `@UseGuards(GqlAuthGuard)` — no exceptions except login/register
-- `tenantId` always from `@CurrentTenant()` — never from request body or args
+### NestJS (API + Worker)
+- Every resolver class gets `@UseGuards(GqlAuthGuard)` — no exceptions except `login` / `register`
+- `tenantId` / `userId` / `role` always from `@CurrentTenant()` — never from request body or args
 - Services contain all business logic — resolvers only delegate
-- Workers are responsible ONLY for: credential decryption, Redlock acquire/release, job status transitions, orchestrator delegation
-- Orchestrators build pipeline context and run EtlEngine — workers do NOT wire connectors directly
+- The worker processor only picks up the job and delegates to the orchestrator (no Redlock)
+- The orchestrator builds pipeline context and runs `EtlEngine` — it does NOT wire connectors into the processor
 
 ### Pipeline
 - `@cdo/core` must NEVER import from `@cdo/db`, `@cdo/queue`, or any NestJS module
-- Redlock MUST be acquired before `orchestrator.execute()` and released in `finally`
-- Lock key format: `lock:{tenantId}:{targetCredentialId}` — never deviate
+- Concurrency is guarded in the API (`createMigrationRun` rejects a run while one is active), not with a distributed lock
 - All target connectors MUST upsert — check-then-create-or-update, never blindly create
-- Error classification is mandatory: `ValidationError | TransientError | FatalError`
+- Error classification is mandatory: `VALIDATION | TRANSIENT | FATAL`; failures go to `MigrationRun.failedItems[]`
 
 ### Logging
 - Never use `console.log`, `console.warn`, or `console.error` — use `Logger` from `@nestjs/common`
