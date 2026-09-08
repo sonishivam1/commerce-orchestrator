@@ -32,6 +32,42 @@ export enum EntityType {
     ORDERS = 'ORDERS',
 }
 
+/**
+ * The fixed order entity waves run in, so foreign-key dependencies are satisfied
+ * in the target: categories before products, customers before orders. A run's
+ * selected entity types are filtered against this list — there is no runtime
+ * topological sort.
+ */
+export const CANONICAL_ENTITY_ORDER: EntityType[] = [
+    EntityType.CATEGORIES,
+    EntityType.PRODUCTS,
+    EntityType.CUSTOMERS,
+    EntityType.ORDERS,
+];
+
+/** Which already-migrated entity types a given wave needs identity maps for. */
+export const ENTITY_WAVE_DEPENDENCIES: Record<EntityType, EntityType[]> = {
+    [EntityType.CATEGORIES]: [],
+    [EntityType.PRODUCTS]: [EntityType.CATEGORIES],
+    [EntityType.CUSTOMERS]: [],
+    [EntityType.ORDERS]: [EntityType.CUSTOMERS, EntityType.PRODUCTS],
+};
+
+/** Ordered subset of `selected`, in canonical wave order. */
+export function planEntityWaves(selected: EntityType[]): EntityType[] {
+    const set = new Set(selected);
+    return CANONICAL_ENTITY_ORDER.filter((e) => set.has(e));
+}
+
+/** Dependencies of `entityType` that are also part of this run's planned waves. */
+export function entityWaveDependencies(
+    entityType: EntityType,
+    plannedWaves: EntityType[],
+): EntityType[] {
+    const planned = new Set(plannedWaves);
+    return (ENTITY_WAVE_DEPENDENCIES[entityType] ?? []).filter((d) => planned.has(d));
+}
+
 export enum ErrorType {
     VALIDATION = 'ValidationError',
     TRANSIENT = 'TransientError',

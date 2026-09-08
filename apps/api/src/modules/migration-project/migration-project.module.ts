@@ -5,10 +5,10 @@ import { MigrationProjectResolver } from './migration-project.resolver';
 
 /**
  * MigrationProjectModule — owns all GQL operations for MigrationProjects,
- * MigrationRuns, and ReconciliationReports.
+ * MigrationRuns.
  *
  * Repositories (MigrationProjectRepository, MigrationRunRepository,
- * ReconciliationReportRepository, CredentialRepository) are provided
+ * CredentialRepository) are provided
  * by the globally registered DatabaseModule — no re-import needed.
  *
  * QueueModule provides JobProducer so createMigrationRun can enqueue

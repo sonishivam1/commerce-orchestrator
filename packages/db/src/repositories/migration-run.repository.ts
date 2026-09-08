@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { MigrationRun, MigrationRunDocument, WaveRecord } from '../schemas/migration-run.schema';
+import { MigrationRun, MigrationRunDocument, WaveRecord, FailedItem } from '../schemas/migration-run.schema';
 import { MigrationRunStatus, WaveStatus } from '@cdo/shared';
 
 @Injectable()
@@ -13,6 +13,18 @@ export class MigrationRunRepository {
 
     async create(data: Partial<MigrationRun>): Promise<MigrationRunDocument> {
         return this.model.create(data);
+    }
+
+    /** True when the project has a run that is PENDING or RUNNING. */
+    async hasActiveRun(tenantId: string, migrationProjectId: string): Promise<boolean> {
+        const count = await this.model
+            .countDocuments({
+                tenantId,
+                migrationProjectId,
+                status: { $in: [MigrationRunStatus.PENDING, MigrationRunStatus.RUNNING] },
+            })
+            .exec();
+        return count > 0;
     }
 
     /** All runs for a project, newest first */
@@ -104,6 +116,16 @@ export class MigrationRunRepository {
             .updateOne(
                 { _id: id, 'waves.entityType': entityType },
                 { $set: setFields },
+            )
+            .exec();
+    }
+
+    /** Append one failed item to the run (replaces the DLQ collection). */
+    async appendFailedItem(id: string, item: Omit<FailedItem, 'occurredAt'>): Promise<void> {
+        await this.model
+            .updateOne(
+                { _id: id },
+                { $push: { failedItems: { ...item, occurredAt: new Date() } } },
             )
             .exec();
     }

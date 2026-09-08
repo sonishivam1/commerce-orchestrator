@@ -26,6 +26,24 @@ export class WaveRecordType {
 }
 
 @ObjectType()
+export class FailedItemType {
+    @Field()
+    entityType: string;
+
+    @Field()
+    sourceId: string;
+
+    @Field()
+    reason: string;
+
+    @Field()
+    errorType: string;
+
+    @Field({ nullable: true })
+    occurredAt?: Date;
+}
+
+@ObjectType()
 export class MigrationRunType {
     @Field(() => ID)
     id: string;
@@ -50,6 +68,9 @@ export class MigrationRunType {
 
     @Field(() => [WaveRecordType])
     waves: WaveRecordType[];
+
+    @Field(() => [FailedItemType])
+    failedItems: FailedItemType[];
 
     @Field({ nullable: true })
     startedAt?: Date;

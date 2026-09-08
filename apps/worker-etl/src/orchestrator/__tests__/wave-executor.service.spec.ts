@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WaveExecutorService } from '../wave-executor.service';
-import { IdentityMapRepository, MigrationRunRepository, DlqRepository } from '@cdo/db';
+import { IdentityMapRepository, MigrationRunRepository } from '@cdo/db';
 import { EntityType, WaveStatus } from '@cdo/shared';
 import type { SourceConnector, TargetConnector, LoadResult } from '@cdo/core';
 import type { CanonicalCategory } from '@cdo/shared';
@@ -30,9 +30,7 @@ describe('WaveExecutorService', () => {
     };
     const mockRunRepo = {
         updateWave: jest.fn(),
-    };
-    const mockDlqRepo = {
-        create: jest.fn(),
+        appendFailedItem: jest.fn(),
     };
 
     // Mock source connector — yields one batch with one category
@@ -72,14 +70,13 @@ describe('WaveExecutorService', () => {
         mockIdentityMapRepo.getResolutionMap.mockResolvedValue(new Map());
         mockIdentityMapRepo.bulkUpsert.mockResolvedValue({ created: 1, updated: 0 });
         mockRunRepo.updateWave.mockResolvedValue(undefined);
-        mockDlqRepo.create.mockResolvedValue(undefined);
+        mockRunRepo.appendFailedItem.mockResolvedValue(undefined);
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 WaveExecutorService,
                 { provide: IdentityMapRepository, useValue: mockIdentityMapRepo },
                 { provide: MigrationRunRepository, useValue: mockRunRepo },
-                { provide: DlqRepository, useValue: mockDlqRepo },
             ],
         }).compile();
 

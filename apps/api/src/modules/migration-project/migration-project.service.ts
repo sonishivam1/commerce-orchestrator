@@ -8,7 +8,6 @@ import { randomUUID } from 'crypto';
 import {
     MigrationProjectRepository,
     MigrationRunRepository,
-    ReconciliationReportRepository,
     CredentialRepository,
 } from '@cdo/db';
 import { MigrationProjectStatus, MigrationRunStatus, JobKind } from '@cdo/shared';
@@ -29,7 +28,6 @@ export class MigrationProjectService {
     constructor(
         private readonly projectRepository: MigrationProjectRepository,
         private readonly runRepository: MigrationRunRepository,
-        private readonly reportRepository: ReconciliationReportRepository,
         private readonly credentialRepository: CredentialRepository,
         private readonly jobProducer: JobProducer,
     ) {}
@@ -150,17 +148,23 @@ export class MigrationProjectService {
     }
 
     /**
-     * Create a MigrationRun for a project.
+     * Create and enqueue a MigrationRun for a project.
      *
-     * Phase 1: Creates the run document with PENDING status and initialises wave stubs.
-     * The run is not yet connected to the BullMQ execution path — that wiring is Phase 2
-     * (wave executor). The run record stands as the canonical execution intent.
+     * Rejects with 409-style BadRequestException when the project already has a
+     * PENDING or RUNNING run — this is the single-worker concurrency guard that
+     * replaces distributed locking.
      */
     async createRun(tenantId: string, input: CreateMigrationRunInput) {
         const project = await this.findOne(tenantId, input.migrationProjectId);
 
         if (project.status === MigrationProjectStatus.ARCHIVED) {
             throw new BadRequestException('Cannot run an archived project');
+        }
+
+        if (await this.runRepository.hasActiveRun(tenantId, input.migrationProjectId)) {
+            throw new BadRequestException(
+                'This project already has a run in progress. Wait for it to finish before starting another.',
+            );
         }
 
         const correlationId = randomUUID();
@@ -244,23 +248,6 @@ export class MigrationProjectService {
 
         // Return fresh document with waves populated
         return this.runRepository.findOneForTenant(tenantId, runId);
-    }
-
-    // ── ReconciliationReport ───────────────────────────────────────────────────
-
-    async findReport(tenantId: string, migrationRunId: string) {
-        const report = await this.reportRepository.findByRunId(tenantId, migrationRunId);
-        if (!report) {
-            throw new NotFoundException(
-                `No reconciliation report found for run ${migrationRunId}`,
-            );
-        }
-        return report;
-    }
-
-    async findReportsForProject(tenantId: string, migrationProjectId: string) {
-        await this.findOne(tenantId, migrationProjectId);
-        return this.reportRepository.findAllForProject(tenantId, migrationProjectId);
     }
 
     /** Most recent N runs across all projects for the tenant (for the dashboard). */

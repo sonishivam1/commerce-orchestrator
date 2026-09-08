@@ -8,7 +8,6 @@ import {
     Plug,
     FolderKanban,
     Zap,
-    BarChart3,
     Settings,
     LogOut,
 } from 'lucide-react';
@@ -23,7 +22,6 @@ const workspaceNavItems = [
 const migrationsNavItems = [
     { href: '/projects',    label: 'Projects',       icon: FolderKanban },
     { href: '/runs',        label: 'Live Execution', icon: Zap          },
-    { href: '/reports',     label: 'Reconciliation', icon: BarChart3    },
 ];
 
 const systemNavItems = [

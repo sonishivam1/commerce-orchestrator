@@ -14,7 +14,6 @@ export function Topbar() {
     else if (pathname.startsWith('/projects/new')) breadcrumb = 'Dashboard / New Migration';
     else if (pathname.startsWith('/projects')) breadcrumb = 'Projects';
     else if (pathname.startsWith('/runs')) breadcrumb = 'Live Execution';
-    else if (pathname === '/reports') breadcrumb = 'Reconciliation';
     else if (pathname === '/settings') breadcrumb = 'Settings';
 
     return (

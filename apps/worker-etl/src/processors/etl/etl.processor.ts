@@ -3,14 +3,14 @@ import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { MigrationRunOrchestrator } from '../../orchestrator/migration-run.orchestrator';
 import { QUEUE_ETL } from '@cdo/shared';
-import { LockService } from '../../services/lock.service';
 
 /**
  * Processes MIGRATION_RUN jobs from the ETL queue.
  *
- * The processor only handles infra concerns — pick up the job, acquire the
- * target lock, delegate to the orchestrator, release the lock. All domain
- * logic (wave planning, identity map, run status) lives in the orchestrator.
+ * The processor only picks up the job and delegates to the orchestrator. All
+ * domain logic (wave planning, identity map, run status) lives there.
+ * Concurrency is guarded in the API (a project rejects a second run while one
+ * is RUNNING), so no distributed lock is acquired here.
  */
 @Processor(QUEUE_ETL)
 export class EtlProcessor extends WorkerHost {
@@ -18,31 +18,18 @@ export class EtlProcessor extends WorkerHost {
 
     constructor(
         private readonly migrationRunOrchestrator: MigrationRunOrchestrator,
-        private readonly lockService: LockService,
     ) {
         super();
     }
 
     async process(job: Job): Promise<void> {
-        const {
-            tenantId,
-            migrationRunId,
-            targetCredentialId,
-            dryRun,
-            correlationId,
-        } = job.data;
+        const { tenantId, migrationRunId, dryRun, correlationId } = job.data;
 
         this.logger.log(
             `[${migrationRunId}] MIGRATION_RUN picked up — tenant=${tenantId} dryRun=${dryRun ?? false}`,
         );
 
-        let lock = null;
-
         try {
-            lock = targetCredentialId
-                ? await this.lockService.acquire(tenantId, targetCredentialId)
-                : null;
-
             await this.migrationRunOrchestrator.execute({
                 tenantId,
                 migrationRunId,
@@ -59,8 +46,6 @@ export class EtlProcessor extends WorkerHost {
             // The orchestrator already marks the run FAILED via runRepository.
             // Re-throw so BullMQ can apply its retry policy.
             throw error;
-        } finally {
-            await this.lockService.release(lock);
         }
     }
 }

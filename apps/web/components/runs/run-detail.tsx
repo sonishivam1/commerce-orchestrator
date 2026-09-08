@@ -4,7 +4,6 @@ import { useQuery } from '@apollo/client';
 import {
     GET_MIGRATION_RUN,
     GET_MIGRATION_PROJECT,
-    GET_RECONCILIATION_REPORT,
 } from '@/lib/graphql/queries/migration-project.queries';
 import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
 import Link from 'next/link';
@@ -21,6 +20,14 @@ interface WaveRecord {
     completedAt?: string;
 }
 
+interface FailedItem {
+    entityType: string;
+    sourceId: string;
+    reason: string;
+    errorType: string;
+    occurredAt?: string;
+}
+
 interface MigrationRun {
     id: string;
     migrationProjectId: string;
@@ -29,6 +36,7 @@ interface MigrationRun {
     processedCount: number;
     failedCount: number;
     waves: WaveRecord[];
+    failedItems: FailedItem[];
     startedAt?: string;
     completedAt?: string;
     correlationId?: string;
@@ -152,14 +160,9 @@ export function RunDetail({ runId }: { runId: string }) {
 
     const { data: credsData } = useQuery<{ credentials: Credential[] }>(GET_CREDENTIALS);
 
-    const { data: reportData } = useQuery(GET_RECONCILIATION_REPORT, {
-        variables: { migrationRunId: runId },
-        skip: run?.status !== 'COMPLETED',
-    });
-
     const project = projectData?.migrationProject;
     const credentials = credsData?.credentials ?? [];
-    const report = reportData?.reconciliationReport;
+    const failedItems = run?.failedItems ?? [];
 
     // Resolve connection IDs to platform/alias from the credentials list
     const findCred = (id?: string) => credentials.find(c => c.id === id);
@@ -341,16 +344,25 @@ export function RunDetail({ runId }: { runId: string }) {
                         </div>
                     </div>
 
-                    {/* Reconciliation report link (completed runs only) */}
-                    {run.status === 'COMPLETED' && report && (
+                    {/* Failed items (embedded on the run — replaces the DLQ) */}
+                    {failedItems.length > 0 && (
                         <div className="panel-card">
-                            <div className="panel-card-title">Migration Complete</div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                                Overall success rate: {report.overallSuccessRate.toFixed(1)}%
+                            <div className="panel-card-title">
+                                Failed items ({failedItems.length})
                             </div>
-                            <Link href={`/reports/${runId}`} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-                                View Full Report
-                            </Link>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+                                {failedItems.map((item, i) => (
+                                    <div key={i} style={{ fontSize: 12, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                                            <span style={{ fontFamily: 'var(--font-data)', color: 'var(--text)' }}>
+                                                {item.entityType} · {item.sourceId}
+                                            </span>
+                                            <span style={{ color: 'var(--text-dim)' }}>{item.errorType}</span>
+                                        </div>
+                                        <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>{item.reason}</div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>

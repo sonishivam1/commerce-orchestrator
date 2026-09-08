@@ -1,11 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EtlEngine, EtlContext, LoadResult, DryRunTargetConnector, getWaveDependencies } from '@cdo/core';
-import { EntityType, ErrorType, WaveStatus, type CanonicalEntity } from '@cdo/shared';
+import { EtlEngine, EtlContext, LoadResult, DryRunTargetConnector } from '@cdo/core';
+import { EntityType, ErrorType, WaveStatus, entityWaveDependencies, type CanonicalEntity } from '@cdo/shared';
 import { ConnectorFactory } from '@cdo/connectors';
 import {
     IdentityMapRepository,
     MigrationRunRepository,
-    DlqRepository,
 } from '@cdo/db';
 import { IdentityTargetDecorator } from './identity-target.decorator';
 
@@ -67,7 +66,6 @@ export class WaveExecutorService {
     constructor(
         private readonly identityMapRepository: IdentityMapRepository,
         private readonly migrationRunRepository: MigrationRunRepository,
-        private readonly dlqRepository: DlqRepository,
     ) {}
 
     async executeWave(config: WaveExecutionConfig): Promise<WaveStats> {
@@ -106,7 +104,7 @@ export class WaveExecutorService {
 
         try {
             // Step 2: Load resolution maps for dependency entity types
-            const deps = getWaveDependencies(entityType, plannedWaves);
+            const deps = entityWaveDependencies(entityType, plannedWaves);
             const resolutionMaps: Record<string, Record<string, string>> = {};
 
             for (const dep of deps) {
@@ -208,29 +206,24 @@ export class WaveExecutorService {
                     );
             });
 
-            // Step 9: Wire the failure handler — pushes bad items to DLQ
+            // Step 9: Wire the failure handler — records bad items on the run
             engine.on('failure', async (error: Error & { type?: ErrorType }, item?: CanonicalEntity) => {
                 stats.failedCount += 1;
                 this.logger.error(
                     `[${runId}][${entityType}] Item failure: ${error.message}`,
                 );
-                if (item) {
-                    await this.dlqRepository
-                        .create({
-                            tenantId,
-                            jobId: runId,
-                            itemKey: item.key ?? 'unknown',
-                            errorType: error.type ?? ErrorType.FATAL,
-                            errorMessage: error.message,
-                            rawPayload: item as unknown as Record<string, unknown>,
-                            canReplay: error.type !== ErrorType.VALIDATION,
-                        })
-                        .catch((e: Error) =>
-                            this.logger.error(
-                                `[${runId}] DLQ push failed for ${item.key}: ${e.message}`,
-                            ),
-                        );
-                }
+                await this.migrationRunRepository
+                    .appendFailedItem(runId, {
+                        entityType,
+                        sourceId: item?.key ?? 'unknown',
+                        reason: error.message,
+                        errorType: error.type ?? ErrorType.FATAL,
+                    })
+                    .catch((e: Error) =>
+                        this.logger.error(
+                            `[${runId}] failedItems append failed for ${item?.key}: ${e.message}`,
+                        ),
+                    );
             });
 
             // Step 10: Run the engine

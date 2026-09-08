@@ -19,6 +19,17 @@ import { MigrationRunStatus, WaveStatus } from '@cdo/shared';
 
 export type MigrationRunDocument = MigrationRun & Document;
 
+/** Embedded record of one item that failed during a run. Replaces the DLQ collection. */
+export interface FailedItem {
+    entityType: string;
+    /** Identifier of the item in the source platform (canonical key). */
+    sourceId: string;
+    reason: string;
+    /** 'ValidationError' | 'TransientError' | 'FatalError' */
+    errorType: string;
+    occurredAt: Date;
+}
+
 /** Embedded wave-level execution record (one per entity type in the run) */
 export interface WaveRecord {
     /** Entity type this wave processes: 'CATEGORIES' | 'PRODUCTS' | 'CUSTOMERS' | 'ORDERS' */
@@ -106,13 +117,31 @@ export class MigrationRun {
     waves: WaveRecord[];
 
     /**
-     * Correlation ID propagated through the BullMQ job and all log entries for this run.
+     * Items that failed during the run. Embedded here instead of a separate
+     * dead-letter-queue collection — the run detail page renders this list.
+     */
+    @Prop({
+        type: [
+            {
+                entityType: { type: String, required: true },
+                sourceId: { type: String, required: true },
+                reason: { type: String, required: true },
+                errorType: { type: String, required: true },
+                occurredAt: { type: Date, default: Date.now },
+            },
+        ],
+        default: [],
+    })
+    failedItems: FailedItem[];
+
+    /**
+     * Request ID propagated through the BullMQ job and all log entries for this run.
      * Enables cross-system tracing.
      */
     @Prop()
     correlationId?: string;
 
-    /** Trace ID for distributed tracing (Pino + OpenTelemetry). */
+    /** Retained alias for correlationId — some older callers still read traceId. */
     @Prop()
     traceId?: string;
 }

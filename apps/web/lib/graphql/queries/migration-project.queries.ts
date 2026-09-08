@@ -101,6 +101,13 @@ export const GET_MIGRATION_RUN = gql`
         startedAt
         completedAt
       }
+      failedItems {
+        entityType
+        sourceId
+        reason
+        errorType
+        occurredAt
+      }
       startedAt
       completedAt
       correlationId
@@ -109,46 +116,3 @@ export const GET_MIGRATION_RUN = gql`
   }
 `;
 
-// ── Reconciliation Reports ──────────────────────────────────────────────────
-
-export const GET_RECONCILIATION_REPORT = gql`
-  query GetReconciliationReport($migrationRunId: ID!) {
-    reconciliationReport(migrationRunId: $migrationRunId) {
-      id
-      migrationRunId
-      migrationProjectId
-      generatedAt
-      overallSuccessRate
-      entitySummaries {
-        entityType
-        sourceCount
-        migratedCount
-        createdCount
-        updatedCount
-        failedCount
-        missingRefCount
-      }
-    }
-  }
-`;
-
-export const GET_RECONCILIATION_REPORTS = gql`
-  query GetReconciliationReports($migrationProjectId: ID!) {
-    reconciliationReports(migrationProjectId: $migrationProjectId) {
-      id
-      migrationRunId
-      migrationProjectId
-      generatedAt
-      overallSuccessRate
-      entitySummaries {
-        entityType
-        sourceCount
-        migratedCount
-        createdCount
-        updatedCount
-        failedCount
-        missingRefCount
-      }
-    }
-  }
-`;

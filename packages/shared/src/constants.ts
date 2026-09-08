@@ -22,16 +22,8 @@ export const RETRY_BACKOFF_DELAY_MS = 5_000;
 
 // ─── Completed Job Retention ──────────────────────────────────────────────────
 
-/** How many completed ETL jobs BullMQ keeps in Redis before auto-cleanup */
+/** How many completed run jobs BullMQ keeps in Redis before auto-cleanup */
 export const COMPLETED_JOB_RETENTION_COUNT = 100;
-
-// ─── Redlock (Distributed Locking) ───────────────────────────────────────────
-
-/** TTL for a target-environment Redis lock (30 minutes) — released in finally block */
-export const LOCK_TTL_MS = 30 * 60 * 1_000;
-
-/** Prefix for Redis lock keys. Format: `lock:{tenantId}:{targetCredentialId}` */
-export const LOCK_KEY_PREFIX = 'lock';
 
 // ─── Default Business Assumptions ───────────────────────────────────────────────
 
