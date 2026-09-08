@@ -44,6 +44,18 @@ export class FailedItemType {
 }
 
 @ObjectType()
+export class RunExportType {
+    @Field()
+    filePath: string;
+
+    @Field(() => Int)
+    byteSize: number;
+
+    @Field()
+    format: string;
+}
+
+@ObjectType()
 export class MigrationRunType {
     @Field(() => ID)
     id: string;
@@ -71,6 +83,9 @@ export class MigrationRunType {
 
     @Field(() => [FailedItemType])
     failedItems: FailedItemType[];
+
+    @Field(() => RunExportType, { nullable: true })
+    export?: RunExportType;
 
     @Field({ nullable: true })
     startedAt?: Date;

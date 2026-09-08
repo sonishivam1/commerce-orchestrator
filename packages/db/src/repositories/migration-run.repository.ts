@@ -81,6 +81,14 @@ export class MigrationRunRepository {
             .exec();
     }
 
+    /** Record the generated export file on an EXPORT-mode run. */
+    async setExport(
+        id: string,
+        exportInfo: { filePath: string; byteSize: number; format: string },
+    ): Promise<void> {
+        await this.model.updateOne({ _id: id }, { $set: { export: exportInfo } }).exec();
+    }
+
     async markFailed(id: string, errorSummary: Record<string, unknown>): Promise<void> {
         await this.model
             .updateOne(

@@ -1,4 +1,8 @@
-import { InputType, Field } from '@nestjs/graphql';
+import { InputType, Field, registerEnumType } from '@nestjs/graphql';
+import { MigrationMode, ExportFormat } from '@cdo/shared';
+
+registerEnumType(MigrationMode, { name: 'MigrationMode' });
+registerEnumType(ExportFormat, { name: 'ExportFormat' });
 
 @InputType()
 export class CreateMigrationProjectInput {
@@ -6,13 +10,21 @@ export class CreateMigrationProjectInput {
     @Field()
     name: string;
 
+    /** MIGRATE (default) upserts into a target connection; EXPORT writes a file. */
+    @Field(() => MigrationMode, { defaultValue: MigrationMode.MIGRATE })
+    mode: MigrationMode;
+
     /** Credential ID to use as the source connection */
     @Field()
     sourceConnectionId: string;
 
-    /** Credential ID to use as the target connection */
-    @Field()
-    targetConnectionId: string;
+    /** Credential ID for the target connection. Required for MIGRATE mode. */
+    @Field({ nullable: true })
+    targetConnectionId?: string;
+
+    /** Output format. Required for EXPORT mode. */
+    @Field(() => ExportFormat, { nullable: true })
+    exportFormat?: ExportFormat;
 
     /**
      * Entity types to migrate.

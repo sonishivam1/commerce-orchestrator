@@ -26,8 +26,10 @@ export function CreateProjectForm() {
     const router = useRouter();
 
     const [name, setName] = useState('');
+    const [mode, setMode] = useState<'MIGRATE' | 'EXPORT'>('MIGRATE');
     const [sourceConnectionId, setSourceConnectionId] = useState('');
     const [targetConnectionId, setTargetConnectionId] = useState('');
+    const [exportFormat, setExportFormat] = useState<'CSV' | 'JSON'>('JSON');
     const [entityTypes, setEntityTypes] = useState<string[]>(['CATEGORIES', 'PRODUCTS']);
     const [formError, setFormError] = useState<string | null>(null);
 
@@ -56,10 +58,12 @@ export function CreateProjectForm() {
 
         if (!name.trim()) { setFormError('Project name is required.'); return; }
         if (!sourceConnectionId) { setFormError('Source connection is required.'); return; }
-        if (!targetConnectionId) { setFormError('Target connection is required.'); return; }
-        if (sourceConnectionId === targetConnectionId) {
-            setFormError('Source and target connections must be different.');
-            return;
+        if (mode === 'MIGRATE') {
+            if (!targetConnectionId) { setFormError('Target connection is required.'); return; }
+            if (sourceConnectionId === targetConnectionId) {
+                setFormError('Source and target connections must be different.');
+                return;
+            }
         }
         if (entityTypes.length === 0) {
             setFormError('Select at least one entity type.');
@@ -70,13 +74,18 @@ export function CreateProjectForm() {
             variables: {
                 input: {
                     name: name.trim(),
+                    mode,
                     sourceConnectionId,
-                    targetConnectionId,
+                    ...(mode === 'MIGRATE'
+                        ? { targetConnectionId }
+                        : { exportFormat }),
                     entityTypes,
                 },
             },
         });
     };
+
+    const canSubmit = credentials.length >= (mode === 'MIGRATE' ? 2 : 1);
 
     return (
         <div className="view active">
@@ -100,11 +109,27 @@ export function CreateProjectForm() {
                     />
                 </div>
 
+                <div className="form-group">
+                    <label className="form-label">Mode</label>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                        {(['MIGRATE', 'EXPORT'] as const).map(m => (
+                            <button
+                                key={m}
+                                type="button"
+                                onClick={() => setMode(m)}
+                                className={`btn ${mode === m ? 'btn-primary' : 'btn-ghost'}`}
+                            >
+                                {m === 'MIGRATE' ? 'Migrate to platform' : 'Export to file'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 {credsLoading ? (
                     <div style={{ color: 'var(--text-muted)' }}>Loading connections...</div>
-                ) : credentials.length < 2 ? (
+                ) : !canSubmit ? (
                     <div style={{ color: 'var(--status-failed)' }}>
-                        You need at least two connections to create a project.{' '}
+                        You need at least {mode === 'MIGRATE' ? 'two connections' : 'one connection'} to create this project.{' '}
                         <Link href="/connections" style={{ textDecoration: 'underline' }}>
                             Add connections
                         </Link>
@@ -128,27 +153,41 @@ export function CreateProjectForm() {
                             </select>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">Target Connection</label>
-                            <select
-                                value={targetConnectionId}
-                                onChange={e => setTargetConnectionId(e.target.value)}
-                                className="form-select"
-                                required
-                            >
-                                <option value="" disabled>Select a target connection...</option>
-                                {credentials.map(c => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.alias} ({c.platform})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        {mode === 'MIGRATE' ? (
+                            <div className="form-group">
+                                <label className="form-label">Target Connection</label>
+                                <select
+                                    value={targetConnectionId}
+                                    onChange={e => setTargetConnectionId(e.target.value)}
+                                    className="form-select"
+                                    required
+                                >
+                                    <option value="" disabled>Select a target connection...</option>
+                                    {credentials.map(c => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.alias} ({c.platform})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        ) : (
+                            <div className="form-group">
+                                <label className="form-label">Export Format</label>
+                                <select
+                                    value={exportFormat}
+                                    onChange={e => setExportFormat(e.target.value as 'CSV' | 'JSON')}
+                                    className="form-select"
+                                >
+                                    <option value="JSON">JSON</option>
+                                    <option value="CSV">CSV</option>
+                                </select>
+                            </div>
+                        )}
                     </>
                 )}
 
                 <div className="form-group">
-                    <label className="form-label">Entity Types to Migrate</label>
+                    <label className="form-label">Entity Types</label>
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '8px' }}>
                         {ALL_ENTITY_TYPES.map(et => {
                             const selected = entityTypes.includes(et);
@@ -175,7 +214,7 @@ export function CreateProjectForm() {
                 <div style={{ marginTop: '20px' }}>
                     <button
                         type="submit"
-                        disabled={loading || credentials.length < 2}
+                        disabled={loading || !canSubmit}
                         className="btn btn-primary"
                         style={{ width: '100%', justifyContent: 'center' }}
                     >

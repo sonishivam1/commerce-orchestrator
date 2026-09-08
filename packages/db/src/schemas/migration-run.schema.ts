@@ -135,6 +135,18 @@ export class MigrationRun {
     failedItems: FailedItem[];
 
     /**
+     * Set when an EXPORT-mode run completes — points at the generated file.
+     */
+    @Prop({
+        type: {
+            filePath: { type: String, required: true },
+            byteSize: { type: Number, required: true },
+            format: { type: String, required: true },
+        },
+    })
+    export?: { filePath: string; byteSize: number; format: string };
+
+    /**
      * Request ID propagated through the BullMQ job and all log entries for this run.
      * Enables cross-system tracing.
      */

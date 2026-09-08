@@ -1,5 +1,5 @@
 import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
-import { MigrationProjectStatus } from '@cdo/shared';
+import { MigrationProjectStatus, MigrationMode, ExportFormat } from '@cdo/shared';
 
 registerEnumType(MigrationProjectStatus, { name: 'MigrationProjectStatus' });
 
@@ -14,13 +14,20 @@ export class MigrationProjectType {
     @Field()
     name: string;
 
+    @Field(() => MigrationMode)
+    mode: MigrationMode;
+
     /** References the source Credential/_id */
     @Field()
     sourceConnectionId: string;
 
-    /** References the target Credential/_id */
-    @Field()
-    targetConnectionId: string;
+    /** References the target Credential/_id — null for EXPORT mode */
+    @Field({ nullable: true })
+    targetConnectionId?: string;
+
+    /** Output format — null for MIGRATE mode */
+    @Field(() => ExportFormat, { nullable: true })
+    exportFormat?: ExportFormat;
 
     @Field(() => [String])
     entityTypes: string[];

@@ -10,7 +10,7 @@ import {
     MigrationRunRepository,
     CredentialRepository,
 } from '@cdo/db';
-import { MigrationProjectStatus, MigrationRunStatus, JobKind } from '@cdo/shared';
+import { MigrationProjectStatus, MigrationRunStatus, MigrationMode, JobKind } from '@cdo/shared';
 import { JobProducer } from '@cdo/queue';
 import {
     CreateMigrationProjectInput,
@@ -68,28 +68,39 @@ export class MigrationProjectService {
             );
         }
 
-        // Verify target credential belongs to this tenant
-        const target = await this.credentialRepository.findOneForTenant(
-            tenantId,
-            input.targetConnectionId,
-        );
-        if (!target) {
-            throw new NotFoundException(
-                `Target connection ${input.targetConnectionId} not found`,
-            );
-        }
+        const mode = input.mode ?? MigrationMode.MIGRATE;
 
-        if (input.sourceConnectionId === input.targetConnectionId) {
-            throw new BadRequestException(
-                'Source and target connections must be different',
+        if (mode === MigrationMode.MIGRATE) {
+            if (!input.targetConnectionId) {
+                throw new BadRequestException('targetConnectionId is required for MIGRATE mode');
+            }
+            const target = await this.credentialRepository.findOneForTenant(
+                tenantId,
+                input.targetConnectionId,
             );
+            if (!target) {
+                throw new NotFoundException(
+                    `Target connection ${input.targetConnectionId} not found`,
+                );
+            }
+            if (input.sourceConnectionId === input.targetConnectionId) {
+                throw new BadRequestException(
+                    'Source and target connections must be different',
+                );
+            }
+        } else {
+            if (!input.exportFormat) {
+                throw new BadRequestException('exportFormat is required for EXPORT mode');
+            }
         }
 
         const project = await this.projectRepository.create({
             tenantId,
             name: input.name,
+            mode,
             sourceConnectionId: input.sourceConnectionId,
-            targetConnectionId: input.targetConnectionId,
+            targetConnectionId: mode === MigrationMode.MIGRATE ? input.targetConnectionId : undefined,
+            exportFormat: mode === MigrationMode.EXPORT ? input.exportFormat : undefined,
             entityTypes: input.entityTypes,
             mappingConfig: {},
             status: MigrationProjectStatus.DRAFT,
@@ -236,7 +247,7 @@ export class MigrationProjectService {
             traceId: run.traceId ?? runId,
             kind: JobKind.MIGRATION_RUN,
             sourceCredentialId: project.sourceConnectionId,
-            targetCredentialId: project.targetConnectionId,
+            targetCredentialId: project.targetConnectionId ?? '',
             entityTypes: project.entityTypes,
             migrationRunId: runId,
             dryRun: input.dryRun ?? false,

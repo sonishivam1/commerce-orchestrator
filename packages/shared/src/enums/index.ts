@@ -107,6 +107,22 @@ export enum MigrationProjectStatus {
 }
 
 /**
+ * MigrationMode — what a project does with the extracted data.
+ * MIGRATE: upsert into a target platform connection.
+ * EXPORT:  write to a downloadable CSV/JSON file.
+ */
+export enum MigrationMode {
+    MIGRATE = 'MIGRATE',
+    EXPORT = 'EXPORT',
+}
+
+/** Output file format for EXPORT-mode projects. */
+export enum ExportFormat {
+    CSV = 'CSV',
+    JSON = 'JSON',
+}
+
+/**
  * MigrationRunStatus — execution state of a single MigrationRun.
  */
 export enum MigrationRunStatus {

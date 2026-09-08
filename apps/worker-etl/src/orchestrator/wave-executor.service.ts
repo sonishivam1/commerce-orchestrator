@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EtlEngine, EtlContext, LoadResult, DryRunTargetConnector } from '@cdo/core';
+import { EtlEngine, EtlContext, LoadResult, DryRunTargetConnector, type TargetConnector } from '@cdo/core';
 import { EntityType, ErrorType, WaveStatus, entityWaveDependencies, type CanonicalEntity } from '@cdo/shared';
 import { ConnectorFactory } from '@cdo/connectors';
 import {
@@ -28,7 +28,8 @@ export interface WaveExecutionConfig {
         dryRun: boolean;
     };
     sourcePlatform: string;
-    targetPlatform: string;
+    /** Target platform for MIGRATE mode. Undefined for EXPORT mode. */
+    targetPlatform?: string;
     /** Decrypted source credentials (from worker memory only) */
     sourceCredentials: Record<string, unknown>;
     /** Decrypted target credentials (from worker memory only) */
@@ -41,6 +42,12 @@ export interface WaveExecutionConfig {
      * When absent the wave starts from the beginning of the dataset.
      */
     startCursor?: string;
+    /**
+     * EXPORT mode: shared FileExportTarget that accumulates rows across all waves.
+     * When present the wave writes to this instead of a platform target, and no
+     * identity maps are loaded or written.
+     */
+    exportTarget?: TargetConnector<CanonicalEntity>;
 }
 
 /**
@@ -79,6 +86,7 @@ export class WaveExecutorService {
             targetCredentials,
             context,
             startCursor,
+            exportTarget,
         } = config;
 
         const { tenantId, migrationProjectId } = run;
@@ -103,8 +111,9 @@ export class WaveExecutorService {
         };
 
         try {
-            // Step 2: Load resolution maps for dependency entity types
-            const deps = entityWaveDependencies(entityType, plannedWaves);
+            // Step 2: Load resolution maps for dependency entity types.
+            // EXPORT mode does not resolve foreign keys — references stay as source ids.
+            const deps = exportTarget ? [] : entityWaveDependencies(entityType, plannedWaves);
             const resolutionMaps: Record<string, Record<string, string>> = {};
 
             for (const dep of deps) {
@@ -137,23 +146,30 @@ export class WaveExecutorService {
                 startCursor,
             };
 
-            // Step 5: Create connectors
+            // Step 5: Create the source connector and resolve the target.
             const source = ConnectorFactory.createSource(sourcePlatform, entityType);
-            const realTarget = ConnectorFactory.createTarget(targetPlatform, entityType);
 
-            const identityTarget = new IdentityTargetDecorator(
-                realTarget,
-                this.identityMapRepository,
-                tenantId,
-                migrationProjectId,
-                entityType,
-                runId
-            );
-
-            // Step 6: Wrap target in DryRunTargetConnector if dryRun is enabled
-            const target = run.dryRun
-                ? new DryRunTargetConnector(identityTarget)
-                : identityTarget;
+            let target: TargetConnector<CanonicalEntity>;
+            if (exportTarget) {
+                // EXPORT mode — one shared file target accumulates rows across waves.
+                target = run.dryRun ? new DryRunTargetConnector(exportTarget) : exportTarget;
+            } else {
+                if (!targetPlatform) {
+                    throw new Error('MIGRATE wave has no target platform');
+                }
+                const realTarget = ConnectorFactory.createTarget(targetPlatform, entityType);
+                const identityTarget = new IdentityTargetDecorator(
+                    realTarget,
+                    this.identityMapRepository,
+                    tenantId,
+                    migrationProjectId,
+                    entityType,
+                    runId,
+                );
+                target = run.dryRun
+                    ? new DryRunTargetConnector(identityTarget)
+                    : identityTarget;
+            }
 
             // Step 7: Build and wire the EtlEngine
             const engine = new EtlEngine(source, target, {

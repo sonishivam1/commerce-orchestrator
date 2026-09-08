@@ -45,3 +45,7 @@ coverage/
 # Claude Code personal overrides
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Local export output (EXPORT-mode runs)
+/exports/
+apps/*/exports/

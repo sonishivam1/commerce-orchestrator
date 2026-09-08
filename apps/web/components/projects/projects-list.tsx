@@ -11,7 +11,9 @@ interface MigrationProject {
     id: string;
     name: string;
     sourceConnectionId: string;
-    targetConnectionId: string;
+    targetConnectionId?: string;
+    mode?: 'MIGRATE' | 'EXPORT';
+    exportFormat?: 'CSV' | 'JSON';
     entityTypes: string[];
     status: string;
     createdAt: string;
@@ -95,14 +97,17 @@ export function ProjectsList() {
                         </thead>
                         <tbody>
                             {projects.map(project => {
+                                const isExport = project.mode === 'EXPORT';
                                 const sourceCred = credMap[project.sourceConnectionId];
-                                const targetCred = credMap[project.targetConnectionId];
-                                
+                                const targetCred = project.targetConnectionId ? credMap[project.targetConnectionId] : undefined;
+
                                 const sourceIcon = sourceCred ? getPlatformIcon(sourceCred.platform) : '🔌';
-                                const targetIcon = targetCred ? getPlatformIcon(targetCred.platform) : '🔌';
-                                
+                                const targetIcon = isExport ? '📄' : targetCred ? getPlatformIcon(targetCred.platform) : '🔌';
+
                                 const sourceName = sourceCred ? sourceCred.alias : project.sourceConnectionId;
-                                const targetName = targetCred ? targetCred.alias : project.targetConnectionId;
+                                const targetName = isExport
+                                    ? `Export ${project.exportFormat ?? ''}`.trim()
+                                    : targetCred ? targetCred.alias : (project.targetConnectionId ?? '—');
                                 
                                 const isArchived = project.status === 'ARCHIVED';
                                 const isActive = project.status === 'ACTIVE';

@@ -7,8 +7,10 @@ export const GET_MIGRATION_PROJECTS = gql`
     migrationProjects {
       id
       name
+      mode
       sourceConnectionId
       targetConnectionId
+      exportFormat
       entityTypes
       status
       createdAt
@@ -22,8 +24,10 @@ export const GET_MIGRATION_PROJECT = gql`
     migrationProject(id: $id) {
       id
       name
+      mode
       sourceConnectionId
       targetConnectionId
+      exportFormat
       entityTypes
       status
       mappingConfig
@@ -107,6 +111,11 @@ export const GET_MIGRATION_RUN = gql`
         reason
         errorType
         occurredAt
+      }
+      export {
+        filePath
+        byteSize
+        format
       }
       startedAt
       completedAt

@@ -53,8 +53,10 @@ interface MigrationRun {
 interface MigrationProject {
     id: string;
     name: string;
+    mode: 'MIGRATE' | 'EXPORT';
     sourceConnectionId: string;
-    targetConnectionId: string;
+    targetConnectionId?: string;
+    exportFormat?: 'CSV' | 'JSON';
     entityTypes: string[];
     status: string;
     createdAt: string;
@@ -304,7 +306,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
     }
 
     const sourceCred = findCred(project.sourceConnectionId);
-    const targetCred = findCred(project.targetConnectionId);
+    const targetCred = project.targetConnectionId ? findCred(project.targetConnectionId) : undefined;
     const activeRun = runs.find(r => r.status === 'RUNNING' || r.status === 'PENDING');
 
     return (
@@ -356,27 +358,42 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
 
             {/* Connection info */}
             <div className="grid grid-cols-2 gap-5">
-                {[
-                    { label: 'Source', cred: sourceCred },
-                    { label: 'Target', cred: targetCred },
-                ].map(({ label, cred }) => (
-                    <div key={label} className="bg-[#131B2C]/60 border border-white/8 rounded-xl p-5">
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">{label}</p>
-                        {cred ? (
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                                    {cred.platform.slice(0, 2)}
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-white">{cred.alias}</p>
-                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider">{cred.platform.toLowerCase()}</p>
-                                </div>
+                <div className="bg-[#131B2C]/60 border border-white/8 rounded-xl p-5">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Source</p>
+                    {sourceCred ? (
+                        <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                                {sourceCred.platform.slice(0, 2)}
                             </div>
-                        ) : (
-                            <p className="text-xs text-slate-600 font-mono">{label === 'Source' ? project.sourceConnectionId : project.targetConnectionId}</p>
-                        )}
-                    </div>
-                ))}
+                            <div>
+                                <p className="text-sm font-medium text-white">{sourceCred.alias}</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">{sourceCred.platform.toLowerCase()}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-xs text-slate-600 font-mono">{project.sourceConnectionId}</p>
+                    )}
+                </div>
+                <div className="bg-[#131B2C]/60 border border-white/8 rounded-xl p-5">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                        {project.mode === 'EXPORT' ? 'Destination' : 'Target'}
+                    </p>
+                    {project.mode === 'EXPORT' ? (
+                        <p className="text-sm font-medium text-white">Export file · {project.exportFormat}</p>
+                    ) : targetCred ? (
+                        <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                                {targetCred.platform.slice(0, 2)}
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-white">{targetCred.alias}</p>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">{targetCred.platform.toLowerCase()}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-xs text-slate-600 font-mono">{project.targetConnectionId}</p>
+                    )}
+                </div>
             </div>
 
             {/* Entity types */}

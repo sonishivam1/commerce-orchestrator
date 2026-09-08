@@ -15,7 +15,7 @@
 
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { MigrationProjectStatus } from '@cdo/shared';
+import { MigrationProjectStatus, MigrationMode, ExportFormat } from '@cdo/shared';
 
 export type MigrationProjectDocument = MigrationProject & Document;
 
@@ -30,6 +30,17 @@ export class MigrationProject {
     name: string;
 
     /**
+     * MIGRATE → upsert into targetConnectionId.
+     * EXPORT  → write a downloadable file in exportFormat.
+     */
+    @Prop({
+        type: String,
+        enum: Object.values(MigrationMode),
+        default: MigrationMode.MIGRATE,
+    })
+    mode: string;
+
+    /**
      * Source platform connection — references the Credential (_id) in the credentials collection.
      * Named 'ConnectionId' to reflect the Connection concept even though the underlying document
      * is still a Credential in this phase.
@@ -39,9 +50,14 @@ export class MigrationProject {
 
     /**
      * Target platform connection — references the Credential (_id).
+     * Required for MIGRATE mode; null for EXPORT mode.
      */
-    @Prop({ required: true, index: true })
-    targetConnectionId: string;
+    @Prop({ index: true })
+    targetConnectionId?: string;
+
+    /** Output format — required for EXPORT mode, null otherwise. */
+    @Prop({ type: String, enum: Object.values(ExportFormat) })
+    exportFormat?: string;
 
     /**
      * Ordered list of entity types this project migrates.

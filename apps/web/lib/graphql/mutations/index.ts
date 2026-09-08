@@ -7,8 +7,10 @@ export const CREATE_MIGRATION_PROJECT = gql`
     createMigrationProject(input: $input) {
       id
       name
+      mode
       sourceConnectionId
       targetConnectionId
+      exportFormat
       entityTypes
       status
       createdAt

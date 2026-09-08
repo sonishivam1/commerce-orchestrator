@@ -6,8 +6,29 @@ import {
     GET_MIGRATION_PROJECT,
 } from '@/lib/graphql/queries/migration-project.queries';
 import { GET_CREDENTIALS } from '@/lib/graphql/queries/credential.queries';
+import { getToken } from '@/lib/auth/session';
 import Link from 'next/link';
-import { ShoppingCart, FileText, Package, AlertCircle, Clock } from 'lucide-react';
+import { ShoppingCart, FileText, Package, AlertCircle, Clock, Download } from 'lucide-react';
+
+async function downloadExport(runId: string, format: string) {
+    const base = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql').replace('/graphql', '');
+    const res = await fetch(`${base}/runs/${runId}/export`, {
+        headers: { Authorization: `Bearer ${getToken() ?? ''}` },
+    });
+    if (!res.ok) {
+        alert('Export file is not available.');
+        return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `export-${runId}.${format === 'CSV' ? 'csv' : 'json'}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +49,12 @@ interface FailedItem {
     occurredAt?: string;
 }
 
+interface RunExport {
+    filePath: string;
+    byteSize: number;
+    format: string;
+}
+
 interface MigrationRun {
     id: string;
     migrationProjectId: string;
@@ -37,6 +64,7 @@ interface MigrationRun {
     failedCount: number;
     waves: WaveRecord[];
     failedItems: FailedItem[];
+    export?: RunExport;
     startedAt?: string;
     completedAt?: string;
     correlationId?: string;
@@ -340,6 +368,24 @@ export function RunDetail({ runId }: { runId: string }) {
                             <span className="stat-row-val">{run.dryRun ? 'Yes' : 'No'}</span>
                         </div>
                     </div>
+
+                    {/* Export download (EXPORT-mode runs) */}
+                    {run.export && (
+                        <div className="panel-card">
+                            <div className="panel-card-title">Export ready</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+                                {run.export.format} · {(run.export.byteSize / 1024).toFixed(1)} KB
+                            </div>
+                            <button
+                                onClick={() => downloadExport(run.id, run.export!.format)}
+                                className="btn btn-primary"
+                                style={{ width: '100%', justifyContent: 'center' }}
+                            >
+                                <Download size={14} style={{ marginRight: 6 }} />
+                                Download file
+                            </button>
+                        </div>
+                    )}
 
                     {/* Failed items (embedded on the run — replaces the DLQ) */}
                     {failedItems.length > 0 && (
